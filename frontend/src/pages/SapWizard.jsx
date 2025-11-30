@@ -3,25 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faInfoCircle, faCheckCircle, faMagic, faCog, faPen } from '@fortawesome/free-solid-svg-icons';
 import { motion } from 'framer-motion';
+import PageLayout from '../components/PageLayout';
 
 const SapWizard = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
 
     return (
-        <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            style={{
-                height: '100vh',
-                padding: '50px 20px 20px 20px',
-                maxWidth: '1600px',
-                margin: '0 auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px',
-                boxSizing: 'border-box',
-                overflow: 'hidden'
-            }}
-        >
+        <PageLayout>
             {/* Header Section */}
             <motion.div
                 initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
@@ -158,7 +146,7 @@ const SapWizard = ({ theme, toggleTheme }) => {
                     </div>
                 </motion.div>
             </div>
-        </motion.div>
+        </PageLayout>
     );
 };
 

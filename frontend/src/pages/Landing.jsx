@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDatabase, faArrowRight, faChartLine, faWrench, faBolt, faPen } from '@fortawesome/free-solid-svg-icons';
+import PageLayout from '../components/PageLayout';
 
 const Landing = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
@@ -117,16 +118,16 @@ const Landing = ({ theme, toggleTheme }) => {
     };
 
     return (
-        <motion.div
+        <PageLayout
             initial="hidden"
             animate="visible"
             variants={containerVariants}
-            style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '40px', boxSizing: 'border-box', background: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent 40%)' }}
+            style={{ background: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent 40%)' }}
         >
             {/* Header */}
             <motion.div variants={itemVariants} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '60px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <img src="/logo.png" alt="Logo" style={{ height: '50px' }} onError={(e) => e.target.style.display = 'none'} />
+                    <img src="./logo.png" alt="Logo" style={{ height: '50px' }} onError={(e) => e.target.style.display = 'none'} />
                     <div>
                         <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '800', letterSpacing: '-1px', background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Ar-Ge Otomasyon</h1>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -149,7 +150,7 @@ const Landing = ({ theme, toggleTheme }) => {
             </motion.div>
 
             {/* Main Content */}
-            <div style={{ flex: 1, width: '100%', maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '40px', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+            <div style={{ flex: 1, width: '100%', margin: '0 auto', display: 'flex', gap: '40px', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
 
                 {/* SAP Wizard Card */}
                 <motion.div
@@ -327,7 +328,7 @@ const Landing = ({ theme, toggleTheme }) => {
                 </motion.div>
 
             </div>
-        </motion.div>
+        </PageLayout>
     );
 };
 

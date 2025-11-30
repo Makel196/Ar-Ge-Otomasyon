@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faWrench, faCog, faTimes } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import PageLayout from '../components/PageLayout';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -159,20 +160,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const displayTotal = isRunning ? stats.total : liveCount;
 
     return (
-        <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            style={{
-                height: '100vh',
-                padding: '50px 20px 20px 20px',
-                maxWidth: '1600px',
-                margin: '0 auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px',
-                boxSizing: 'border-box',
-                overflow: 'hidden'
-            }}
-        >
+        <PageLayout>
             {/* Header Section */}
             <motion.div
                 initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
@@ -569,7 +557,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </motion.div>
+        </PageLayout>
     );
 };
 

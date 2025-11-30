@@ -26,7 +26,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, '../../logo.ico'), // Adjust path if needed
+    icon: isDev ? path.join(__dirname, '../../logo.ico') : path.join(__dirname, '../dist/logo.ico'),
     backgroundColor: '#e0e5ec', // Light bg default
     title: "Ar-Ge Otomasyon"
   });
@@ -55,13 +55,25 @@ function createWindow() {
 }
 
 function startPythonBackend() {
-  const backendPath = path.join(__dirname, '../../backend/server.py');
-  // Check if python exists or use a bundled exe in production
-  // For dev, assume python is in PATH
+  let backendPath;
+  let command;
+  let args;
 
-  console.log('Starting Python backend from:', backendPath);
+  if (app.isPackaged) {
+    // In production, use the compiled executable in resources
+    backendPath = path.join(process.resourcesPath, 'backend.exe');
+    command = backendPath;
+    args = [];
+    console.log('Starting packaged Python backend from:', backendPath);
+  } else {
+    // In development, use the python script
+    backendPath = path.join(__dirname, '../../backend/server.py');
+    command = 'python';
+    args = [backendPath];
+    console.log('Starting development Python backend from:', backendPath);
+  }
 
-  pythonProcess = spawn('python', [backendPath]);
+  pythonProcess = spawn(command, args);
 
   pythonProcess.stdout.on('data', (data) => {
     console.log(`Python stdout: ${data}`);
