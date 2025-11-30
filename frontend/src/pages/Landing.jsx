@@ -148,16 +148,24 @@ const Landing = ({ theme, toggleTheme }) => {
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '600', fontSize: '14px', position: 'relative', zIndex: 1 }}>
-                        Keşfet <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '16px' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '700', fontSize: '18px', position: 'relative', zIndex: 1 }}>
+                        Keşfet <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
                     </div>
 
                     <motion.div
                         variants={floatingIconVariants}
                         animate="animate"
-                        style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}
+                        style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            opacity: 0.05,
+                            pointerEvents: 'none',
+                            zIndex: 0
+                        }}
                     >
-                        <FontAwesomeIcon icon={faChartLine} style={{ fontSize: '120px' }} />
+                        <FontAwesomeIcon icon={faChartLine} style={{ fontSize: '300px' }} />
                     </motion.div>
                 </motion.div>
 
@@ -212,16 +220,24 @@ const Landing = ({ theme, toggleTheme }) => {
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '600', fontSize: '14px', position: 'relative', zIndex: 1 }}>
-                        Başlat <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '16px' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '700', fontSize: '18px', position: 'relative', zIndex: 1 }}>
+                        Başlat <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
                     </div>
 
                     <motion.div
                         variants={floatingIconVariants}
                         animate="animate"
-                        style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}
+                        style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            opacity: 0.05,
+                            pointerEvents: 'none',
+                            zIndex: 0
+                        }}
                     >
-                        <FontAwesomeIcon icon={faBolt} style={{ fontSize: '120px' }} />
+                        <FontAwesomeIcon icon={faBolt} style={{ fontSize: '300px' }} />
                     </motion.div>
                 </motion.div>
 
