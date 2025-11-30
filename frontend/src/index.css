@@ -320,112 +320,143 @@ body {
   transform: scale(1.1) rotate(5deg);
 }
 
-/* Modern Theme Toggle */
+/* Modern Theme Toggle - Redesigned */
 .theme-toggle {
   position: relative;
-  width: 60px;
-  height: 30px;
-  background: var(--card-bg);
+  width: 70px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border);
-  border-radius: 30px;
+  border-radius: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 5px;
-  transition: all 0.3s ease;
-  overflow: hidden;
+  padding: 0 6px;
+  transition: all 0.4s ease;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.theme-toggle:hover {
+  border-color: #6366f1;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .theme-toggle-thumb {
   position: absolute;
-  left: 2px;
-  width: 26px;
-  height: 26px;
-  background: var(--gradient-primary);
+  left: 4px;
+  width: 28px;
+  height: 28px;
+  background: white;
   border-radius: 50%;
-  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Bouncy spring effect */
   z-index: 2;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 [data-theme='dark'] .theme-toggle-thumb {
-  transform: translateX(30px);
-  background: var(--gradient-info);
+  transform: translateX(34px);
+  background: #1e293b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .theme-icon {
   z-index: 1;
   color: var(--text-secondary);
-  opacity: 0.5;
-  transition: opacity 0.3s;
+  opacity: 0.6;
+  transition: opacity 0.3s, color 0.3s;
 }
 
 .theme-toggle:hover .theme-icon {
   opacity: 1;
+  color: var(--text);
 }
 
-/* Fireball Progress Bar */
-.fireball-progress-container {
-  height: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-  overflow: visible;
-  /* Allow fireball to glow outside */
+/* Liquid Bubble Progress Bar */
+.bubble-progress-container {
+  height: 24px;
+  /* Thicker */
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
   margin: 20px 0;
 }
 
-.fireball-progress-bar {
+[data-theme='dark'] .bubble-progress-container {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.bubble-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #ff0000, #ff8800, #ffff00);
-  border-radius: 10px;
+  background: var(--gradient-primary);
+  border-radius: 12px;
   position: relative;
   width: 0%;
   /* Controlled by JS */
-  transition: width 0.1s linear;
-  box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
 }
 
-.fireball-progress-bar::after {
+/* Bubbles Animation */
+.bubble-progress-bar::before {
   content: '';
   position: absolute;
-  top: 50%;
-  right: -6px;
-  /* Center on the tip */
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  background: radial-gradient(circle, #ffff00 20%, #ff8800 60%, transparent 100%);
-  border-radius: 50%;
-  box-shadow:
-    0 0 10px #ff4500,
-    0 0 20px #ff0000,
-    0 0 30px #ff8800;
-  filter: blur(2px);
-  z-index: 10;
-  animation: pulse-fire 0.5s infinite alternate;
-}
-
-.fireball-particles {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+    radial-gradient(rgba(255, 255, 255, 0.4) 2px, transparent 2px),
+    radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 10px 10px, 20px 20px, 15px 15px;
+  background-position: 0 0, 10px 5px, 5px 10px;
+  animation: bubble-rise 3s linear infinite;
+  opacity: 0.6;
 }
 
-@keyframes pulse-fire {
+/* Shimmer Effect */
+.bubble-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent);
+  transform: skewX(-20deg);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes bubble-rise {
   0% {
-    transform: translateY(-50%) scale(1);
-    opacity: 0.8;
+    background-position: 0 0, 10px 5px, 5px 10px;
   }
 
   100% {
-    transform: translateY(-50%) scale(1.2);
-    opacity: 1;
+    background-position: 0 -20px, 10px -35px, 5px -30px;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-20deg);
+  }
+
+  100% {
+    transform: translateX(200%) skewX(-20deg);
   }
 }

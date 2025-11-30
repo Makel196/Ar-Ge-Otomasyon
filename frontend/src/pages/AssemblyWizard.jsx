@@ -242,18 +242,17 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             }}
                         />
 
-                        {/* Fireball Progress Bar */}
+                        {/* Liquid Bubble Progress Bar */}
                         <div style={{ marginTop: '30px', marginBottom: '30px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>
                                 <span>İlerleme Durumu</span>
                                 <span>{Math.round(progress * 100)}%</span>
                             </div>
-                            <div className="fireball-progress-container">
+                            <div className="bubble-progress-container">
                                 <div
-                                    className="fireball-progress-bar"
+                                    className="bubble-progress-bar"
                                     style={{ width: `${progress * 100}%` }}
                                 >
-                                    {/* Fireball head is handled by CSS ::after */}
                                 </div>
                             </div>
                         </div>
