@@ -177,23 +177,53 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div className="setting-item">
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '12px', borderRadius: '12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '16px',
+                            cursor: 'pointer',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            background: addToExisting ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                            border: addToExisting ? '1px solid #6366f1' : '1px solid var(--border)',
+                            transition: 'all 0.2s ease'
+                        }}>
                             <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#6366f1' }} />
-                            <span style={{ fontSize: '14px', fontWeight: '600' }}>Mevcut montaja ekle</span>
+                            <span style={{ fontSize: '14px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
                         </label>
                     </div>
 
                     <div className="setting-item">
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '12px', borderRadius: '12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '16px',
+                            cursor: 'pointer',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            background: stopOnNotFound ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                            border: stopOnNotFound ? '1px solid #6366f1' : '1px solid var(--border)',
+                            transition: 'all 0.2s ease'
+                        }}>
                             <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#6366f1' }} />
-                            <span style={{ fontSize: '14px', fontWeight: '600' }}>Bulunamayan varsa durdur</span>
+                            <span style={{ fontSize: '14px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
                         </label>
                     </div>
 
                     <div className="setting-item">
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '12px', borderRadius: '12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '16px',
+                            cursor: 'pointer',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            background: dedupe ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                            border: dedupe ? '1px solid #6366f1' : '1px solid var(--border)',
+                            transition: 'all 0.2s ease'
+                        }}>
                             <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#6366f1' }} />
-                            <span style={{ fontSize: '14px', fontWeight: '600' }}>Tekrarlı kodları sil</span>
+                            <span style={{ fontSize: '14px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
                         </label>
                     </div>
                 </div>
