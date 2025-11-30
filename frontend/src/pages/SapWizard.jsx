@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faInfoCircle, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faInfoCircle, faCheckCircle, faMagic, faCog } from '@fortawesome/free-solid-svg-icons';
 import { motion } from 'framer-motion';
 
 const SapWizard = ({ theme, toggleTheme }) => {
@@ -10,17 +10,67 @@ const SapWizard = ({ theme, toggleTheme }) => {
     return (
         <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            style={{ height: '100%', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', background: 'var(--bg)', alignItems: 'center' }}
+            style={{
+                height: '100vh',
+                padding: '50px 20px 20px 20px',
+                maxWidth: '1600px',
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px',
+                boxSizing: 'border-box',
+                overflow: 'hidden'
+            }}
         >
-            <div style={{ width: '100%', display: 'flex', alignItems: 'center', marginBottom: '40px' }}>
-                <button className="modern-btn" onClick={() => navigate('/')} style={{ padding: '12px' }}>
-                    <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '24px' }} />
-                </button>
-                <h1 style={{ marginLeft: '24px', fontSize: '28px', fontWeight: '700', margin: '0 0 0 24px' }}>SAP Sihirbazı</h1>
-            </div>
+            {/* Header Section */}
+            <motion.div
+                initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                    <button
+                        className="modern-btn"
+                        onClick={() => navigate('/')}
+                        style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}
+                    >
+                        <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '16px' }} />
+                    </button>
+
+                    <div style={{ width: '1px', height: '30px', background: 'var(--border)' }}></div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div className="icon-box primary" style={{ width: '40px', height: '40px' }}>
+                            <FontAwesomeIcon icon={faMagic} style={{ fontSize: '20px' }} />
+                        </div>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>SAP Sihirbazı</h2>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Otomatik SAP İşlemleri</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        padding: '8px 16px', borderRadius: '12px',
+                        border: '1px solid rgba(59, 130, 246, 0.2)'
+                    }}>
+                        <FontAwesomeIcon icon={faInfoCircle} style={{ fontSize: '16px', color: '#3b82f6' }} />
+                        <span style={{ fontWeight: '700', fontSize: '13px', color: '#3b82f6' }}>Geliştirme Aşamasında</span>
+                    </div>
+
+                    <button
+                        className="modern-btn"
+                        style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, cursor: 'not-allowed' }}
+                    >
+                        <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
+                    </button>
+                </div>
+            </motion.div>
 
             {/* Content */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', maxWidth: '800px', width: '100%' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', maxWidth: '800px', width: '100%', margin: '0 auto' }}>
 
                 <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
@@ -102,12 +152,11 @@ const SapWizard = ({ theme, toggleTheme }) => {
                                 }}>
                                     <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />
                                 </div>
-                                <span style={{ fontWeight: '600', color: 'var(--text)' }}>{item}</span>
+                                <span style={{ fontSize: '15px', fontWeight: '500' }}>{item}</span>
                             </div>
                         ))}
                     </div>
                 </motion.div>
-
             </div>
         </motion.div>
     );

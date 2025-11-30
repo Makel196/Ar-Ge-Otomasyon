@@ -163,7 +163,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             style={{
                 height: '100vh',
-                padding: '20px',
+                padding: '50px 20px 20px 20px',
                 maxWidth: '1600px',
                 margin: '0 auto',
                 display: 'flex',
@@ -176,8 +176,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             {/* Header Section */}
             <motion.div
                 initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
-                className="modern-card"
-                style={{ padding: '15px 25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                     <button
@@ -405,51 +404,79 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: 'rgba(0,0,0,0.5)',
+                            background: theme === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.05)', // Darker overlay in dark mode
+                            backdropFilter: 'blur(8px)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             zIndex: 1000,
-                            backdropFilter: 'blur(5px)'
                         }}
                         onClick={() => setShowSettings(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
                             onClick={e => e.stopPropagation()}
-                            className="modern-card"
                             style={{
-                                padding: '30px',
+                                padding: '32px',
                                 width: '500px',
                                 maxWidth: '90%',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '24px',
-                                boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+                                background: theme === 'dark' ? 'rgba(30, 30, 30, 0.85)' : 'rgba(255, 255, 255, 0.75)',
+                                backdropFilter: 'blur(20px) saturate(180%)',
+                                borderRadius: '24px',
+                                border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.8)',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                                color: 'var(--text)'
                             }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Ayarlar</h3>
-                                <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                    <FontAwesomeIcon icon={faTimes} style={{ fontSize: '20px' }} />
+                                <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Ayarlar</h3>
+                                <button
+                                    onClick={() => setShowSettings(false)}
+                                    style={{
+                                        background: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text)',
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <FontAwesomeIcon icon={faTimes} style={{ fontSize: '16px' }} />
                                 </button>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <label style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '16px',
                                     cursor: 'pointer',
                                     padding: '16px',
-                                    borderRadius: '12px',
-                                    background: addToExisting ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                                    border: addToExisting ? '1px solid #6366f1' : '1px solid var(--border)',
+                                    borderRadius: '16px',
+                                    background: addToExisting ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                    border: addToExisting ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
                                     transition: 'all 0.2s ease'
                                 }}>
-                                    <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ width: '20px', height: '20px', accentColor: '#6366f1' }} />
+                                    <div style={{
+                                        width: '24px', height: '24px', borderRadius: '6px',
+                                        background: addToExisting ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'white', transition: 'all 0.2s'
+                                    }}>
+                                        {addToExisting && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                    </div>
+                                    <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ display: 'none' }} />
                                     <span style={{ fontSize: '15px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
                                 </label>
 
@@ -459,12 +486,20 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                     gap: '16px',
                                     cursor: 'pointer',
                                     padding: '16px',
-                                    borderRadius: '12px',
-                                    background: stopOnNotFound ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                                    border: stopOnNotFound ? '1px solid #6366f1' : '1px solid var(--border)',
+                                    borderRadius: '16px',
+                                    background: stopOnNotFound ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                    border: stopOnNotFound ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
                                     transition: 'all 0.2s ease'
                                 }}>
-                                    <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ width: '20px', height: '20px', accentColor: '#6366f1' }} />
+                                    <div style={{
+                                        width: '24px', height: '24px', borderRadius: '6px',
+                                        background: stopOnNotFound ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'white', transition: 'all 0.2s'
+                                    }}>
+                                        {stopOnNotFound && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                    </div>
+                                    <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ display: 'none' }} />
                                     <span style={{ fontSize: '15px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
                                 </label>
 
@@ -474,38 +509,60 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                     gap: '16px',
                                     cursor: 'pointer',
                                     padding: '16px',
-                                    borderRadius: '12px',
-                                    background: dedupe ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                                    border: dedupe ? '1px solid #6366f1' : '1px solid var(--border)',
+                                    borderRadius: '16px',
+                                    background: dedupe ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                    border: dedupe ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
                                     transition: 'all 0.2s ease'
                                 }}>
-                                    <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ width: '20px', height: '20px', accentColor: '#6366f1' }} />
+                                    <div style={{
+                                        width: '24px', height: '24px', borderRadius: '6px',
+                                        background: dedupe ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'white', transition: 'all 0.2s'
+                                    }}>
+                                        {dedupe && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                    </div>
+                                    <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ display: 'none' }} />
                                     <span style={{ fontSize: '15px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
                                 </label>
                             </div>
 
                             <div>
-                                <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>KASA YOLU</label>
+                                <label style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', display: 'block', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>KASA YOLU</label>
                                 <div
                                     onClick={handleSelectFolder}
-                                    className="modern-btn"
                                     style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
                                         justifyContent: 'flex-start',
-                                        background: 'var(--bg)',
-                                        border: '2px dashed var(--border)',
+                                        background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)',
+                                        border: theme === 'dark' ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)',
+                                        borderRadius: '16px',
                                         color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
                                         padding: '16px',
-                                        height: 'auto'
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
                                     }}
                                 >
                                     <FontAwesomeIcon icon={faFolder} style={{ fontSize: '20px', color: '#6366f1', marginRight: '12px' }} />
-                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '14px' }}>
+                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '14px', fontWeight: '500' }}>
                                         {vaultPath || "Klasör Seç..."}
                                     </span>
                                 </div>
                             </div>
 
-                            <button className="modern-btn primary" onClick={() => setShowSettings(false)} style={{ marginTop: '10px' }}>
+                            <button
+                                className="modern-btn primary"
+                                onClick={() => setShowSettings(false)}
+                                style={{
+                                    marginTop: '10px',
+                                    height: '50px',
+                                    borderRadius: '16px',
+                                    fontSize: '16px',
+                                    background: '#6366f1',
+                                    boxShadow: '0 10px 20px -5px rgba(99, 102, 241, 0.4)'
+                                }}
+                            >
                                 Kaydet ve Kapat
                             </button>
                         </motion.div>
