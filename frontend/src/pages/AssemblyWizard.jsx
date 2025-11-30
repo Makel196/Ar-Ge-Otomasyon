@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave, faQuestionCircle } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as XLSX from 'xlsx';
 import PageLayout from '../components/PageLayout';
 import CustomAlert from '../components/CustomAlert';
 
@@ -304,26 +305,31 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             return;
         }
 
-        // Add BOM for Excel UTF-8 compatibility
-        const BOM = "\uFEFF";
-        const headers = ["Zaman", "Bulunamayan SAP Kodu Mesajı"];
-        const csvContent = BOM + [
-            headers.join(";"),
+        // Create worksheet data
+        const worksheetData = [
+            ["Zaman", "Bulunamayan SAP Kodu Mesajı"],
             ...notFoundLogs.map(log => {
                 const time = new Date(log.timestamp * 1000).toLocaleTimeString();
-                const msg = log.message.replace(/;/g, ","); // Escape semicolons
-                return `${time};${msg}`;
+                return [time, log.message];
             })
-        ].join("\n");
+        ];
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `montaj_sihirbazi_bulunamayanlar_${new Date().toLocaleDateString()}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Create workbook and worksheet
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 12 },  // Zaman column
+            { wch: 60 }   // Message column
+        ];
+
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(wb, ws, "Bulunamayanlar");
+
+        // Generate XLSX file and download
+        const filename = `montaj_sihirbazi_bulunamayanlar_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+        XLSX.writeFile(wb, filename);
     };
 
     // Calculate live count of valid codes

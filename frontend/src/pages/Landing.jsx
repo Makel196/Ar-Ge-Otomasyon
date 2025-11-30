@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDatabase, faArrowRight, faChartLine, faWrench, faBolt, faPen, faStar } from '@fortawesome/free-solid-svg-icons';
+import { faArrowRight, faChartLine, faBolt, faStar } from '@fortawesome/free-solid-svg-icons';
 import PageLayout from '../components/PageLayout';
 
 const Landing = ({ theme, toggleTheme }) => {
@@ -25,10 +25,7 @@ const Landing = ({ theme, toggleTheme }) => {
             y: 0,
             opacity: 1,
             transition: { type: "spring", stiffness: 100 }
-        }
-    };
-
-    const cardHoverVariants = {
+        },
         hover: {
             scale: 1.05,
             y: -10,
@@ -198,22 +195,9 @@ const Landing = ({ theme, toggleTheme }) => {
                         justifyContent: 'space-between',
                         cursor: 'pointer',
                         padding: '40px',
-                        position: 'relative',
-                        // Removed overflow: hidden from here to allow shadow to show
+                        position: 'relative'
                     }}
                 >
-                    {/* Hover Effect Layer (Shadow & Scale handled by parent variants) */}
-                    <motion.div
-                        variants={cardHoverVariants}
-                        style={{
-                            position: 'absolute',
-                            inset: 0,
-                            borderRadius: '24px', // Match card border radius
-                            pointerEvents: 'none',
-                            zIndex: -1
-                        }}
-                    />
-
                     {/* Content Container with Overflow Hidden for Shimmer */}
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '24px', overflow: 'hidden', pointerEvents: 'none' }}>
                         {/* Shimmer Effect */}
@@ -268,7 +252,7 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '700', fontSize: '18px', position: 'relative', zIndex: 1 }}>
-                        Başlat <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
+                        Keşfet <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
                     </div>
                 </motion.div>
 
@@ -290,22 +274,9 @@ const Landing = ({ theme, toggleTheme }) => {
                         cursor: 'pointer',
                         padding: '40px',
                         position: 'relative',
-                        border: '2px solid rgba(16, 185, 129, 0.1)',
-                        // Removed overflow: hidden from here
+                        border: '2px solid rgba(16, 185, 129, 0.1)'
                     }}
                 >
-                    {/* Hover Effect Layer */}
-                    <motion.div
-                        variants={cardHoverVariants}
-                        style={{
-                            position: 'absolute',
-                            inset: 0,
-                            borderRadius: '24px',
-                            pointerEvents: 'none',
-                            zIndex: -1
-                        }}
-                    />
-
                     {/* Content Container with Overflow Hidden for Shimmer */}
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '24px', overflow: 'hidden', pointerEvents: 'none' }}>
                         {/* Shimmer Effect */}
