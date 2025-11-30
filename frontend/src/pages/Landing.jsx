@@ -116,27 +116,55 @@ const Landing = ({ theme, toggleTheme }) => {
                         cursor: 'pointer',
                         padding: '40px',
                         position: 'relative',
-                        overflow: 'hidden'
+                        // Removed overflow: hidden from here to allow shadow to show
                     }}
                 >
-                    <motion.div variants={cardHoverVariants} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-
-                    {/* Shimmer Effect */}
+                    {/* Hover Effect Layer (Shadow & Scale handled by parent variants) */}
                     <motion.div
-                        variants={shimmerVariants}
-                        initial="initial"
-                        animate="animate"
+                        variants={cardHoverVariants}
                         style={{
                             position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-                            transform: 'skewX(-20deg)',
-                            pointerEvents: 'none'
+                            inset: 0,
+                            borderRadius: '24px', // Match card border radius
+                            pointerEvents: 'none',
+                            zIndex: -1
                         }}
                     />
+
+                    {/* Content Container with Overflow Hidden for Shimmer */}
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '24px', overflow: 'hidden', pointerEvents: 'none' }}>
+                        {/* Shimmer Effect */}
+                        <motion.div
+                            variants={shimmerVariants}
+                            initial="initial"
+                            animate="animate"
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                                transform: 'skewX(-20deg)',
+                            }}
+                        />
+
+                        {/* Floating Background Icon */}
+                        <motion.div
+                            variants={floatingIconVariants}
+                            animate="animate"
+                            style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                opacity: 0.05,
+                                zIndex: 0
+                            }}
+                        >
+                            <FontAwesomeIcon icon={faChartLine} style={{ fontSize: '300px' }} />
+                        </motion.div>
+                    </div>
 
                     <div style={{ position: 'relative', zIndex: 1 }}>
                         <div className="icon-box primary" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
@@ -151,22 +179,6 @@ const Landing = ({ theme, toggleTheme }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '700', fontSize: '18px', position: 'relative', zIndex: 1 }}>
                         Keşfet <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
                     </div>
-
-                    <motion.div
-                        variants={floatingIconVariants}
-                        animate="animate"
-                        style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            opacity: 0.05,
-                            pointerEvents: 'none',
-                            zIndex: 0
-                        }}
-                    >
-                        <FontAwesomeIcon icon={faChartLine} style={{ fontSize: '300px' }} />
-                    </motion.div>
                 </motion.div>
 
                 {/* Assembly Wizard Card */}
@@ -188,27 +200,55 @@ const Landing = ({ theme, toggleTheme }) => {
                         padding: '40px',
                         position: 'relative',
                         border: '2px solid rgba(16, 185, 129, 0.1)',
-                        overflow: 'hidden'
+                        // Removed overflow: hidden from here
                     }}
                 >
-                    <motion.div variants={cardHoverVariants} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-
-                    {/* Shimmer Effect */}
+                    {/* Hover Effect Layer */}
                     <motion.div
-                        variants={shimmerVariants}
-                        initial="initial"
-                        animate="animate"
+                        variants={cardHoverVariants}
                         style={{
                             position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-                            transform: 'skewX(-20deg)',
-                            pointerEvents: 'none'
+                            inset: 0,
+                            borderRadius: '24px',
+                            pointerEvents: 'none',
+                            zIndex: -1
                         }}
                     />
+
+                    {/* Content Container with Overflow Hidden for Shimmer */}
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '24px', overflow: 'hidden', pointerEvents: 'none' }}>
+                        {/* Shimmer Effect */}
+                        <motion.div
+                            variants={shimmerVariants}
+                            initial="initial"
+                            animate="animate"
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                                transform: 'skewX(-20deg)',
+                            }}
+                        />
+
+                        {/* Floating Background Icon */}
+                        <motion.div
+                            variants={floatingIconVariants}
+                            animate="animate"
+                            style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                opacity: 0.05,
+                                zIndex: 0
+                            }}
+                        >
+                            <FontAwesomeIcon icon={faBolt} style={{ fontSize: '300px' }} />
+                        </motion.div>
+                    </div>
 
                     <div style={{ position: 'relative', zIndex: 1 }}>
                         <div className="icon-box success" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
@@ -223,22 +263,6 @@ const Landing = ({ theme, toggleTheme }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '700', fontSize: '18px', position: 'relative', zIndex: 1 }}>
                         Başlat <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
                     </div>
-
-                    <motion.div
-                        variants={floatingIconVariants}
-                        animate="animate"
-                        style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            opacity: 0.05,
-                            pointerEvents: 'none',
-                            zIndex: 0
-                        }}
-                    >
-                        <FontAwesomeIcon icon={faBolt} style={{ fontSize: '300px' }} />
-                    </motion.div>
                 </motion.div>
 
             </div>
