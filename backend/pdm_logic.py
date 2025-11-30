@@ -239,7 +239,11 @@ class LogicHandler:
                 vault.LoginAuto(VAULT_NAME, 0)
             return vault
         except Exception as e:
-            self.log(f"PDM Bağlantı Hatası: {e}", "#ef4444")
+            err_str = str(e)
+            if "Geçersiz sınıf dizesi" in err_str or "-2147221005" in err_str:
+                self.log("PDM Bağlanılmadı. Lütfen PDM istemcisinin kurulu ve çalışır durumda olduğundan emin olun.", "#ef4444")
+            else:
+                self.log(f"PDM Bağlantı Hatası: {err_str}", "#ef4444")
             return None
 
     def get_sw_app(self):
@@ -255,7 +259,7 @@ class LogicHandler:
             sw_app.Visible = True
             return sw_app
         except Exception as e:
-            self.log(f"SolidWorks başlatılamadı: {e}", "#ef4444")
+            self.log(f"SolidWorks başlatılamadı. Lütfen kurulu olduğundan emin olun: {e}", "#ef4444")
             return None
 
     def get_active_assembly(self, sw_app):
@@ -340,7 +344,7 @@ class LogicHandler:
                     result = search.GetNextResult()
                 # Log if found files but wrong extension
                 if found_files:
-                    self.log(f"  → Dosya bulundu ama yanlış uzantı: {', '.join(found_files)}", "#6b7280")
+                    self.log(f"  → Dosya bulundu ancak desteklenmeyen uzantı: {', '.join(found_files)}", "#6b7280")
             except Exception as e:
                 continue
         
@@ -359,9 +363,9 @@ class LogicHandler:
                 result = search.GetNextResult()
             # Log if found files but wrong extension
             if found_files:
-                self.log(f"  → Dosya adıyla bulundu ama yanlış uzantı: {', '.join(found_files)}", "#6b7280")
+                self.log(f"  → Dosya adıyla bulundu ancak desteklenmeyen uzantı: {', '.join(found_files)}", "#6b7280")
         except Exception as e:
-            self.log(f"  → Dosya adı araması hatası: {str(e)}", "#6b7280")
+            self.log(f"  → Dosya adı ile aranırken bir hata oluştu: {str(e)}", "#6b7280")
         
         return None
 
@@ -395,7 +399,7 @@ class LogicHandler:
                     pass
             
             if not folder_obj:
-                self.log(f"  ✗ Klasör nesnesi alınamadı: {file_name}", "#ef4444")
+                self.log(f"  ✗ Dosya klasör bilgisi alınamadı: {file_name}", "#ef4444")
                 return False
             
             # Yerel ve sunucu sürümlerini karşılaştır
@@ -425,7 +429,7 @@ class LogicHandler:
                 try:
                     file_obj.GetFileCopy(0, 0, folder_obj.ID, 0, "")
                 except Exception as alt_err:
-                    self.log(f"  ✗ GetFileCopy hatası: {alt_err}", "#ef4444")
+                    self.log(f"  ✗ Dosya kopyalama hatası: {alt_err}", "#ef4444")
                     return False
             
             # Dosyanın indirilmesini bekle
@@ -446,11 +450,11 @@ class LogicHandler:
                 self.log(f"  ✓ Dosya indirildi: {file_name}", "#2cc985")
                 return True
             
-            self.log(f"  ✗ Dosya indirilemedi (timeout): {file_name}", "#ef4444")
+            self.log(f"  ✗ Dosya indirme zaman aşımına uğradı: {file_name}", "#ef4444")
             return False
             
         except Exception as e:
-            self.log(f"  ✗ fetch_latest_revision hatası: {e}", "#ef4444")
+            self.log(f"  ✗ Son sürüm çekilirken hata oluştu: {e}", "#ef4444")
             return False
 
     def ensure_local_file(self, vault, file_path):
@@ -534,9 +538,9 @@ class LogicHandler:
                     
                     # Verify file is now local
                     if not os.path.exists(file_path):
-                        self.log(f"  ⚠ Dosya açıldı ama local'de yok: {os.path.basename(file_path)}", "#f59e0b")
+                        self.log(f"  ⚠ Dosya açıldı ancak yerel diskte bulunamadı: {os.path.basename(file_path)}", "#f59e0b")
                     else:
-                        self.log(f"  ✔ Dosya başarıyla local'e çekildi: {os.path.basename(file_path)}", "#6b7280")
+                        self.log(f"  ✔ Dosya başarıyla yerel diske çekildi: {os.path.basename(file_path)}", "#6b7280")
             except Exception:
                 doc = sw_app.OpenDoc(file_path, doc_type)
                 time.sleep(1.5)
@@ -549,7 +553,7 @@ class LogicHandler:
                 opened_now = False
             return doc, opened_now
         except Exception as e:
-            self.log(f"  ✗ open_component_doc hatası: {str(e)}", "#6b7280")
+            self.log(f"  ✗ Bileşen açılırken hata oluştu: {str(e)}", "#6b7280")
             return None, False
 
 
@@ -574,7 +578,7 @@ class LogicHandler:
                 self.run_process_immediate_mode(codes, vault)
 
         except Exception as e:
-            self.log(f"Kritik Hata: {e}", "#ef4444")
+            self.log(f"Beklenmedik Hata: {e}", "#ef4444")
             self.set_status("Hata")
         finally:
             pythoncom.CoUninitialize()
@@ -707,7 +711,7 @@ class LogicHandler:
                 return
             if not os.path.exists(file_path):
                 if not self.ensure_local_file(vault, file_path) or not os.path.exists(file_path):
-                    self.log(f"Local copy missing: {file_path}", "#ef4444")
+                    self.log(f"Yerel kopya eksik: {file_path}", "#ef4444")
                     continue
 
             path_candidates, target_paths = self.build_path_candidates(file_path)
