@@ -139,15 +139,24 @@ def get_last_version(file_path, vault_name=VAULT_NAME):
 # --- Ana Uygulama Mantığı (SolidWorks & PDM) ---
 
 class LogicHandler:
-    def __init__(self, log_queue, status_queue, progress_queue, add_to_existing_callback, stop_on_not_found_callback):
+    def __init__(self, log_queue, status_queue, progress_queue, add_to_existing_callback, stop_on_not_found_callback, stats_queue=None):
         self.log_queue = log_queue
         self.status_queue = status_queue
         self.progress_queue = progress_queue
+        self.stats_queue = stats_queue
         self.get_add_to_existing = add_to_existing_callback
         self.get_stop_on_not_found = stop_on_not_found_callback
         self.config = {}
         self.vault_path = read_vault_path_registry()
         self.is_running = False
+        self.stats = {"total": 0, "success": 0, "error": 0}
+
+    def update_stats(self, total=None, success=None, error=None):
+        if total is not None: self.stats["total"] = total
+        if success is not None: self.stats["success"] = success
+        if error is not None: self.stats["error"] = error
+        if self.stats_queue:
+            self.stats_queue.put(self.stats.copy())
 
     def log(self, message, color=None):
         self.log_queue.put({"message": message, "color": color, "timestamp": time.time()})
@@ -924,7 +933,11 @@ class LogicHandler:
         self.set_status("Parçalar aranıyor ve ekleniyor...")
         total_codes = len(codes)
         added_count = 0
+        error_count = 0
         not_found_codes = []
+        
+        # Initial stats
+        self.update_stats(total=total_codes, success=0, error=0)
 
         for i, code in enumerate(codes):
             if not self.is_running:
@@ -936,6 +949,8 @@ class LogicHandler:
             if not path:
                 not_found_codes.append(code)
                 self.log(f"Bulunamadı: {code}", "#ef4444")
+                error_count += 1
+                self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
                 continue
             
@@ -943,6 +958,8 @@ class LogicHandler:
             if not self.ensure_local_file(vault, path):
                 self.log(f"Yerelde bulunamadı: {code}", "#ef4444")
                 not_found_codes.append(code)
+                error_count += 1
+                self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
                 continue
             
@@ -963,6 +980,8 @@ class LogicHandler:
             
             if not os.path.exists(path):
                 self.log(f"Local copy missing: {path}", "#ef4444")
+                error_count += 1
+                self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
                 continue
 
@@ -1058,9 +1077,12 @@ class LogicHandler:
             if comp:
                 self.log(f"✓ Eklendi: {os.path.basename(path)} (Z={z_offset:.3f}m)", "#2cc985")
                 added_count += 1
+                self.update_stats(success=added_count)
                 z_offset += offset_step
             else:
                 self.log(f"Eklenemedi: {os.path.basename(path)} -> {' | '.join(errors) if errors else 'bilinmeyen'}", "#f59e0b")
+                error_count += 1
+                self.update_stats(error=error_count)
 
             try:
                 assembly_title = asm_title or ""

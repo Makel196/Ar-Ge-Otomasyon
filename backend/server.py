@@ -21,6 +21,7 @@ state = {
 log_queue = queue.Queue()
 status_queue = queue.Queue()
 progress_queue = queue.Queue()
+stats_queue = queue.Queue()
 
 # Logic Handler Instance (will be recreated on start to ensure fresh state if needed, or reused)
 # Actually, LogicHandler is designed to be instantiated once or per run. 
@@ -58,6 +59,10 @@ def background_worker():
             # Progress
             while not progress_queue.empty():
                 state["progress"] = progress_queue.get_nowait()
+            
+            # Stats
+            while not stats_queue.empty():
+                state["stats"] = stats_queue.get_nowait()
                 
             time.sleep(0.1)
         except Exception:
@@ -76,7 +81,8 @@ def get_status():
         "status": state["status"],
         "progress": state["progress"],
         "is_running": logic_handler.is_running if logic_handler else False,
-        "vault_path": state["vault_path"]
+        "vault_path": state["vault_path"],
+        "stats": state.get("stats", {"total": 0, "success": 0, "error": 0})
     }
     
     if since_index is not None:
@@ -109,13 +115,15 @@ def start_process():
     state["logs"] = []
     state["progress"] = 0.0
     state["status"] = "Başlatılıyor..."
+    state["stats"] = {"total": len(codes), "success": 0, "error": 0}
     
     logic_handler = LogicHandler(
         log_queue, 
         status_queue, 
         progress_queue, 
         get_add_to_existing, 
-        get_stop_on_not_found
+        get_stop_on_not_found,
+        stats_queue
     )
     
     # Update vault path if needed

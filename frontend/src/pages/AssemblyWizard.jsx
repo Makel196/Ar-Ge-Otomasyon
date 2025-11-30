@@ -14,6 +14,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const [logs, setLogs] = useState([]);
     const [isRunning, setIsRunning] = useState(false);
     const [vaultPath, setVaultPath] = useState('');
+    const [stats, setStats] = useState({ total: 0, success: 0, error: 0 });
 
     // Settings
     const [addToExisting, setAddToExisting] = useState(false);
@@ -35,6 +36,9 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 setStatus(data.status);
                 setProgress(data.progress);
                 setIsRunning(data.is_running);
+                if (data.stats) {
+                    setStats(data.stats);
+                }
 
                 if (data.vault_path && !vaultPath) {
                     setVaultPath(data.vault_path);
@@ -71,6 +75,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
         // Clear logs locally and on server
         setLogs([{ message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
+        setStats({ total: codeList.length, success: 0, error: 0 });
         lastLogIndexRef.current = 0;
         await axios.post(`${API_URL}/clear`);
 
@@ -94,6 +99,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const handleClear = () => {
         setCodes('');
         setLogs([{ message: "Kayıtlar temizlendi.", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
+        setStats({ total: 0, success: 0, error: 0 });
         lastLogIndexRef.current = 0;
         setProgress(0);
         setStatus('Hazır');
@@ -214,6 +220,51 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         <span style={{ fontWeight: '700', fontSize: '14px', color: status === 'Hata' ? '#ef4444' : '#10b981' }}>{status}</span>
                     </div>
                 </motion.div>
+
+                {/* Stats Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.25 }}
+                        className="modern-card"
+                        style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
+                    >
+                        <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
+                            <Layers size={24} fill="currentColor" fillOpacity={0.2} />
+                        </div>
+                        <div>
+                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>TOPLAM</span>
+                            <span style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text)' }}>{stats.total}</span>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.3 }}
+                        className="modern-card"
+                        style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
+                    >
+                        <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+                            <CheckCircle size={24} fill="currentColor" fillOpacity={0.2} />
+                        </div>
+                        <div>
+                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>BAŞARILI</span>
+                            <span style={{ fontSize: '24px', fontWeight: '800', color: '#10b981' }}>{stats.success}</span>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.35 }}
+                        className="modern-card"
+                        style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
+                    >
+                        <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                            <AlertTriangle size={24} fill="currentColor" fillOpacity={0.2} />
+                        </div>
+                        <div>
+                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>HATA</span>
+                            <span style={{ fontSize: '24px', fontWeight: '800', color: '#ef4444' }}>{stats.error}</span>
+                        </div>
+                    </motion.div>
+                </div>
 
                 {/* Input & Controls */}
                 <div className="responsive-grid">
