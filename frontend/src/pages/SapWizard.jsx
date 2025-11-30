@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Info, CheckCircle } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faInfoCircle, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { motion } from 'framer-motion';
 
 const SapWizard = ({ theme, toggleTheme }) => {
@@ -13,7 +14,7 @@ const SapWizard = ({ theme, toggleTheme }) => {
         >
             <div style={{ width: '100%', display: 'flex', alignItems: 'center', marginBottom: '40px' }}>
                 <button className="modern-btn" onClick={() => navigate('/')} style={{ padding: '12px' }}>
-                    <ArrowLeft size={24} />
+                    <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '24px' }} />
                 </button>
                 <h1 style={{ marginLeft: '24px', fontSize: '28px', fontWeight: '700', margin: '0 0 0 24px' }}>SAP Sihirbazı</h1>
             </div>
@@ -37,7 +38,7 @@ const SapWizard = ({ theme, toggleTheme }) => {
                         boxShadow: '0 20px 40px -10px rgba(99, 102, 241, 0.5)'
                     }}
                 >
-                    <Info size={48} color="white" />
+                    <FontAwesomeIcon icon={faInfoCircle} style={{ fontSize: '48px', color: 'white' }} />
                 </motion.div>
 
                 <motion.h1
@@ -99,7 +100,7 @@ const SapWizard = ({ theme, toggleTheme }) => {
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     color: '#10b981'
                                 }}>
-                                    <CheckCircle size={14} />
+                                    <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />
                                 </div>
                                 <span style={{ fontWeight: '600', color: 'var(--text)' }}>{item}</span>
                             </div>

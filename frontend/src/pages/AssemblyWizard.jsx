@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Square, Trash2, Copy, CheckCircle, AlertTriangle, Folder, Terminal, Layers } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowLeft, faPlay, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -148,7 +149,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <button className="modern-btn" onClick={() => navigate('/')} style={{ padding: '10px' }}>
-                        <ArrowLeft size={20} />
+                        <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '20px' }} />
                     </button>
                     <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Ayarlar</h3>
                 </div>
@@ -188,7 +189,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             color: vaultPath ? 'var(--text)' : 'var(--text-secondary)'
                         }}
                     >
-                        <Folder size={18} color="#6366f1" fill="currentColor" fillOpacity={0.2} />
+                        <FontAwesomeIcon icon={faFolder} style={{ fontSize: '18px', color: '#6366f1' }} />
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '13px' }}>
                             {vaultPath || "Klasör Seç..."}
                         </span>
@@ -207,7 +208,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         <div className="icon-box success">
-                            <Layers size={28} fill="currentColor" />
+                            <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '28px' }} />
                         </div>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Montaj Sihirbazı</h2>
@@ -220,7 +221,10 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         padding: '10px 20px', borderRadius: '16px',
                         border: `1px solid ${status === 'Hata' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
                     }}>
-                        {status === 'Hata' ? <AlertTriangle size={20} color="#ef4444" fill="currentColor" /> : <CheckCircle size={20} color="#10b981" fill="currentColor" />}
+                        {status === 'Hata' ?
+                            <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '20px', color: '#ef4444' }} /> :
+                            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '20px', color: '#10b981' }} />
+                        }
                         <span style={{ fontWeight: '700', fontSize: '14px', color: status === 'Hata' ? '#ef4444' : '#10b981' }}>{status}</span>
                     </div>
                 </motion.div>
@@ -233,7 +237,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
                     >
                         <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
-                            <Layers size={24} fill="currentColor" />
+                            <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '24px' }} />
                         </div>
                         <div>
                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>TOPLAM</span>
@@ -247,7 +251,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
                     >
                         <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-                            <CheckCircle size={24} fill="currentColor" />
+                            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '24px' }} />
                         </div>
                         <div>
                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>BAŞARILI</span>
@@ -261,7 +265,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
                     >
                         <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
-                            <AlertTriangle size={24} fill="currentColor" />
+                            <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '24px' }} />
                         </div>
                         <div>
                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>HATA</span>
@@ -280,7 +284,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ display: 'flex', flexDirection: 'column', padding: '30px', minHeight: '400px' }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                            <Terminal size={20} color="#6366f1" />
+                            <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '20px', color: '#6366f1' }} />
                             <span style={{ fontWeight: '700', fontSize: '16px' }}>SAP Kodları</span>
                         </div>
 
@@ -317,13 +321,13 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         {/* Buttons */}
                         <div style={{ display: 'flex', gap: '16px' }}>
                             <button className="modern-btn primary" onClick={handleStart} disabled={isRunning} style={{ flex: 2, height: '50px', fontSize: '16px' }}>
-                                <Play size={20} fill="currentColor" /> BAŞLAT
+                                <FontAwesomeIcon icon={faPlay} style={{ fontSize: '20px', marginRight: '8px' }} /> BAŞLAT
                             </button>
                             <button className="modern-btn" onClick={handleClear} disabled={isRunning} style={{ flex: 1, height: '50px' }}>
-                                <Trash2 size={20} />
+                                <FontAwesomeIcon icon={faTrash} style={{ fontSize: '20px' }} />
                             </button>
                             <button className="modern-btn danger" onClick={handleStop} disabled={!isRunning} style={{ flex: 1, height: '50px' }}>
-                                <Square size={20} fill="currentColor" />
+                                <FontAwesomeIcon icon={faSquare} style={{ fontSize: '20px' }} />
                             </button>
                         </div>
                     </motion.div>
@@ -337,7 +341,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <span style={{ fontWeight: '700', fontSize: '16px' }}>İşlem Kayıtları</span>
                             <button className="modern-btn" onClick={copyNotFound} style={{ padding: '8px 16px', fontSize: '13px', height: 'auto' }}>
-                                <Copy size={14} /> Kopyala
+                                <FontAwesomeIcon icon={faCopy} style={{ fontSize: '14px', marginRight: '6px' }} /> Kopyala
                             </button>
                         </div>
 
@@ -355,7 +359,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             <AnimatePresence>
                                 {logs.length === 0 ? (
                                     <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', opacity: 0.6, flexDirection: 'column', gap: '10px' }}>
-                                        <Terminal size={40} opacity={0.2} />
+                                        <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '40px', opacity: 0.2 }} />
                                         <span>Henüz işlem kaydı bulunmuyor...</span>
                                     </div>
                                 ) : (

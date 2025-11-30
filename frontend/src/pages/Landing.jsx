@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Settings, Moon, Sun, Wrench, Database, ArrowRight, Zap, Activity } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDatabase, faArrowRight, faChartLine, faWrench, faBolt } from '@fortawesome/free-solid-svg-icons';
 
 const Landing = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
@@ -81,7 +82,7 @@ const Landing = ({ theme, toggleTheme }) => {
                 >
                     <div>
                         <div className="icon-box primary" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
-                            <Database size={32} />
+                            <FontAwesomeIcon icon={faDatabase} style={{ fontSize: '32px' }} />
                         </div>
                         <h2 style={{ margin: '0 0 16px 0', fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: '700' }}>SAP Sihirbazı</h2>
                         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'clamp(14px, 1.5vw, 16px)', lineHeight: '1.6' }}>
@@ -90,11 +91,11 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '600', fontSize: '14px' }}>
-                        Keşfet <ArrowRight size={16} />
+                        Keşfet <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '16px' }} />
                     </div>
 
                     <div style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}>
-                        <Activity size={120} />
+                        <FontAwesomeIcon icon={faChartLine} style={{ fontSize: '120px' }} />
                     </div>
                 </motion.div>
 
@@ -119,7 +120,7 @@ const Landing = ({ theme, toggleTheme }) => {
                 >
                     <div>
                         <div className="icon-box success" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
-                            <Wrench size={32} />
+                            <FontAwesomeIcon icon={faWrench} style={{ fontSize: '32px' }} />
                         </div>
                         <h2 style={{ margin: '0 0 16px 0', fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: '700' }}>Montaj Sihirbazı</h2>
                         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'clamp(14px, 1.5vw, 16px)', lineHeight: '1.6' }}>
@@ -128,11 +129,11 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '600', fontSize: '14px' }}>
-                        Başlat <ArrowRight size={16} />
+                        Başlat <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '16px' }} />
                     </div>
 
                     <div style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}>
-                        <Zap size={120} />
+                        <FontAwesomeIcon icon={faBolt} style={{ fontSize: '120px' }} />
                     </div>
                 </motion.div>
 
