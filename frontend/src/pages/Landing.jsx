@@ -44,11 +44,16 @@ const Landing = ({ theme, toggleTheme }) => {
                         </div>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <div className="theme-toggle" onClick={toggleTheme}>
-                        <div className="theme-toggle-thumb"></div>
-                        <Moon size={14} className="theme-icon" />
-                        <Sun size={14} className="theme-icon" />
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div className="day-night-toggle" onClick={toggleTheme}>
+                        <div className="toggle-circle"></div>
+                        <div className="toggle-decoration">
+                            <div className="star star-1"></div>
+                            <div className="star star-2"></div>
+                            <div className="star star-3"></div>
+                            <div className="cloud cloud-1"></div>
+                            <div className="cloud cloud-2"></div>
+                        </div>
                     </div>
                 </div>
             </motion.div>
