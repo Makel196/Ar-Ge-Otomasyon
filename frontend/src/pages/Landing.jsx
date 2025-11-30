@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDatabase, faArrowRight, faChartLine, faWrench, faBolt } from '@fortawesome/free-solid-svg-icons';
+import { faDatabase, faArrowRight, faChartLine, faWrench, faBolt, faPen } from '@fortawesome/free-solid-svg-icons';
 
 const Landing = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
@@ -225,7 +225,7 @@ const Landing = ({ theme, toggleTheme }) => {
 
                     <div style={{ position: 'relative', zIndex: 1 }}>
                         <div className="icon-box primary" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
-                            <FontAwesomeIcon icon={faDatabase} style={{ fontSize: '32px' }} />
+                            <FontAwesomeIcon icon={faPen} style={{ fontSize: '32px' }} />
                         </div>
                         <h2 style={{ margin: '0 0 16px 0', fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: '700' }}>SAP Sihirbazı</h2>
                         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'clamp(14px, 1.5vw, 16px)', lineHeight: '1.6' }}>

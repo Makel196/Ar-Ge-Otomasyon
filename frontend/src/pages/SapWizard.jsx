@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faInfoCircle, faCheckCircle, faMagic, faCog } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faInfoCircle, faCheckCircle, faMagic, faCog, faPen } from '@fortawesome/free-solid-svg-icons';
 import { motion } from 'framer-motion';
 
 const SapWizard = ({ theme, toggleTheme }) => {
@@ -40,7 +40,7 @@ const SapWizard = ({ theme, toggleTheme }) => {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <div className="icon-box primary" style={{ width: '40px', height: '40px' }}>
-                            <FontAwesomeIcon icon={faMagic} style={{ fontSize: '20px' }} />
+                            <FontAwesomeIcon icon={faPen} style={{ fontSize: '20px' }} />
                         </div>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>SAP Sihirbazı</h2>

@@ -404,7 +404,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: theme === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.05)', // Darker overlay in dark mode
+                            background: theme === 'dark' ? 'rgba(15, 23, 42, 0.6)' : 'rgba(0,0,0,0.05)', // Darker overlay in dark mode
                             backdropFilter: 'blur(8px)',
                             display: 'flex',
                             alignItems: 'center',
@@ -426,10 +426,10 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '24px',
-                                background: theme === 'dark' ? 'rgba(30, 30, 30, 0.85)' : 'rgba(255, 255, 255, 0.75)',
+                                background: theme === 'dark' ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.75)',
                                 backdropFilter: 'blur(20px) saturate(180%)',
                                 borderRadius: '24px',
-                                border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.8)',
+                                border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(255, 255, 255, 0.8)',
                                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                                 color: 'var(--text)'
                             }}
