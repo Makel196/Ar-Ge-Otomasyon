@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faWrench, faCog } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -22,6 +22,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const [addToExisting, setAddToExisting] = useState(false);
     const [stopOnNotFound, setStopOnNotFound] = useState(true);
     const [dedupe, setDedupe] = useState(true);
+    const [showSettings, setShowSettings] = useState(false);
 
     const logsEndRef = useRef(null);
     const lastLogIndexRef = useRef(0);
@@ -85,6 +86,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
         if (!vaultPath) {
             alert("Lütfen kasa yolu seçiniz.");
+            setShowSettings(true);
             return;
         }
 
@@ -159,106 +161,126 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     return (
         <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            style={{ padding: '30px', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '30px' }}
+            style={{
+                height: '100vh',
+                padding: '20px',
+                maxWidth: '1600px',
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px',
+                boxSizing: 'border-box',
+                overflow: 'hidden'
+            }}
         >
             {/* Header Section */}
             <motion.div
                 initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
                 className="modern-card"
-                style={{ padding: '20px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                style={{ padding: '15px 25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                     <button
                         className="modern-btn"
                         onClick={() => navigate('/')}
-                        style={{ width: '45px', height: '45px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}
+                        style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}
                     >
-                        <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '18px' }} />
+                        <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '16px' }} />
                     </button>
 
                     <div style={{ width: '1px', height: '30px', background: 'var(--border)' }}></div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div className="icon-box success" style={{ width: '45px', height: '45px' }}>
-                            <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '22px' }} />
+                        <div className="icon-box success" style={{ width: '40px', height: '40px' }}>
+                            <FontAwesomeIcon icon={faWrench} style={{ fontSize: '20px' }} />
                         </div>
                         <div>
-                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Montaj Sihirbazı</h2>
-                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Otomatik Montaj Oluşturucu</span>
+                            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Montaj Sihirbazı</h2>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Otomatik Montaj Oluşturucu</span>
                         </div>
                     </div>
                 </div>
 
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    background: status === 'Hata' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                    padding: '10px 20px', borderRadius: '12px',
-                    border: `1px solid ${status === 'Hata' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
-                }}>
-                    {status === 'Hata' ?
-                        <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '18px', color: '#ef4444' }} /> :
-                        <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '18px', color: '#10b981' }} />
-                    }
-                    <span style={{ fontWeight: '700', fontSize: '14px', color: status === 'Hata' ? '#ef4444' : '#10b981' }}>{status}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        background: status === 'Hata' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                        padding: '8px 16px', borderRadius: '12px',
+                        border: `1px solid ${status === 'Hata' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+                    }}>
+                        {status === 'Hata' ?
+                            <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '16px', color: '#ef4444' }} /> :
+                            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '16px', color: '#10b981' }} />
+                        }
+                        <span style={{ fontWeight: '700', fontSize: '13px', color: status === 'Hata' ? '#ef4444' : '#10b981' }}>{status}</span>
+                    </div>
+
+                    <button
+                        className={`modern-btn ${showSettings ? 'primary' : ''}`}
+                        onClick={() => setShowSettings(!showSettings)}
+                        style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
+                    </button>
                 </div>
             </motion.div>
 
             {/* Stats Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', flexShrink: 0 }}>
                 <motion.div
                     initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
                     className="modern-card"
-                    style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}
+                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}
                 >
-                    <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
-                        <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '24px' }} />
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
+                        <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '18px' }} />
                     </div>
                     <div>
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>TOPLAM</span>
-                        <span style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text)' }}>{displayTotal}</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>TOPLAM</span>
+                        <span style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text)' }}>{displayTotal}</span>
                     </div>
                 </motion.div>
 
                 <motion.div
                     initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.25 }}
                     className="modern-card"
-                    style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}
+                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}
                 >
-                    <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-                        <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '24px' }} />
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+                        <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '18px' }} />
                     </div>
                     <div>
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>BAŞARILI</span>
-                        <span style={{ fontSize: '28px', fontWeight: '800', color: '#10b981' }}>{stats.success}</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>BAŞARILI</span>
+                        <span style={{ fontSize: '20px', fontWeight: '800', color: '#10b981' }}>{stats.success}</span>
                     </div>
                 </motion.div>
 
                 <motion.div
                     initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.3 }}
                     className="modern-card"
-                    style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}
+                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}
                 >
-                    <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
-                        <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '24px' }} />
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                        <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '18px' }} />
                     </div>
                     <div>
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>HATA</span>
-                        <span style={{ fontSize: '28px', fontWeight: '800', color: '#ef4444' }}>{stats.error}</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>HATA</span>
+                        <span style={{ fontSize: '20px', fontWeight: '800', color: '#ef4444' }}>{stats.error}</span>
                     </div>
                 </motion.div>
             </div>
 
             {/* Main Content Grid */}
-            <div className="responsive-grid" style={{ minHeight: '500px' }}>
+            <div className="responsive-grid" style={{ flex: 1, minHeight: 0, gap: '20px' }}>
                 {/* Input Section */}
                 <motion.div
                     initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }}
                     className="modern-card"
-                    style={{ display: 'flex', flexDirection: 'column', padding: '30px' }}
+                    style={{ display: 'flex', flexDirection: 'column', padding: '20px', height: '100%', boxSizing: 'border-box' }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                        <FontAwesomeIcon icon={faListOl} style={{ fontSize: '20px', color: '#6366f1' }} />
-                        <span style={{ fontWeight: '700', fontSize: '16px' }}>SAP Kodları</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px', flexShrink: 0 }}>
+                        <FontAwesomeIcon icon={faListOl} style={{ fontSize: '18px', color: '#6366f1' }} />
+                        <span style={{ fontWeight: '700', fontSize: '15px' }}>SAP Kodları</span>
                     </div>
 
                     <textarea
@@ -269,17 +291,17 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{
                             flex: 1,
                             resize: 'none',
-                            fontSize: '14px',
+                            fontSize: '13px',
                             lineHeight: '1.6',
                             border: '2px solid var(--border)',
-                            minHeight: '200px',
-                            marginBottom: '20px'
+                            marginBottom: '15px',
+                            minHeight: '0'
                         }}
                     />
 
                     {/* Progress Bar */}
-                    <div style={{ marginBottom: '30px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                    <div style={{ marginBottom: '20px', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>
                             <span>İlerleme Durumu</span>
                             <span>{Math.round(progress * 100)}%</span>
                         </div>
@@ -293,19 +315,19 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                     </div>
 
                     {/* Buttons */}
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                        <button className="modern-btn primary" onClick={handleStart} style={{ flex: 2, height: '50px', fontSize: '16px' }}>
+                    <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
+                        <button className="modern-btn primary" onClick={handleStart} style={{ flex: 2, height: '45px', fontSize: '15px' }}>
                             <FontAwesomeIcon
                                 icon={isRunning ? (isPaused ? faPlay : faPause) : faPlay}
-                                style={{ fontSize: '20px', marginRight: '8px' }}
+                                style={{ fontSize: '18px', marginRight: '8px' }}
                             />
                             {isRunning ? (isPaused ? "DEVAM ET" : "DURAKLAT") : "BAŞLAT"}
                         </button>
-                        <button className="modern-btn" onClick={handleClear} disabled={isRunning} style={{ flex: 1, height: '50px' }}>
-                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: '20px' }} />
+                        <button className="modern-btn" onClick={handleClear} disabled={isRunning} style={{ flex: 1, height: '45px' }}>
+                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: '18px' }} />
                         </button>
-                        <button className="modern-btn danger" onClick={handleStop} disabled={!isRunning} style={{ flex: 1, height: '50px' }}>
-                            <FontAwesomeIcon icon={faSquare} style={{ fontSize: '20px' }} />
+                        <button className="modern-btn danger" onClick={handleStop} disabled={!isRunning} style={{ flex: 1, height: '45px' }}>
+                            <FontAwesomeIcon icon={faSquare} style={{ fontSize: '18px' }} />
                         </button>
                     </div>
                 </motion.div>
@@ -314,33 +336,33 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 <motion.div
                     initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }}
                     className="modern-card"
-                    style={{ display: 'flex', flexDirection: 'column', padding: '30px' }}
+                    style={{ display: 'flex', flexDirection: 'column', padding: '20px', height: '100%', boxSizing: 'border-box' }}
                 >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexShrink: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '20px', color: '#6366f1' }} />
-                            <span style={{ fontWeight: '700', fontSize: '16px' }}>İşlem Kayıtları</span>
+                            <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '18px', color: '#6366f1' }} />
+                            <span style={{ fontWeight: '700', fontSize: '15px' }}>İşlem Kayıtları</span>
                         </div>
-                        <button className="modern-btn" onClick={copyNotFound} style={{ padding: '8px 16px', fontSize: '13px', height: 'auto' }}>
-                            <FontAwesomeIcon icon={faCopy} style={{ fontSize: '14px', marginRight: '6px' }} /> Kopyala
+                        <button className="modern-btn" onClick={copyNotFound} style={{ padding: '6px 12px', fontSize: '12px', height: 'auto' }}>
+                            <FontAwesomeIcon icon={faCopy} style={{ fontSize: '13px', marginRight: '6px' }} /> Kopyala
                         </button>
                     </div>
 
                     <div style={{
                         flex: 1,
-                        padding: '20px',
+                        padding: '15px',
                         background: 'var(--bg)',
-                        borderRadius: '16px',
+                        borderRadius: '12px',
                         overflowY: 'auto',
                         fontFamily: "'JetBrains Mono', 'Consolas', monospace",
-                        fontSize: '13px',
+                        fontSize: '12px',
                         border: '1px solid var(--border)',
-                        minHeight: '200px'
+                        minHeight: '0'
                     }}>
                         <AnimatePresence>
                             {logs.length === 0 ? (
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', opacity: 0.6, flexDirection: 'column', gap: '10px' }}>
-                                    <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '40px', opacity: 0.2 }} />
+                                    <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '32px', opacity: 0.2 }} />
                                     <span>Henüz işlem kaydı bulunmuyor...</span>
                                 </div>
                             ) : (
@@ -350,16 +372,16 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                         initial={{ opacity: 0, x: -10 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         style={{
-                                            marginBottom: '10px',
+                                            marginBottom: '8px',
                                             color: log.color || 'var(--text)',
                                             display: 'flex',
-                                            gap: '16px',
-                                            lineHeight: '1.5',
-                                            paddingBottom: '10px',
+                                            gap: '12px',
+                                            lineHeight: '1.4',
+                                            paddingBottom: '8px',
                                             borderBottom: '1px solid rgba(0,0,0,0.03)'
                                         }}
                                     >
-                                        <span style={{ opacity: 0.5, minWidth: '70px', fontSize: '12px', paddingTop: '2px' }}>{new Date(log.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                                        <span style={{ opacity: 0.5, minWidth: '60px', fontSize: '11px', paddingTop: '2px' }}>{new Date(log.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                                         <span>{log.message}</span>
                                     </motion.div>
                                 ))
@@ -370,84 +392,91 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 </motion.div>
             </div>
 
-            {/* Settings Footer */}
-            <motion.div
-                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }}
-                className="modern-card"
-                style={{ padding: '20px 30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ayarlar:</span>
-
-                    <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        cursor: 'pointer',
-                        padding: '10px 16px',
-                        borderRadius: '10px',
-                        background: addToExisting ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                        border: addToExisting ? '1px solid #6366f1' : '1px solid var(--border)',
-                        transition: 'all 0.2s ease'
-                    }}>
-                        <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
-                        <span style={{ fontSize: '13px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
-                    </label>
-
-                    <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        cursor: 'pointer',
-                        padding: '10px 16px',
-                        borderRadius: '10px',
-                        background: stopOnNotFound ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                        border: stopOnNotFound ? '1px solid #6366f1' : '1px solid var(--border)',
-                        transition: 'all 0.2s ease'
-                    }}>
-                        <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
-                        <span style={{ fontSize: '13px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
-                    </label>
-
-                    <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        cursor: 'pointer',
-                        padding: '10px 16px',
-                        borderRadius: '10px',
-                        background: dedupe ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                        border: dedupe ? '1px solid #6366f1' : '1px solid var(--border)',
-                        transition: 'all 0.2s ease'
-                    }}>
-                        <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
-                        <span style={{ fontSize: '13px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
-                    </label>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Kasa Yolu:</span>
-                    <div
-                        onClick={handleSelectFolder}
-                        className="modern-btn"
-                        style={{
-                            justifyContent: 'flex-start',
-                            background: 'var(--bg)',
-                            border: '2px dashed var(--border)',
-                            color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
-                            padding: '10px 16px',
-                            height: 'auto',
-                            minWidth: '200px',
-                            maxWidth: '300px'
-                        }}
+            {/* Settings Footer (Collapsible) */}
+            <AnimatePresence>
+                {showSettings && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0, marginBottom: -20 }}
+                        animate={{ height: 'auto', opacity: 1, marginBottom: 0 }}
+                        exit={{ height: 0, opacity: 0, marginBottom: -20 }}
+                        transition={{ duration: 0.3 }}
+                        className="modern-card"
+                        style={{ padding: '20px 30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', overflow: 'hidden', flexShrink: 0 }}
                     >
-                        <FontAwesomeIcon icon={faFolder} style={{ fontSize: '16px', color: '#6366f1', marginRight: '8px' }} />
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '13px' }}>
-                            {vaultPath || "Klasör Seç..."}
-                        </span>
-                    </div>
-                </div>
-            </motion.div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ayarlar:</span>
+
+                            <label style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                cursor: 'pointer',
+                                padding: '10px 16px',
+                                borderRadius: '10px',
+                                background: addToExisting ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                                border: addToExisting ? '1px solid #6366f1' : '1px solid var(--border)',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
+                                <span style={{ fontSize: '13px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
+                            </label>
+
+                            <label style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                cursor: 'pointer',
+                                padding: '10px 16px',
+                                borderRadius: '10px',
+                                background: stopOnNotFound ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                                border: stopOnNotFound ? '1px solid #6366f1' : '1px solid var(--border)',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
+                                <span style={{ fontSize: '13px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
+                            </label>
+
+                            <label style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                cursor: 'pointer',
+                                padding: '10px 16px',
+                                borderRadius: '10px',
+                                background: dedupe ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                                border: dedupe ? '1px solid #6366f1' : '1px solid var(--border)',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
+                                <span style={{ fontSize: '13px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
+                            </label>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Kasa Yolu:</span>
+                            <div
+                                onClick={handleSelectFolder}
+                                className="modern-btn"
+                                style={{
+                                    justifyContent: 'flex-start',
+                                    background: 'var(--bg)',
+                                    border: '2px dashed var(--border)',
+                                    color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
+                                    padding: '10px 16px',
+                                    height: 'auto',
+                                    minWidth: '200px',
+                                    maxWidth: '300px'
+                                }}
+                            >
+                                <FontAwesomeIcon icon={faFolder} style={{ fontSize: '16px', color: '#6366f1', marginRight: '8px' }} />
+                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '13px' }}>
+                                    {vaultPath || "Klasör Seç..."}
+                                </span>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 };
