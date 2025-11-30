@@ -130,6 +130,10 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         }
     };
 
+    // Calculate live count of valid codes
+    const liveCount = codes.split('\n').map(c => c.trim()).filter(c => c).length;
+    const displayTotal = isRunning ? stats.total : liveCount;
+
     return (
         <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -184,7 +188,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             color: vaultPath ? 'var(--text)' : 'var(--text-secondary)'
                         }}
                     >
-                        <Folder size={18} color="#6366f1" />
+                        <Folder size={18} color="#6366f1" fill="currentColor" fillOpacity={0.2} />
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '13px' }}>
                             {vaultPath || "Klasör Seç..."}
                         </span>
@@ -203,7 +207,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         <div className="icon-box success">
-                            <Layers size={28} />
+                            <Layers size={28} fill="currentColor" />
                         </div>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Montaj Sihirbazı</h2>
@@ -216,7 +220,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         padding: '10px 20px', borderRadius: '16px',
                         border: `1px solid ${status === 'Hata' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
                     }}>
-                        {status === 'Hata' ? <AlertTriangle size={20} color="#ef4444" /> : <CheckCircle size={20} color="#10b981" />}
+                        {status === 'Hata' ? <AlertTriangle size={20} color="#ef4444" fill="currentColor" /> : <CheckCircle size={20} color="#10b981" fill="currentColor" />}
                         <span style={{ fontWeight: '700', fontSize: '14px', color: status === 'Hata' ? '#ef4444' : '#10b981' }}>{status}</span>
                     </div>
                 </motion.div>
@@ -229,11 +233,11 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
                     >
                         <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
-                            <Layers size={24} fill="currentColor" fillOpacity={0.2} />
+                            <Layers size={24} fill="currentColor" />
                         </div>
                         <div>
                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>TOPLAM</span>
-                            <span style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text)' }}>{stats.total}</span>
+                            <span style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text)' }}>{displayTotal}</span>
                         </div>
                     </motion.div>
 
@@ -243,7 +247,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
                     >
                         <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-                            <CheckCircle size={24} fill="currentColor" fillOpacity={0.2} />
+                            <CheckCircle size={24} fill="currentColor" />
                         </div>
                         <div>
                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>BAŞARILI</span>
@@ -257,7 +261,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '20px' }}
                     >
                         <div style={{ width: '50px', height: '50px', borderRadius: '16px', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
-                            <AlertTriangle size={24} fill="currentColor" fillOpacity={0.2} />
+                            <AlertTriangle size={24} fill="currentColor" />
                         </div>
                         <div>
                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>HATA</span>
