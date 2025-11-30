@@ -149,6 +149,7 @@ class LogicHandler:
         self.config = {}
         self.vault_path = read_vault_path_registry()
         self.is_running = False
+        self.is_paused = False
         self.stats = {"total": 0, "success": 0, "error": 0}
 
     def update_stats(self, total=None, success=None, error=None):
@@ -174,6 +175,19 @@ class LogicHandler:
 
     def stop_process(self):
         self.is_running = False
+        self.is_paused = False
+
+    def pause_process(self):
+        if self.is_running:
+            self.is_paused = True
+            self.log("İşlem duraklatıldı.", "#f59e0b")
+            self.set_status("Duraklatıldı")
+
+    def resume_process(self):
+        if self.is_running and self.is_paused:
+            self.is_paused = False
+            self.log("İşlem devam ettiriliyor...", "#2cc985")
+            self.set_status("Çalışıyor")
 
     def doc_type_safe(self, doc):
         """Safely read SolidWorks doc type; handles property vs callable."""
@@ -602,6 +616,9 @@ class LogicHandler:
         for i, code in enumerate(codes):
             if not self.is_running:
                 return
+            
+            while self.is_paused and self.is_running:
+                time.sleep(0.5)
             path = self.search_file_in_pdm(vault, code)
             if path:
                 if self.ensure_local_file(vault, path):
@@ -707,6 +724,9 @@ class LogicHandler:
         for i, file_path in enumerate(found_files):
             if not self.is_running:
                 return
+
+            while self.is_paused and self.is_running:
+                time.sleep(0.5)
             
             if locked_title:
                 try:
@@ -942,6 +962,9 @@ class LogicHandler:
         for i, code in enumerate(codes):
             if not self.is_running:
                 return
+
+            while self.is_paused and self.is_running:
+                time.sleep(0.5)
             
             # PDM'de ara
             path = self.search_file_in_pdm(vault, code)

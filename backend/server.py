@@ -81,6 +81,7 @@ def get_status():
         "status": state["status"],
         "progress": state["progress"],
         "is_running": logic_handler.is_running if logic_handler else False,
+        "is_paused": logic_handler.is_paused if logic_handler else False,
         "vault_path": state["vault_path"],
         "stats": state.get("stats", {"total": 0, "success": 0, "error": 0})
     }
@@ -141,6 +142,20 @@ def stop_process():
     if logic_handler:
         logic_handler.stop_process()
         return jsonify({"message": "Stopping..."})
+    return jsonify({"message": "Not running"})
+
+@app.route('/api/pause', methods=['POST'])
+def pause_process():
+    if logic_handler:
+        logic_handler.pause_process()
+        return jsonify({"message": "Pausing..."})
+    return jsonify({"message": "Not running"})
+
+@app.route('/api/resume', methods=['POST'])
+def resume_process():
+    if logic_handler:
+        logic_handler.resume_process()
+        return jsonify({"message": "Resuming..."})
     return jsonify({"message": "Not running"})
 
 @app.route('/api/vault-path', methods=['GET', 'POST'])

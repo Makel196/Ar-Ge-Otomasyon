@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +14,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const [progress, setProgress] = useState(0);
     const [logs, setLogs] = useState([]);
     const [isRunning, setIsRunning] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
     const [vaultPath, setVaultPath] = useState('');
     const [stats, setStats] = useState({ total: 0, success: 0, error: 0 });
 
@@ -37,6 +38,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 setStatus(data.status);
                 setProgress(data.progress);
                 setIsRunning(data.is_running);
+                setIsPaused(data.is_paused);
                 if (data.stats) {
                     setStats(data.stats);
                 }
@@ -62,6 +64,25 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     }, [logs]);
 
     const handleStart = async () => {
+        if (isRunning) {
+            if (isPaused) {
+                // Resume
+                try {
+                    await axios.post(`${API_URL}/resume`);
+                } catch (err) {
+                    console.error("Resume error", err);
+                }
+            } else {
+                // Pause
+                try {
+                    await axios.post(`${API_URL}/pause`);
+                } catch (err) {
+                    console.error("Pause error", err);
+                }
+            }
+            return;
+        }
+
         if (!vaultPath) {
             alert("Lütfen kasa yolu seçiniz.");
             return;
@@ -320,8 +341,12 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
                         {/* Buttons */}
                         <div style={{ display: 'flex', gap: '16px' }}>
-                            <button className="modern-btn primary" onClick={handleStart} disabled={isRunning} style={{ flex: 2, height: '50px', fontSize: '16px' }}>
-                                <FontAwesomeIcon icon={faPlay} style={{ fontSize: '20px', marginRight: '8px' }} /> BAŞLAT
+                            <button className="modern-btn primary" onClick={handleStart} style={{ flex: 2, height: '50px', fontSize: '16px' }}>
+                                <FontAwesomeIcon
+                                    icon={isRunning ? (isPaused ? faPlay : faPause) : faPlay}
+                                    style={{ fontSize: '20px', marginRight: '8px' }}
+                                />
+                                {isRunning ? (isPaused ? "DEVAM ET" : "DURAKLAT") : "BAŞLAT"}
                             </button>
                             <button className="modern-btn" onClick={handleClear} disabled={isRunning} style={{ flex: 1, height: '50px' }}>
                                 <FontAwesomeIcon icon={faTrash} style={{ fontSize: '20px' }} />
