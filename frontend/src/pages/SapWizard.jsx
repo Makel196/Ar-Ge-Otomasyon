@@ -68,7 +68,7 @@ const SapWizard = ({ theme, toggleTheme }) => {
                         maxWidth: '600px'
                     }}
                 >
-                    SAP Sihirbazı modülü <span style={{ color: '#6366f1', fontWeight: '700' }}>v2.1.0</span> sürümü ile birlikte aktif edilecektir.
+                    SAP Sihirbazı modülü <span style={{ color: '#6366f1', fontWeight: '700' }}>v3.0.0</span> sürümü ile birlikte aktif edilecektir.
                     Bu modül ile aşağıdaki özellikler planlanmaktadır:
                 </motion.p>
 
@@ -91,7 +91,7 @@ const SapWizard = ({ theme, toggleTheme }) => {
                             "SAP - PDM Entegrasyonu",
                             "Gelişmiş Raporlama",
                             "Stok Kontrolü",
-                            "Maliyet Analizi"
+                            "Otomatik Konfigürasyon"
                         ].map((item, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{

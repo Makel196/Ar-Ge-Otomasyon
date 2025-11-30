@@ -215,7 +215,8 @@ const Landing = ({ theme, toggleTheme }) => {
                                 left: '50%',
                                 transform: 'translate(-50%, -50%)',
                                 opacity: 0.05,
-                                zIndex: 0
+                                zIndex: 0,
+                                filter: 'blur(4px)'
                             }}
                         >
                             <FontAwesomeIcon icon={faChartLine} style={{ fontSize: '300px' }} />
@@ -302,7 +303,8 @@ const Landing = ({ theme, toggleTheme }) => {
                                 left: '50%',
                                 transform: 'translate(-50%, -50%)',
                                 opacity: 0.05,
-                                zIndex: 0
+                                zIndex: 0,
+                                filter: 'blur(4px)'
                             }}
                         >
                             <FontAwesomeIcon icon={faBolt} style={{ fontSize: '300px' }} />
