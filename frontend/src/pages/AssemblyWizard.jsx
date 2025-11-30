@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave, faQuestionCircle } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageLayout from '../components/PageLayout';
@@ -9,8 +9,68 @@ import CustomAlert from '../components/CustomAlert';
 
 const API_URL = 'http://localhost:5000/api';
 
+// Tooltip Component
+const ModernTooltip = ({ text, children, theme }) => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    return (
+        <div
+            onMouseEnter={() => setIsVisible(true)}
+            onMouseLeave={() => setIsVisible(false)}
+            style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '15px', // Increase hit area
+                margin: '-15px', // Compensate for padding to maintain layout
+                cursor: 'help'
+            }}
+        >
+            {children}
+            <AnimatePresence>
+                {isVisible && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        style={{
+                            position: 'absolute',
+                            bottom: '100%',
+                            right: 0,
+                            marginBottom: '5px', // Reduced gap
+                            padding: '8px 12px',
+                            background: theme === 'dark' ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.95)',
+                            color: theme === 'dark' ? '#0f172a' : '#ffffff',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                            zIndex: 9999,
+                            pointerEvents: 'auto', // Allow hovering the tooltip itself
+                            minWidth: 'max-content'
+                        }}
+                    >
+                        {text}
+                        <div style={{
+                            position: 'absolute',
+                            top: '100%',
+                            right: '18px', // Adjusted for padding
+                            borderLeft: '6px solid transparent',
+                            borderRight: '6px solid transparent',
+                            borderTop: `6px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.95)'}`
+                        }} />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
 const AssemblyWizard = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
+
 
     // Persistent Settings
     const [rememberSession, setRememberSession] = useState(() => localStorage.getItem('rememberSession') === 'true');
@@ -33,6 +93,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const [stats, setStats] = useState({ total: 0, success: 0, error: 0 });
     const [alertState, setAlertState] = useState({ isOpen: false, message: '', type: 'info' });
     const [showSettings, setShowSettings] = useState(false);
+    const [highlightVaultSettings, setHighlightVaultSettings] = useState(false);
 
     const logsEndRef = useRef(null);
     const lastLogIndexRef = useRef(0);
@@ -170,7 +231,10 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             codeList = [...new Set(codeList)];
         }
 
-        if (codeList.length === 0) return;
+        if (codeList.length === 0) {
+            setAlertState({ isOpen: true, message: "Lütfen SAP kodu giriniz.", type: 'warning' });
+            return;
+        }
 
         // Clear logs locally and on server
         setLogs([{ message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
@@ -185,8 +249,21 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 stopOnNotFound
             });
         } catch (err) {
-            setLogs(prev => [...prev, { message: "Hata: " + err.message, timestamp: Date.now() / 1000, color: '#ef4444' }]);
-            setAlertState({ isOpen: true, message: "Başlatılamadı: " + err.message, type: 'error' });
+            const errorMessage = err.response?.data?.message || err.message || "Bilinmeyen hata";
+            setLogs(prev => [...prev, { message: "Hata: " + errorMessage, timestamp: Date.now() / 1000, color: '#ef4444' }]);
+
+            // Check for PDM/Vault errors and open settings
+            if (errorMessage.toLowerCase().includes('pdm') || errorMessage.toLowerCase().includes('kasa') || errorMessage.toLowerCase().includes('vault')) {
+                setAlertState({
+                    isOpen: true,
+                    message: errorMessage + "\n\nLütfen Ayarlar'ı açıp Kasa Yolu'nu seçiniz.",
+                    type: 'error'
+                });
+                setShowSettings(true);
+                setHighlightVaultSettings(true);
+            } else {
+                setAlertState({ isOpen: true, message: "Başlatılamadı: " + errorMessage, type: 'error' });
+            }
         }
     };
 
@@ -211,6 +288,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             if (path) {
                 setVaultPath(path);
                 await axios.post(`${API_URL}/vault-path`, { path });
+                setHighlightVaultSettings(false);
             }
         }
     };
@@ -332,9 +410,15 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             {/* Stats Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', flexShrink: 0 }}>
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{
+                        scale: 1,
+                        opacity: 1,
+                        transition: { delay: 0.2, duration: 0.3 }
+                    }}
+
                     className="modern-card"
-                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}
+                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'default' }}
                 >
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
                         <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '18px' }} />
@@ -346,29 +430,41 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 </motion.div>
 
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.25 }}
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{
+                        scale: 1,
+                        opacity: 1,
+                        transition: { delay: 0.25, duration: 0.3 }
+                    }}
+
                     className="modern-card"
-                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}
+                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'default' }}
                 >
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
                         <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '18px' }} />
                     </div>
                     <div>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>BAŞARILI</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>BULUNDU</span>
                         <span style={{ fontSize: '20px', fontWeight: '800', color: '#10b981' }}>{stats.success}</span>
                     </div>
                 </motion.div>
 
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.3 }}
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{
+                        scale: 1,
+                        opacity: 1,
+                        transition: { delay: 0.3, duration: 0.3 }
+                    }}
+
                     className="modern-card"
-                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}
+                    style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'default' }}
                 >
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
                         <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '18px' }} />
                     </div>
                     <div>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>HATA</span>
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>BULUNAMADI</span>
                         <span style={{ fontSize: '20px', fontWeight: '800', color: '#ef4444' }}>{stats.error}</span>
                     </div>
                 </motion.div>
@@ -470,8 +566,8 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             <FontAwesomeIcon icon={faFileExcel} style={{ fontSize: '20px', color: '#10b981' }} />
                             <motion.span
                                 variants={{
-                                    idle: { width: 0, opacity: 0, display: 'none' },
-                                    hover: { width: 'auto', opacity: 1, display: 'block' }
+                                    idle: { width: 0, opacity: 0, display: 'none', transition: { duration: 1.5 } },
+                                    hover: { width: 'auto', opacity: 1, display: 'block', transition: { duration: 1.5 } }
                                 }}
                                 style={{ whiteSpace: 'nowrap', fontSize: '15px', fontWeight: '600', color: '#10b981' }}
                             >
@@ -525,7 +621,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             </div>
 
             {/* Settings Modal */}
-            < AnimatePresence >
+            <AnimatePresence>
                 {showSettings && (
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -571,6 +667,14 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                 <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Ayarlar</h3>
                                 <button
                                     onClick={() => setShowSettings(false)}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                        e.currentTarget.style.color = '#ef4444';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+                                        e.currentTarget.style.color = 'var(--text)';
+                                    }}
                                     style={{
                                         background: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
                                         border: 'none',
@@ -610,9 +714,13 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                         {rememberSession && <FontAwesomeIcon icon={faSave} style={{ fontSize: '14px' }} />}
                                     </div>
                                     <input type="checkbox" checked={rememberSession} onChange={e => setRememberSession(e.target.checked)} style={{ display: 'none' }} />
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
                                         <span style={{ fontSize: '15px', fontWeight: '600', color: rememberSession ? '#10b981' : 'var(--text)' }}>Oturumu Koru</span>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Kapatıldığında ayarları ve kodları hatırla</span>
+                                        <ModernTooltip text="Kapatıldığında ayarları ve kodları hatırla" theme={theme}>
+                                            <div style={{ cursor: 'help', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
+                                                <FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} />
+                                            </div>
+                                        </ModernTooltip>
                                     </div>
                                 </label>
 
@@ -636,7 +744,14 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                         {addToExisting && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
                                     </div>
                                     <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ display: 'none' }} />
-                                    <span style={{ fontSize: '15px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                        <span style={{ fontSize: '15px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
+                                        <ModernTooltip text="Yeni montaj oluşturmak yerine açık olan montaja parça ekler" theme={theme}>
+                                            <div style={{ cursor: 'help', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
+                                                <FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} />
+                                            </div>
+                                        </ModernTooltip>
+                                    </div>
                                 </label>
 
                                 <label style={{
@@ -659,7 +774,14 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                         {stopOnNotFound && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
                                     </div>
                                     <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ display: 'none' }} />
-                                    <span style={{ fontSize: '15px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                        <span style={{ fontSize: '15px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
+                                        <ModernTooltip text="Parça bulunamadığında işlemi durdurur" theme={theme}>
+                                            <div style={{ cursor: 'help', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
+                                                <FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} />
+                                            </div>
+                                        </ModernTooltip>
+                                    </div>
                                 </label>
 
                                 <label style={{
@@ -682,7 +804,14 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                         {dedupe && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
                                     </div>
                                     <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ display: 'none' }} />
-                                    <span style={{ fontSize: '15px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                        <span style={{ fontSize: '15px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
+                                        <ModernTooltip text="Listeye eklenen mükerrer (aynı) kodları otomatik temizler" theme={theme}>
+                                            <div style={{ cursor: 'help', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
+                                                <FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} />
+                                            </div>
+                                        </ModernTooltip>
+                                    </div>
                                 </label>
                             </div>
 
@@ -695,12 +824,16 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                         alignItems: 'center',
                                         justifyContent: 'flex-start',
                                         background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)',
-                                        border: theme === 'dark' ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)',
+                                        border: highlightVaultSettings
+                                            ? '2px solid #ef4444'
+                                            : (theme === 'dark' ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)'),
                                         borderRadius: '16px',
                                         color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
                                         padding: '16px',
                                         cursor: 'pointer',
-                                        transition: 'all 0.2s'
+                                        transition: 'all 0.2s',
+                                        boxShadow: highlightVaultSettings ? '0 0 0 4px rgba(239, 68, 68, 0.2)' : 'none',
+                                        animation: highlightVaultSettings ? 'pulse-red 2s infinite' : 'none'
                                     }}
                                 >
                                     <FontAwesomeIcon icon={faFolder} style={{ fontSize: '20px', color: '#6366f1', marginRight: '12px' }} />
@@ -727,7 +860,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         </motion.div>
                     </motion.div>
                 )}
-            </AnimatePresence >
+            </AnimatePresence>
             <CustomAlert
                 isOpen={alertState.isOpen}
                 message={alertState.message}
@@ -735,7 +868,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
                 theme={theme}
             />
-        </PageLayout >
+        </PageLayout>
     );
 };
 
