@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -335,7 +335,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ display: 'flex', flexDirection: 'column', padding: '30px', minHeight: '400px' }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                            <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '20px', color: '#6366f1' }} />
+                            <FontAwesomeIcon icon={faListOl} style={{ fontSize: '20px', color: '#6366f1' }} />
                             <span style={{ fontWeight: '700', fontSize: '16px' }}>SAP Kodları</span>
                         </div>
 
@@ -394,7 +394,10 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         style={{ display: 'flex', flexDirection: 'column', padding: '30px', minHeight: '400px' }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <span style={{ fontWeight: '700', fontSize: '16px' }}>İşlem Kayıtları</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '20px', color: '#6366f1' }} />
+                                <span style={{ fontWeight: '700', fontSize: '16px' }}>İşlem Kayıtları</span>
+                            </div>
                             <button className="modern-btn" onClick={copyNotFound} style={{ padding: '8px 16px', fontSize: '13px', height: 'auto' }}>
                                 <FontAwesomeIcon icon={faCopy} style={{ fontSize: '14px', marginRight: '6px' }} /> Kopyala
                             </button>
