@@ -1,28 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faWrench, faCog, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageLayout from '../components/PageLayout';
+import CustomAlert from '../components/CustomAlert';
 
 const API_URL = 'http://localhost:5000/api';
 
 const AssemblyWizard = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
-    const [codes, setCodes] = useState('');
+
+    // Persistent Settings
+    const [rememberSession, setRememberSession] = useState(() => localStorage.getItem('rememberSession') === 'true');
+    const [vaultPath, setVaultPath] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('vaultPath') || '' : ''));
+
+    // State with optional persistence
+    const [codes, setCodes] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('codes') || '' : ''));
+
+    // Settings with optional persistence
+    const [addToExisting, setAddToExisting] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('addToExisting') === 'true' : false));
+    const [stopOnNotFound, setStopOnNotFound] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('stopOnNotFound') === 'true' : true));
+    const [dedupe, setDedupe] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('dedupe') === 'true' : true));
+
+    // Volatile State
     const [status, setStatus] = useState('Hazır');
     const [progress, setProgress] = useState(0);
     const [logs, setLogs] = useState([]);
     const [isRunning, setIsRunning] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
-    const [vaultPath, setVaultPath] = useState('');
     const [stats, setStats] = useState({ total: 0, success: 0, error: 0 });
-
-    // Settings
-    const [addToExisting, setAddToExisting] = useState(false);
-    const [stopOnNotFound, setStopOnNotFound] = useState(true);
-    const [dedupe, setDedupe] = useState(true);
+    const [alertState, setAlertState] = useState({ isOpen: false, message: '', type: 'info' });
     const [showSettings, setShowSettings] = useState(false);
 
     const logsEndRef = useRef(null);
@@ -60,6 +69,55 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         return () => clearInterval(interval);
     }, [vaultPath]);
 
+    // Persistence Effects
+    useEffect(() => {
+        if (rememberSession) {
+            localStorage.setItem('vaultPath', vaultPath);
+        }
+    }, [vaultPath, rememberSession]);
+
+    useEffect(() => {
+        localStorage.setItem('rememberSession', rememberSession);
+        if (!rememberSession) {
+            // Clear volatile settings if persistence is disabled
+            localStorage.removeItem('codes');
+            localStorage.removeItem('addToExisting');
+            localStorage.removeItem('stopOnNotFound');
+            localStorage.removeItem('dedupe');
+            localStorage.removeItem('vaultPath');
+        } else {
+            // Save current state if enabled
+            localStorage.setItem('codes', codes);
+            localStorage.setItem('addToExisting', addToExisting);
+            localStorage.setItem('stopOnNotFound', stopOnNotFound);
+            localStorage.setItem('dedupe', dedupe);
+            localStorage.setItem('vaultPath', vaultPath);
+        }
+    }, [rememberSession]);
+
+    useEffect(() => {
+        if (rememberSession) {
+            localStorage.setItem('codes', codes);
+        }
+    }, [codes, rememberSession]);
+
+    useEffect(() => {
+        if (rememberSession) {
+            localStorage.setItem('addToExisting', addToExisting);
+            localStorage.setItem('stopOnNotFound', stopOnNotFound);
+            localStorage.setItem('dedupe', dedupe);
+        }
+    }, [addToExisting, stopOnNotFound, dedupe, rememberSession]);
+
+    // Clear backend state on mount if persistence is disabled
+    useEffect(() => {
+        if (!rememberSession) {
+            axios.post(`${API_URL}/clear`).catch(console.error);
+            setLogs([]);
+            setStats({ total: 0, success: 0, error: 0 });
+        }
+    }, []);
+
     // Auto scroll logs
     useEffect(() => {
         logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -86,7 +144,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         }
 
         if (!vaultPath) {
-            alert("Lütfen kasa yolu seçiniz.");
+            setAlertState({ isOpen: true, message: "Lütfen kasa yolu seçiniz.", type: 'error' });
             setShowSettings(true);
             return;
         }
@@ -112,7 +170,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             });
         } catch (err) {
             setLogs(prev => [...prev, { message: "Hata: " + err.message, timestamp: Date.now() / 1000, color: '#ef4444' }]);
-            alert("Başlatılamadı: " + err.message);
+            setAlertState({ isOpen: true, message: "Başlatılamadı: " + err.message, type: 'error' });
         }
     };
 
@@ -141,23 +199,62 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         }
     };
 
-    const copyNotFound = () => {
-        const notFound = logs
-            .filter(l => l.message.includes('Bulunamadı:'))
-            .map(l => l.message.replace('Bulunamadı:', '').trim())
-            .join('\n');
+    const handleExportExcel = () => {
+        // Filter ONLY for "not found" (bulunamayan)
+        const notFoundLogs = logs.filter(log =>
+            log.message && log.message.toLowerCase().includes('bulunamadı')
+        );
 
-        if (notFound) {
-            navigator.clipboard.writeText(notFound + " PDM'de yok");
-            alert("Kopyalandı!");
-        } else {
-            alert("Bulunamayan parça yok.");
+        if (notFoundLogs.length === 0) {
+            setAlertState({ isOpen: true, message: "Dışa aktarılacak 'bulunamayan' kaydı yok.", type: 'info' });
+            return;
         }
+
+        // Add BOM for Excel UTF-8 compatibility
+        const BOM = "\uFEFF";
+        const headers = ["Zaman", "Bulunamayan SAP Kodu Mesajı"];
+        const csvContent = BOM + [
+            headers.join(";"),
+            ...notFoundLogs.map(log => {
+                const time = new Date(log.timestamp * 1000).toLocaleTimeString();
+                const msg = log.message.replace(/;/g, ","); // Escape semicolons
+                return `${time};${msg}`;
+            })
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `montaj_sihirbazi_bulunamayanlar_${new Date().toLocaleDateString()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     // Calculate live count of valid codes
     const liveCount = codes.split('\n').map(c => c.trim()).filter(c => c).length;
     const displayTotal = isRunning ? stats.total : liveCount;
+
+    const logoAnimationVariants = {
+        animate: {
+            y: [0, -5, 0],
+            scale: [1, 1.05, 1],
+            filter: ["drop-shadow(0 0 0px rgba(0,0,0,0))", "drop-shadow(0 5px 5px rgba(0,0,0,0.2))", "drop-shadow(0 0 0px rgba(0,0,0,0))"],
+            transition: {
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+            }
+        },
+        hover: {
+            scale: 1.1,
+            rotate: [0, -5, 5, 0],
+            transition: {
+                duration: 0.5
+            }
+        }
+    };
 
     return (
         <PageLayout>
@@ -178,9 +275,13 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                     <div style={{ width: '1px', height: '30px', background: 'var(--border)' }}></div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div className="icon-box success" style={{ width: '40px', height: '40px' }}>
-                            <FontAwesomeIcon icon={faWrench} style={{ fontSize: '20px' }} />
-                        </div>
+                        <motion.div
+                            style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            variants={logoAnimationVariants}
+                            whileHover="hover"
+                        >
+                            <img src="./mslogo.png" alt="Montaj Sihirbazı" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </motion.div>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Montaj Sihirbazı</h2>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Otomatik Montaj Oluşturucu</span>
@@ -303,7 +404,11 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
                     {/* Buttons */}
                     <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
-                        <button className="modern-btn primary" onClick={handleStart} style={{ flex: 2, height: '45px', fontSize: '15px' }}>
+                        <button
+                            className={`modern-btn ${isRunning ? (isPaused ? 'success' : 'secondary') : 'primary'}`}
+                            onClick={handleStart}
+                            style={{ flex: 2, height: '45px', fontSize: '15px' }}
+                        >
                             <FontAwesomeIcon
                                 icon={isRunning ? (isPaused ? faPlay : faPause) : faPlay}
                                 style={{ fontSize: '18px', marginRight: '8px' }}
@@ -330,9 +435,33 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             <FontAwesomeIcon icon={faTerminal} style={{ fontSize: '18px', color: '#6366f1' }} />
                             <span style={{ fontWeight: '700', fontSize: '15px' }}>İşlem Kayıtları</span>
                         </div>
-                        <button className="modern-btn" onClick={copyNotFound} style={{ padding: '6px 12px', fontSize: '12px', height: 'auto' }}>
-                            <FontAwesomeIcon icon={faCopy} style={{ fontSize: '13px', marginRight: '6px' }} /> Kopyala
-                        </button>
+                        <motion.button
+                            initial="idle"
+                            whileHover="hover"
+                            onClick={handleExportExcel}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px',
+                                borderRadius: '8px',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            <FontAwesomeIcon icon={faFileExcel} style={{ fontSize: '20px', color: '#10b981' }} />
+                            <motion.span
+                                variants={{
+                                    idle: { width: 0, opacity: 0, display: 'none' },
+                                    hover: { width: 'auto', opacity: 1, display: 'block' }
+                                }}
+                                style={{ whiteSpace: 'nowrap', fontSize: '15px', fontWeight: '600', color: '#10b981' }}
+                            >
+                                Excel'e Çıkart
+                            </motion.span>
+                        </motion.button>
                     </div>
 
                     <div style={{
@@ -365,7 +494,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                             gap: '12px',
                                             lineHeight: '1.4',
                                             paddingBottom: '8px',
-                                            borderBottom: '1px solid rgba(0,0,0,0.03)'
+                                            borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.05)'
                                         }}
                                     >
                                         <span style={{ opacity: 0.5, minWidth: '60px', fontSize: '11px', paddingTop: '2px' }}>{new Date(log.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
@@ -380,7 +509,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             </div>
 
             {/* Settings Modal */}
-            <AnimatePresence>
+            < AnimatePresence >
                 {showSettings && (
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -445,6 +574,32 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '16px',
+                                    cursor: 'pointer',
+                                    padding: '16px',
+                                    borderRadius: '16px',
+                                    background: rememberSession ? 'rgba(16, 185, 129, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                    border: rememberSession ? '1px solid rgba(16, 185, 129, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                    transition: 'all 0.2s ease'
+                                }}>
+                                    <div style={{
+                                        width: '24px', height: '24px', borderRadius: '6px',
+                                        background: rememberSession ? '#10b981' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        color: 'white', transition: 'all 0.2s'
+                                    }}>
+                                        {rememberSession && <FontAwesomeIcon icon={faSave} style={{ fontSize: '14px' }} />}
+                                    </div>
+                                    <input type="checkbox" checked={rememberSession} onChange={e => setRememberSession(e.target.checked)} style={{ display: 'none' }} />
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '15px', fontWeight: '600', color: rememberSession ? '#10b981' : 'var(--text)' }}>Oturumu Koru</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Kapatıldığında ayarları ve kodları hatırla</span>
+                                    </div>
+                                </label>
+
                                 <label style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -556,8 +711,15 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         </motion.div>
                     </motion.div>
                 )}
-            </AnimatePresence>
-        </PageLayout>
+            </AnimatePresence >
+            <CustomAlert
+                isOpen={alertState.isOpen}
+                message={alertState.message}
+                type={alertState.type}
+                onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
+                theme={theme}
+            />
+        </PageLayout >
     );
 };
 

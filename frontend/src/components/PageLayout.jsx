@@ -11,19 +11,24 @@ const PageLayout = ({ children, className = '', style = {}, ...props }) => {
             style={{
                 height: '100vh',
                 width: '100%',
-                maxWidth: '1600px',
-                margin: '0 auto',
-                padding: '50px 20px 20px 20px', // Standard padding: Top 50px for TitleBar
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '24px', // Standard gap between elements
-                boxSizing: 'border-box',
                 overflow: 'hidden',
                 ...style
             }}
             {...props}
         >
-            {children}
+            <div style={{
+                maxWidth: '1600px',
+                margin: '0 auto',
+                padding: '50px 20px 20px 20px',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px',
+                boxSizing: 'border-box',
+                width: '100%'
+            }}>
+                {children}
+            </div>
         </motion.div>
     );
 };

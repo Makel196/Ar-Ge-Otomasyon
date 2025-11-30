@@ -8,6 +8,26 @@ import PageLayout from '../components/PageLayout';
 const SapWizard = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
 
+    const logoAnimationVariants = {
+        animate: {
+            y: [0, -5, 0],
+            scale: [1, 1.05, 1],
+            filter: ["drop-shadow(0 0 0px rgba(0,0,0,0))", "drop-shadow(0 5px 5px rgba(0,0,0,0.2))", "drop-shadow(0 0 0px rgba(0,0,0,0))"],
+            transition: {
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+            }
+        },
+        hover: {
+            scale: 1.1,
+            rotate: [0, -5, 5, 0],
+            transition: {
+                duration: 0.5
+            }
+        }
+    };
+
     return (
         <PageLayout>
             {/* Header Section */}
@@ -27,9 +47,13 @@ const SapWizard = ({ theme, toggleTheme }) => {
                     <div style={{ width: '1px', height: '30px', background: 'var(--border)' }}></div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div className="icon-box primary" style={{ width: '40px', height: '40px' }}>
-                            <FontAwesomeIcon icon={faPen} style={{ fontSize: '20px' }} />
-                        </div>
+                        <motion.div
+                            style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            variants={logoAnimationVariants}
+                            whileHover="hover"
+                        >
+                            <img src="./sslogo.png" alt="SAP Sihirbazı" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </motion.div>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>SAP Sihirbazı</h2>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Otomatik SAP İşlemleri</span>

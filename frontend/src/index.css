@@ -266,6 +266,32 @@ body {
   filter: brightness(1.1);
 }
 
+/* Success Button (Resume) */
+.modern-btn.success {
+  background: var(--gradient-success);
+  color: white;
+  border: none;
+  box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.5);
+}
+
+.modern-btn.success:hover {
+  box-shadow: 0 15px 30px -5px rgba(16, 185, 129, 0.6);
+  filter: brightness(1.1);
+}
+
+/* Secondary Button (Pause - Gray) */
+.modern-btn.secondary {
+  background: linear-gradient(135deg, #94a3b8 0%, #475569 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 10px 20px -5px rgba(71, 85, 105, 0.5);
+}
+
+.modern-btn.secondary:hover {
+  box-shadow: 0 15px 30px -5px rgba(71, 85, 105, 0.6);
+  filter: brightness(1.1);
+}
+
 /* Disabled State */
 .modern-btn:disabled {
   opacity: 0.6;

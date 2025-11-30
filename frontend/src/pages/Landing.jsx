@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDatabase, faArrowRight, faChartLine, faWrench, faBolt, faPen } from '@fortawesome/free-solid-svg-icons';
+import { faDatabase, faArrowRight, faChartLine, faWrench, faBolt, faPen, faStar } from '@fortawesome/free-solid-svg-icons';
 import PageLayout from '../components/PageLayout';
 
 const Landing = ({ theme, toggleTheme }) => {
@@ -64,17 +64,37 @@ const Landing = ({ theme, toggleTheme }) => {
         }
     };
 
+    const logoAnimationVariants = {
+        animate: {
+            y: [0, -10, 0],
+            scale: [1, 1.05, 1],
+            filter: ["drop-shadow(0 0 0px rgba(0,0,0,0))", "drop-shadow(0 10px 10px rgba(0,0,0,0.2))", "drop-shadow(0 0 0px rgba(0,0,0,0))"],
+            transition: {
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+            }
+        },
+        hover: {
+            scale: 1.1,
+            rotate: [0, -5, 5, 0],
+            transition: {
+                duration: 0.5
+            }
+        }
+    };
+
     const Stars = ({ theme }) => {
         const starColor = theme === 'dark' ? '#ffffff' : '#fbbf24';
         const stars = [
-            { top: '15%', left: '25%', size: 3, delay: 0 },
-            { top: '35%', left: '85%', size: 4, delay: 0.5 },
-            { top: '65%', left: '15%', size: 2, delay: 1 },
-            { top: '85%', left: '75%', size: 5, delay: 1.5 },
-            { top: '25%', left: '65%', size: 3, delay: 0.2 },
-            { top: '55%', left: '55%', size: 4, delay: 0.7 },
-            { top: '90%', left: '35%', size: 2, delay: 1.2 },
-            { top: '10%', left: '70%', size: 3, delay: 0.8 },
+            { top: '15%', left: '25%', size: 12, delay: 0 },
+            { top: '35%', left: '85%', size: 16, delay: 0.5 },
+            { top: '65%', left: '15%', size: 10, delay: 1 },
+            { top: '85%', left: '75%', size: 20, delay: 1.5 },
+            { top: '25%', left: '65%', size: 14, delay: 0.2 },
+            { top: '55%', left: '55%', size: 18, delay: 0.7 },
+            { top: '90%', left: '35%', size: 10, delay: 1.2 },
+            { top: '10%', left: '70%', size: 12, delay: 0.8 },
         ];
 
         return (
@@ -93,10 +113,11 @@ const Landing = ({ theme, toggleTheme }) => {
                         key={i}
                         animate={{
                             opacity: [0.4, 1, 0.4],
-                            scale: [0.8, 1.2, 0.8]
+                            scale: [0.8, 1.2, 0.8],
+                            rotate: [0, 45, 0]
                         }}
                         transition={{
-                            duration: 2,
+                            duration: 3,
                             repeat: Infinity,
                             delay: star.delay,
                             ease: "easeInOut"
@@ -107,11 +128,12 @@ const Landing = ({ theme, toggleTheme }) => {
                             left: star.left,
                             width: star.size,
                             height: star.size,
-                            borderRadius: '50%',
-                            backgroundColor: starColor,
-                            boxShadow: `0 0 ${star.size * 2}px ${starColor}`
+                            color: starColor,
+                            filter: `drop-shadow(0 0 ${star.size / 2}px ${starColor})`
                         }}
-                    />
+                    >
+                        <FontAwesomeIcon icon={faStar} style={{ width: '100%', height: '100%' }} />
+                    </motion.div>
                 ))}
             </motion.div>
         );
@@ -127,11 +149,18 @@ const Landing = ({ theme, toggleTheme }) => {
             {/* Header */}
             <motion.div variants={itemVariants} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '60px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <img src="./logo.png" alt="Logo" style={{ height: '50px' }} onError={(e) => e.target.style.display = 'none'} />
+                    <motion.img
+                        src="./logo.png"
+                        alt="Logo"
+                        style={{ height: '50px' }}
+                        onError={(e) => e.target.style.display = 'none'}
+                        variants={logoAnimationVariants}
+                        whileHover="hover"
+                    />
                     <div>
                         <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '800', letterSpacing: '-1px', background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Ar-Ge Otomasyon</h1>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', padding: '2px 8px', background: 'var(--border)', borderRadius: '10px' }}>v2.0.0</span>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#10b981', padding: '2px 8px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>v2.0.0</span>
                         </div>
                     </div>
                 </div>
@@ -213,7 +242,7 @@ const Landing = ({ theme, toggleTheme }) => {
                             style={{
                                 position: 'absolute',
                                 top: '50%',
-                                left: '50%',
+                                left: '40%',
                                 transform: 'translate(-50%, -50%)',
                                 opacity: 0.05,
                                 zIndex: 0,
@@ -225,9 +254,13 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div className="icon-box primary" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
-                            <FontAwesomeIcon icon={faPen} style={{ fontSize: '32px' }} />
-                        </div>
+                        <motion.div
+                            style={{ width: '80px', height: '80px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            variants={logoAnimationVariants}
+                            whileHover="hover"
+                        >
+                            <img src="./sslogo.png" alt="SAP Sihirbazı" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </motion.div>
                         <h2 style={{ margin: '0 0 16px 0', fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: '700' }}>SAP Sihirbazı</h2>
                         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'clamp(14px, 1.5vw, 16px)', lineHeight: '1.6' }}>
                             SAP veri yönetimi, malzeme kartı oluşturma ve entegrasyon araçları.
@@ -235,7 +268,7 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '700', fontSize: '18px', position: 'relative', zIndex: 1 }}>
-                        Keşfet <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
+                        Başlat <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
                     </div>
                 </motion.div>
 
@@ -301,7 +334,7 @@ const Landing = ({ theme, toggleTheme }) => {
                             style={{
                                 position: 'absolute',
                                 top: '50%',
-                                left: '50%',
+                                left: '40%',
                                 transform: 'translate(-50%, -50%)',
                                 opacity: 0.05,
                                 zIndex: 0,
@@ -313,9 +346,13 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div className="icon-box success" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
-                            <FontAwesomeIcon icon={faWrench} style={{ fontSize: '32px' }} />
-                        </div>
+                        <motion.div
+                            style={{ width: '80px', height: '80px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            variants={logoAnimationVariants}
+                            whileHover="hover"
+                        >
+                            <img src="./mslogo.png" alt="Montaj Sihirbazı" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </motion.div>
                         <h2 style={{ margin: '0 0 16px 0', fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: '700' }}>Montaj Sihirbazı</h2>
                         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'clamp(14px, 1.5vw, 16px)', lineHeight: '1.6' }}>
                             Otomatik montaj oluşturma, parça doğrulama ve akıllı yerleştirme.

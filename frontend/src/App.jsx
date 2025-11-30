@@ -21,7 +21,7 @@ function App() {
     <Router>
       <div className="app-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
         <div className="app-title-bar"></div>
-        <div style={{ flex: 1, overflow: 'hidden', paddingTop: '32px' }}>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
           <Routes>
             <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
             <Route path="/assembly" element={<AssemblyWizard theme={theme} toggleTheme={toggleTheme} />} />
