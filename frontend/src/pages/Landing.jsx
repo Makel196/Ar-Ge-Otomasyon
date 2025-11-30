@@ -45,12 +45,11 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <button className="modern-btn" onClick={toggleTheme}>
-                        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                    </button>
-                    <button className="modern-btn">
-                        <Settings size={20} />
-                    </button>
+                    <div className="theme-toggle" onClick={toggleTheme}>
+                        <div className="theme-toggle-thumb"></div>
+                        <Moon size={14} className="theme-icon" />
+                        <Sun size={14} className="theme-icon" />
+                    </div>
                 </div>
             </motion.div>
 

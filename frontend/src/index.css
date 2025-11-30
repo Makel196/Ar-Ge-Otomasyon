@@ -319,3 +319,113 @@ body {
 .modern-card:hover .icon-box {
   transform: scale(1.1) rotate(5deg);
 }
+
+/* Modern Theme Toggle */
+.theme-toggle {
+  position: relative;
+  width: 60px;
+  height: 30px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.theme-toggle-thumb {
+  position: absolute;
+  left: 2px;
+  width: 26px;
+  height: 26px;
+  background: var(--gradient-primary);
+  border-radius: 50%;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  z-index: 2;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .theme-toggle-thumb {
+  transform: translateX(30px);
+  background: var(--gradient-info);
+}
+
+.theme-icon {
+  z-index: 1;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+.theme-toggle:hover .theme-icon {
+  opacity: 1;
+}
+
+/* Fireball Progress Bar */
+.fireball-progress-container {
+  height: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  overflow: visible;
+  /* Allow fireball to glow outside */
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 20px 0;
+}
+
+.fireball-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff0000, #ff8800, #ffff00);
+  border-radius: 10px;
+  position: relative;
+  width: 0%;
+  /* Controlled by JS */
+  transition: width 0.1s linear;
+  box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+}
+
+.fireball-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  /* Center on the tip */
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: radial-gradient(circle, #ffff00 20%, #ff8800 60%, transparent 100%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 10px #ff4500,
+    0 0 20px #ff0000,
+    0 0 30px #ff8800;
+  filter: blur(2px);
+  z-index: 10;
+  animation: pulse-fire 0.5s infinite alternate;
+}
+
+.fireball-particles {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+@keyframes pulse-fire {
+  0% {
+    transform: translateY(-50%) scale(1);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translateY(-50%) scale(1.2);
+    opacity: 1;
+  }
+}

@@ -242,23 +242,19 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             }}
                         />
 
-                        {/* Progress Bar */}
+                        {/* Fireball Progress Bar */}
                         <div style={{ marginTop: '30px', marginBottom: '30px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>
                                 <span>İlerleme Durumu</span>
                                 <span>{Math.round(progress * 100)}%</span>
                             </div>
-                            <div style={{ height: '10px', background: 'var(--bg)', borderRadius: '5px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${progress * 100}%` }}
-                                    transition={{ type: "spring", stiffness: 50 }}
-                                    style={{
-                                        height: '100%',
-                                        background: 'var(--gradient-primary)',
-                                        borderRadius: '5px'
-                                    }}
-                                />
+                            <div className="fireball-progress-container">
+                                <div
+                                    className="fireball-progress-bar"
+                                    style={{ width: `${progress * 100}%` }}
+                                >
+                                    {/* Fireball head is handled by CSS ::after */}
+                                </div>
                             </div>
                         </div>
 
