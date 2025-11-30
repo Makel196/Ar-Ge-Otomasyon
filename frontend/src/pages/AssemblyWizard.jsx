@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Square, Trash2, Copy, CheckCircle, AlertTriangle, Folder, Terminal, Layers, Settings, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Play, Square, Trash2, Copy, CheckCircle, AlertTriangle, Folder, Terminal, Layers } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -125,14 +125,14 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     return (
         <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            style={{ height: '100%', display: 'flex', padding: '24px', gap: '24px', boxSizing: 'border-box', background: 'var(--bg)' }}
+            className="responsive-container"
         >
 
             {/* Sidebar */}
             <motion.div
                 initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.1 }}
-                className="modern-card"
-                style={{ width: '300px', padding: '30px', display: 'flex', flexDirection: 'column', gap: '30px' }}
+                className="modern-card sidebar"
+                style={{ width: '300px', padding: '30px', display: 'flex', flexDirection: 'column', gap: '30px', flexShrink: 0 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <button className="modern-btn" onClick={() => navigate('/')} style={{ padding: '10px' }}>
@@ -185,13 +185,13 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             </motion.div>
 
             {/* Main Content */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px', minWidth: 0 }}>
 
                 {/* Header */}
                 <motion.div
                     initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
                     className="modern-card"
-                    style={{ padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    style={{ padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         <div className="icon-box success">
@@ -214,13 +214,13 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 </motion.div>
 
                 {/* Input & Controls */}
-                <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
+                <div className="responsive-grid">
 
                     {/* Left: Input */}
                     <motion.div
                         initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }}
                         className="modern-card"
-                        style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '30px' }}
+                        style={{ display: 'flex', flexDirection: 'column', padding: '30px', minHeight: '400px' }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                             <Terminal size={20} color="#6366f1" />
@@ -237,7 +237,8 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                 resize: 'none',
                                 fontSize: '14px',
                                 lineHeight: '1.6',
-                                border: '2px solid var(--border)'
+                                border: '2px solid var(--border)',
+                                minHeight: '200px'
                             }}
                         />
 
@@ -279,7 +280,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                     <motion.div
                         initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }}
                         className="modern-card"
-                        style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '30px' }}
+                        style={{ display: 'flex', flexDirection: 'column', padding: '30px', minHeight: '400px' }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <span style={{ fontWeight: '700', fontSize: '16px' }}>İşlem Kayıtları</span>
@@ -296,7 +297,8 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             overflowY: 'auto',
                             fontFamily: "'JetBrains Mono', 'Consolas', monospace",
                             fontSize: '13px',
-                            border: '1px solid var(--border)'
+                            border: '1px solid var(--border)',
+                            minHeight: '200px'
                         }}>
                             <AnimatePresence>
                                 {logs.length === 0 ? (

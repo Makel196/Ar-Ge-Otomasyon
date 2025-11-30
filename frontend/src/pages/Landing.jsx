@@ -41,7 +41,6 @@ const Landing = ({ theme, toggleTheme }) => {
                         <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '800', letterSpacing: '-1px', background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Ar-Ge Otomasyon</h1>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', padding: '2px 8px', background: 'var(--border)', borderRadius: '10px' }}>v2.0.0</span>
-                            <span style={{ fontSize: '12px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }}></div>Online</span>
                         </div>
                     </div>
                 </div>
@@ -56,7 +55,7 @@ const Landing = ({ theme, toggleTheme }) => {
             </motion.div>
 
             {/* Main Content */}
-            <div style={{ flex: 1, display: 'flex', gap: '40px', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ flex: 1, width: '100%', maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '40px', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
 
                 {/* SAP Wizard Card */}
                 <motion.div
@@ -64,8 +63,10 @@ const Landing = ({ theme, toggleTheme }) => {
                     className="modern-card"
                     onClick={() => navigate('/sap')}
                     style={{
-                        width: '320px',
-                        height: '420px',
+                        flex: 1,
+                        maxWidth: '400px',
+                        minWidth: '280px',
+                        aspectRatio: '3/4',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
@@ -78,8 +79,8 @@ const Landing = ({ theme, toggleTheme }) => {
                         <div className="icon-box primary" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
                             <Database size={32} />
                         </div>
-                        <h2 style={{ margin: '0 0 16px 0', fontSize: '24px', fontWeight: '700' }}>SAP Sihirbazı</h2>
-                        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.6' }}>
+                        <h2 style={{ margin: '0 0 16px 0', fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: '700' }}>SAP Sihirbazı</h2>
+                        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'clamp(14px, 1.5vw, 16px)', lineHeight: '1.6' }}>
                             SAP veri yönetimi, malzeme kartı oluşturma ve entegrasyon araçları.
                         </p>
                     </div>
@@ -99,8 +100,10 @@ const Landing = ({ theme, toggleTheme }) => {
                     className="modern-card"
                     onClick={() => navigate('/assembly')}
                     style={{
-                        width: '320px',
-                        height: '420px',
+                        flex: 1,
+                        maxWidth: '400px',
+                        minWidth: '280px',
+                        aspectRatio: '3/4',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
@@ -114,8 +117,8 @@ const Landing = ({ theme, toggleTheme }) => {
                         <div className="icon-box success" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
                             <Wrench size={32} />
                         </div>
-                        <h2 style={{ margin: '0 0 16px 0', fontSize: '24px', fontWeight: '700' }}>Montaj Sihirbazı</h2>
-                        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.6' }}>
+                        <h2 style={{ margin: '0 0 16px 0', fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: '700' }}>Montaj Sihirbazı</h2>
+                        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'clamp(14px, 1.5vw, 16px)', lineHeight: '1.6' }}>
                             Otomatik montaj oluşturma, parça doğrulama ve akıllı yerleştirme.
                         </p>
                     </div>

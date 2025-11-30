@@ -10,10 +10,10 @@ const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
+    width: 1300,
     height: 800,
-    minWidth: 1000,
-    minHeight: 600,
+    minWidth: 1300,
+    minHeight: 800,
     frame: false, // We use hidden titleBarStyle for custom background + native buttons
     titleBarStyle: 'hidden',
     titleBarOverlay: {
@@ -33,7 +33,7 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    // mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
