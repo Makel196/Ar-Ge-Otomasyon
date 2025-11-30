@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Square, Trash2, Copy, CheckCircle, AlertTriangle, Folder, Terminal, Layers, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Play, Square, Trash2, Copy, CheckCircle, AlertTriangle, Folder, Terminal, Layers } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -19,10 +19,6 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const [addToExisting, setAddToExisting] = useState(false);
     const [stopOnNotFound, setStopOnNotFound] = useState(true);
     const [dedupe, setDedupe] = useState(true);
-
-    // SAP Login
-    const [sapUser, setSapUser] = useState('');
-    const [sapPass, setSapPass] = useState('');
 
     const logsEndRef = useRef(null);
     const lastLogIndexRef = useRef(0);
@@ -60,16 +56,6 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [logs]);
 
-    const addLocalLog = (message, color = 'var(--text)') => {
-        const newLog = {
-            timestamp: Date.now() / 1000,
-            message: message,
-            color: color
-        };
-        setLogs(prev => [...prev, newLog]);
-        setTimeout(() => logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    };
-
     const handleStart = async () => {
         if (!vaultPath) {
             alert("Lütfen kasa yolu seçiniz.");
@@ -84,39 +70,30 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         if (codeList.length === 0) return;
 
         // Clear logs locally and on server
-        setLogs([]);
+        setLogs([{ message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
         lastLogIndexRef.current = 0;
         await axios.post(`${API_URL}/clear`);
-
-        addLocalLog("İşlem başlatılıyor...", "#6366f1");
-        addLocalLog(`${codeList.length} adet kod işlenecek.`, "var(--text-secondary)");
 
         try {
             await axios.post(`${API_URL}/start`, {
                 codes: codeList,
                 addToExisting,
-                stopOnNotFound,
-                sapUser,
-                sapPass
+                stopOnNotFound
             });
         } catch (err) {
-            addLocalLog("Başlatılamadı: " + err.message, "#ef4444");
+            setLogs(prev => [...prev, { message: "Hata: " + err.message, timestamp: Date.now() / 1000, color: '#ef4444' }]);
             alert("Başlatılamadı: " + err.message);
         }
     };
 
     const handleStop = async () => {
-        addLocalLog("Durdurma isteği gönderildi...", "#f59e0b");
-        try {
-            await axios.post(`${API_URL}/stop`);
-        } catch (err) {
-            addLocalLog("Durdurulamadı: " + err.message, "#ef4444");
-        }
+        setLogs(prev => [...prev, { message: "Durdurma isteği gönderildi...", timestamp: Date.now() / 1000, color: '#f59e0b' }]);
+        await axios.post(`${API_URL}/stop`);
     };
 
     const handleClear = () => {
         setCodes('');
-        setLogs([]);
+        setLogs([{ message: "Kayıtlar temizlendi.", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
         lastLogIndexRef.current = 0;
         setProgress(0);
         setStatus('Hazır');
@@ -129,7 +106,6 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             if (path) {
                 setVaultPath(path);
                 await axios.post(`${API_URL}/vault-path`, { path });
-                addLocalLog(`Kasa yolu seçildi: ${path}`, "#10b981");
             }
         }
     };
@@ -142,9 +118,9 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
         if (notFound) {
             navigator.clipboard.writeText(notFound + " PDM'de yok");
-            addLocalLog("Bulunamayan parçalar kopyalandı!", "#10b981");
+            alert("Kopyalandı!");
         } else {
-            addLocalLog("Bulunamayan parça yok.", "#f59e0b");
+            alert("Bulunamayan parça yok.");
         }
     };
 
@@ -171,62 +147,22 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                     <div className="setting-item">
                         <label style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '12px', borderRadius: '12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
                             <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#6366f1' }} />
-                            <div style={{ flex: 1 }}>
-                                <span style={{ fontSize: '14px', fontWeight: '600', display: 'block' }}>Mevcut montaja ekle</span>
-                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Yeni montaj oluşturmaz, aktif montaja ekler.</span>
-                            </div>
-                            <div title="Seçiliyse, parçalar açık olan SolidWorks montajına eklenir. Seçili değilse yeni bir montaj dosyası oluşturulur." style={{ cursor: 'help', opacity: 0.5 }}>
-                                <HelpCircle size={14} />
-                            </div>
+                            <span style={{ fontSize: '14px', fontWeight: '600' }}>Mevcut montaja ekle</span>
                         </label>
                     </div>
 
                     <div className="setting-item">
                         <label style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '12px', borderRadius: '12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
                             <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#6366f1' }} />
-                            <div style={{ flex: 1 }}>
-                                <span style={{ fontSize: '14px', fontWeight: '600', display: 'block' }}>Bulunamayan varsa durdur</span>
-                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Eksik parça tespit edilirse işlem durur.</span>
-                            </div>
-                            <div title="PDM'de bulunamayan bir parça kodu tespit edilirse işlemi durdurur ve kullanıcıyı uyarır." style={{ cursor: 'help', opacity: 0.5 }}>
-                                <HelpCircle size={14} />
-                            </div>
+                            <span style={{ fontSize: '14px', fontWeight: '600' }}>Bulunamayan varsa durdur</span>
                         </label>
                     </div>
 
                     <div className="setting-item">
                         <label style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '12px', borderRadius: '12px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
                             <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#6366f1' }} />
-                            <div style={{ flex: 1 }}>
-                                <span style={{ fontSize: '14px', fontWeight: '600', display: 'block' }}>Tekrarlı kodları sil</span>
-                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Aynı kod birden fazla girilmişse temizler.</span>
-                            </div>
-                            <div title="Girilen listedeki mükerrer (tekrar eden) stok kodlarını otomatik olarak temizler." style={{ cursor: 'help', opacity: 0.5 }}>
-                                <HelpCircle size={14} />
-                            </div>
+                            <span style={{ fontSize: '14px', fontWeight: '600' }}>Tekrarlı kodları sil</span>
                         </label>
-                    </div>
-
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '10px' }}>
-                        <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: 'var(--text)' }}>SAP Giriş Bilgileri</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <input
-                                type="text"
-                                value={sapUser}
-                                onChange={e => setSapUser(e.target.value)}
-                                placeholder="Kullanıcı Adı"
-                                className="modern-input"
-                                style={{ padding: '10px', fontSize: '13px', background: 'var(--bg)' }}
-                            />
-                            <input
-                                type="password"
-                                value={sapPass}
-                                onChange={e => setSapPass(e.target.value)}
-                                placeholder="Parola"
-                                className="modern-input"
-                                style={{ padding: '10px', fontSize: '13px', background: 'var(--bg)' }}
-                            />
-                        </div>
                     </div>
                 </div>
 
