@@ -39,14 +39,14 @@ const Landing = ({ theme, toggleTheme }) => {
 
     const shimmerVariants = {
         initial: { x: '-100%', opacity: 0 },
-        animate: {
+        hover: {
             x: '200%',
-            opacity: [0, 0.3, 0],
+            opacity: [0, 0.5, 0],
             transition: {
                 repeat: Infinity,
-                duration: 3,
+                duration: 1.5,
                 ease: "linear",
-                repeatDelay: 2
+                repeatDelay: 0.2
             }
         }
     };
@@ -60,6 +60,24 @@ const Landing = ({ theme, toggleTheme }) => {
                 repeat: Infinity,
                 ease: "easeInOut"
             }
+        },
+        hover: {
+            scale: 1.1,
+            rotate: [0, 10, -10, 0],
+            transition: {
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+            }
+        }
+    };
+
+    const sparkleVariants = {
+        initial: { opacity: 0, scale: 0.8 },
+        hover: {
+            opacity: 1,
+            scale: 1,
+            transition: { duration: 0.4 }
         }
     };
 
@@ -116,7 +134,6 @@ const Landing = ({ theme, toggleTheme }) => {
                         cursor: 'pointer',
                         padding: '40px',
                         position: 'relative',
-                        // Removed overflow: hidden from here to allow shadow to show
                     }}
                 >
                     {/* Hover Effect Layer (Shadow & Scale handled by parent variants) */}
@@ -125,27 +142,38 @@ const Landing = ({ theme, toggleTheme }) => {
                         style={{
                             position: 'absolute',
                             inset: 0,
-                            borderRadius: '24px', // Match card border radius
+                            borderRadius: '24px',
                             pointerEvents: 'none',
                             zIndex: -1
                         }}
                     />
 
-                    {/* Content Container with Overflow Hidden for Shimmer */}
+                    {/* Content Container with Overflow Hidden for Shimmer & Sparkles */}
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '24px', overflow: 'hidden', pointerEvents: 'none' }}>
-                        {/* Shimmer Effect */}
+                        {/* Shimmer Effect - Only on Hover */}
                         <motion.div
                             variants={shimmerVariants}
-                            initial="initial"
-                            animate="animate"
                             style={{
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
                                 width: '100%',
                                 height: '100%',
-                                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
                                 transform: 'skewX(-20deg)',
+                            }}
+                        />
+
+                        {/* Sparkles Overlay */}
+                        <motion.div
+                            variants={sparkleVariants}
+                            style={{
+                                position: 'absolute',
+                                inset: 0,
+                                backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.6) 1.5px, transparent 1.5px)',
+                                backgroundSize: '20px 20px',
+                                opacity: 0,
+                                zIndex: 1
                             }}
                         />
 
@@ -200,7 +228,6 @@ const Landing = ({ theme, toggleTheme }) => {
                         padding: '40px',
                         position: 'relative',
                         border: '2px solid rgba(16, 185, 129, 0.1)',
-                        // Removed overflow: hidden from here
                     }}
                 >
                     {/* Hover Effect Layer */}
@@ -215,21 +242,32 @@ const Landing = ({ theme, toggleTheme }) => {
                         }}
                     />
 
-                    {/* Content Container with Overflow Hidden for Shimmer */}
+                    {/* Content Container with Overflow Hidden for Shimmer & Sparkles */}
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '24px', overflow: 'hidden', pointerEvents: 'none' }}>
-                        {/* Shimmer Effect */}
+                        {/* Shimmer Effect - Only on Hover */}
                         <motion.div
                             variants={shimmerVariants}
-                            initial="initial"
-                            animate="animate"
                             style={{
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
                                 width: '100%',
                                 height: '100%',
-                                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
                                 transform: 'skewX(-20deg)',
+                            }}
+                        />
+
+                        {/* Sparkles Overlay */}
+                        <motion.div
+                            variants={sparkleVariants}
+                            style={{
+                                position: 'absolute',
+                                inset: 0,
+                                backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.6) 1.5px, transparent 1.5px)',
+                                backgroundSize: '20px 20px',
+                                opacity: 0,
+                                zIndex: 1
                             }}
                         />
 
