@@ -112,9 +112,25 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     // Clear backend state on mount if persistence is disabled
     useEffect(() => {
         if (!rememberSession) {
-            axios.post(`${API_URL}/clear`).catch(console.error);
+            const resetSession = async () => {
+                try {
+                    // Force stop any running process first
+                    await axios.post(`${API_URL}/stop`);
+                    // Then clear logs and stats
+                    await axios.post(`${API_URL}/clear`);
+                } catch (err) {
+                    console.error("Session reset error:", err);
+                }
+            };
+            resetSession();
+
+            // Reset frontend state immediately
             setLogs([]);
             setStats({ total: 0, success: 0, error: 0 });
+            setStatus('Hazır');
+            setProgress(0);
+            setIsRunning(false);
+            setIsPaused(false);
         }
     }, []);
 
@@ -206,7 +222,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         );
 
         if (notFoundLogs.length === 0) {
-            setAlertState({ isOpen: true, message: "Dışa aktarılacak 'bulunamayan' kaydı yok.", type: 'info' });
+            setAlertState({ isOpen: true, message: "Dışa aktarılacak veri yok.", type: 'info' });
             return;
         }
 
