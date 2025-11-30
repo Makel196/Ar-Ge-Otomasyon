@@ -1,0 +1,137 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Settings, Moon, Sun, Wrench, Database, ArrowRight, Zap, Activity } from 'lucide-react';
+
+const Landing = ({ theme, toggleTheme }) => {
+    const navigate = useNavigate();
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.2,
+                delayChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: { type: "spring", stiffness: 100 }
+        }
+    };
+
+    return (
+        <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '40px', boxSizing: 'border-box', background: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent 40%)' }}
+        >
+            {/* Header */}
+            <motion.div variants={itemVariants} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '60px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <img src="/logo.png" alt="Logo" style={{ height: '50px' }} onError={(e) => e.target.style.display = 'none'} />
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '800', letterSpacing: '-1px', background: 'var(--gradient-primary)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Ar-Ge Otomasyon</h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', padding: '2px 8px', background: 'var(--border)', borderRadius: '10px' }}>v2.0.0</span>
+                            <span style={{ fontSize: '12px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }}></div>Online</span>
+                        </div>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button className="modern-btn" onClick={toggleTheme}>
+                        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                    </button>
+                    <button className="modern-btn">
+                        <Settings size={20} />
+                    </button>
+                </div>
+            </motion.div>
+
+            {/* Main Content */}
+            <div style={{ flex: 1, display: 'flex', gap: '40px', justifyContent: 'center', alignItems: 'center' }}>
+
+                {/* SAP Wizard Card */}
+                <motion.div
+                    variants={itemVariants}
+                    className="modern-card"
+                    onClick={() => navigate('/sap')}
+                    style={{
+                        width: '320px',
+                        height: '420px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        padding: '40px',
+                        position: 'relative'
+                    }}
+                >
+                    <div>
+                        <div className="icon-box primary" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
+                            <Database size={32} />
+                        </div>
+                        <h2 style={{ margin: '0 0 16px 0', fontSize: '24px', fontWeight: '700' }}>SAP Sihirbazı</h2>
+                        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.6' }}>
+                            SAP veri yönetimi, malzeme kartı oluşturma ve entegrasyon araçları.
+                        </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '600', fontSize: '14px' }}>
+                        Keşfet <ArrowRight size={16} />
+                    </div>
+
+                    <div style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}>
+                        <Activity size={120} />
+                    </div>
+                </motion.div>
+
+                {/* Assembly Wizard Card */}
+                <motion.div
+                    variants={itemVariants}
+                    className="modern-card"
+                    onClick={() => navigate('/assembly')}
+                    style={{
+                        width: '320px',
+                        height: '420px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        padding: '40px',
+                        position: 'relative',
+                        border: '2px solid rgba(16, 185, 129, 0.1)'
+                    }}
+                >
+                    <div>
+                        <div className="icon-box success" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
+                            <Wrench size={32} />
+                        </div>
+                        <h2 style={{ margin: '0 0 16px 0', fontSize: '24px', fontWeight: '700' }}>Montaj Sihirbazı</h2>
+                        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.6' }}>
+                            Otomatik montaj oluşturma, parça doğrulama ve akıllı yerleştirme.
+                        </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '600', fontSize: '14px' }}>
+                        Başlat <ArrowRight size={16} />
+                    </div>
+
+                    <div style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}>
+                        <Zap size={120} />
+                    </div>
+                </motion.div>
+
+            </div>
+        </motion.div>
+    );
+};
+
+export default Landing;
