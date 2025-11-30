@@ -56,6 +56,17 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [logs]);
 
+    const addLocalLog = (message, color = 'var(--text)') => {
+        const newLog = {
+            timestamp: Date.now() / 1000,
+            message: message,
+            color: color
+        };
+        setLogs(prev => [...prev, newLog]);
+        // Also scroll to bottom
+        setTimeout(() => logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    };
+
     const handleStart = async () => {
         if (!vaultPath) {
             alert("Lütfen kasa yolu seçiniz.");
@@ -74,6 +85,9 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         lastLogIndexRef.current = 0;
         await axios.post(`${API_URL}/clear`);
 
+        addLocalLog("İşlem başlatılıyor...", "#6366f1");
+        addLocalLog(`${codeList.length} adet kod işlenecek.`, "var(--text-secondary)");
+
         try {
             await axios.post(`${API_URL}/start`, {
                 codes: codeList,
@@ -81,12 +95,18 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 stopOnNotFound
             });
         } catch (err) {
+            addLocalLog("Başlatılamadı: " + err.message, "#ef4444");
             alert("Başlatılamadı: " + err.message);
         }
     };
 
     const handleStop = async () => {
-        await axios.post(`${API_URL}/stop`);
+        addLocalLog("Durdurma isteği gönderildi...", "#f59e0b");
+        try {
+            await axios.post(`${API_URL}/stop`);
+        } catch (err) {
+            addLocalLog("Durdurulamadı: " + err.message, "#ef4444");
+        }
     };
 
     const handleClear = () => {
@@ -96,6 +116,8 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         setProgress(0);
         setStatus('Hazır');
         axios.post(`${API_URL}/clear`);
+        // No need to log "Cleared" if we just cleared the view, but maybe useful to know it happened if we keep history? 
+        // User wants logs cleared, so empty is correct.
     };
 
     const handleSelectFolder = async () => {
@@ -104,6 +126,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             if (path) {
                 setVaultPath(path);
                 await axios.post(`${API_URL}/vault-path`, { path });
+                addLocalLog(`Kasa yolu seçildi: ${path}`, "#10b981");
             }
         }
     };
@@ -116,9 +139,9 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
         if (notFound) {
             navigator.clipboard.writeText(notFound + " PDM'de yok");
-            alert("Kopyalandı!");
+            addLocalLog("Bulunamayan parçalar kopyalandı!", "#10b981");
         } else {
-            alert("Bulunamayan parça yok.");
+            addLocalLog("Bulunamayan parça yok.", "#f59e0b");
         }
     };
 
