@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faWrench, faCog } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faWrench, faCog, faTimes } from '@fortawesome/free-solid-svg-icons';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -217,7 +217,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
                     <button
                         className={`modern-btn ${showSettings ? 'primary' : ''}`}
-                        onClick={() => setShowSettings(!showSettings)}
+                        onClick={() => setShowSettings(true)}
                         style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                         <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
@@ -392,88 +392,123 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 </motion.div>
             </div>
 
-            {/* Settings Footer (Collapsible) */}
+            {/* Settings Modal */}
             <AnimatePresence>
                 {showSettings && (
                     <motion.div
-                        initial={{ height: 0, opacity: 0, marginBottom: -20 }}
-                        animate={{ height: 'auto', opacity: 1, marginBottom: 0 }}
-                        exit={{ height: 0, opacity: 0, marginBottom: -20 }}
-                        transition={{ duration: 0.3 }}
-                        className="modern-card"
-                        style={{ padding: '20px 30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', overflow: 'hidden', flexShrink: 0 }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1000,
+                            backdropFilter: 'blur(5px)'
+                        }}
+                        onClick={() => setShowSettings(false)}
                     >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ayarlar:</span>
-
-                            <label style={{
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            onClick={e => e.stopPropagation()}
+                            className="modern-card"
+                            style={{
+                                padding: '30px',
+                                width: '500px',
+                                maxWidth: '90%',
                                 display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                cursor: 'pointer',
-                                padding: '10px 16px',
-                                borderRadius: '10px',
-                                background: addToExisting ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                                border: addToExisting ? '1px solid #6366f1' : '1px solid var(--border)',
-                                transition: 'all 0.2s ease'
-                            }}>
-                                <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
-                                <span style={{ fontSize: '13px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
-                            </label>
-
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                cursor: 'pointer',
-                                padding: '10px 16px',
-                                borderRadius: '10px',
-                                background: stopOnNotFound ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                                border: stopOnNotFound ? '1px solid #6366f1' : '1px solid var(--border)',
-                                transition: 'all 0.2s ease'
-                            }}>
-                                <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
-                                <span style={{ fontSize: '13px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
-                            </label>
-
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                cursor: 'pointer',
-                                padding: '10px 16px',
-                                borderRadius: '10px',
-                                background: dedupe ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
-                                border: dedupe ? '1px solid #6366f1' : '1px solid var(--border)',
-                                transition: 'all 0.2s ease'
-                            }}>
-                                <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#6366f1' }} />
-                                <span style={{ fontSize: '13px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
-                            </label>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Kasa Yolu:</span>
-                            <div
-                                onClick={handleSelectFolder}
-                                className="modern-btn"
-                                style={{
-                                    justifyContent: 'flex-start',
-                                    background: 'var(--bg)',
-                                    border: '2px dashed var(--border)',
-                                    color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
-                                    padding: '10px 16px',
-                                    height: 'auto',
-                                    minWidth: '200px',
-                                    maxWidth: '300px'
-                                }}
-                            >
-                                <FontAwesomeIcon icon={faFolder} style={{ fontSize: '16px', color: '#6366f1', marginRight: '8px' }} />
-                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '13px' }}>
-                                    {vaultPath || "Klasör Seç..."}
-                                </span>
+                                flexDirection: 'column',
+                                gap: '24px',
+                                boxShadow: '0 20px 50px rgba(0,0,0,0.2)'
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Ayarlar</h3>
+                                <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                    <FontAwesomeIcon icon={faTimes} style={{ fontSize: '20px' }} />
+                                </button>
                             </div>
-                        </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '16px',
+                                    cursor: 'pointer',
+                                    padding: '16px',
+                                    borderRadius: '12px',
+                                    background: addToExisting ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                                    border: addToExisting ? '1px solid #6366f1' : '1px solid var(--border)',
+                                    transition: 'all 0.2s ease'
+                                }}>
+                                    <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ width: '20px', height: '20px', accentColor: '#6366f1' }} />
+                                    <span style={{ fontSize: '15px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
+                                </label>
+
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '16px',
+                                    cursor: 'pointer',
+                                    padding: '16px',
+                                    borderRadius: '12px',
+                                    background: stopOnNotFound ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                                    border: stopOnNotFound ? '1px solid #6366f1' : '1px solid var(--border)',
+                                    transition: 'all 0.2s ease'
+                                }}>
+                                    <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ width: '20px', height: '20px', accentColor: '#6366f1' }} />
+                                    <span style={{ fontSize: '15px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
+                                </label>
+
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '16px',
+                                    cursor: 'pointer',
+                                    padding: '16px',
+                                    borderRadius: '12px',
+                                    background: dedupe ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg)',
+                                    border: dedupe ? '1px solid #6366f1' : '1px solid var(--border)',
+                                    transition: 'all 0.2s ease'
+                                }}>
+                                    <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ width: '20px', height: '20px', accentColor: '#6366f1' }} />
+                                    <span style={{ fontSize: '15px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
+                                </label>
+                            </div>
+
+                            <div>
+                                <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>KASA YOLU</label>
+                                <div
+                                    onClick={handleSelectFolder}
+                                    className="modern-btn"
+                                    style={{
+                                        justifyContent: 'flex-start',
+                                        background: 'var(--bg)',
+                                        border: '2px dashed var(--border)',
+                                        color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
+                                        padding: '16px',
+                                        height: 'auto'
+                                    }}
+                                >
+                                    <FontAwesomeIcon icon={faFolder} style={{ fontSize: '20px', color: '#6366f1', marginRight: '12px' }} />
+                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '14px' }}>
+                                        {vaultPath || "Klasör Seç..."}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <button className="modern-btn primary" onClick={() => setShowSettings(false)} style={{ marginTop: '10px' }}>
+                                Kaydet ve Kapat
+                            </button>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
