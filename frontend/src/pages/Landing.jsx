@@ -27,6 +27,42 @@ const Landing = ({ theme, toggleTheme }) => {
         }
     };
 
+    const cardHoverVariants = {
+        hover: {
+            scale: 1.05,
+            y: -10,
+            boxShadow: "0 25px 50px -12px rgba(99, 102, 241, 0.5)",
+            transition: { type: "spring", stiffness: 300, damping: 20 }
+        },
+        tap: { scale: 0.98 }
+    };
+
+    const shimmerVariants = {
+        initial: { x: '-100%', opacity: 0 },
+        animate: {
+            x: '200%',
+            opacity: [0, 0.3, 0],
+            transition: {
+                repeat: Infinity,
+                duration: 3,
+                ease: "linear",
+                repeatDelay: 2
+            }
+        }
+    };
+
+    const floatingIconVariants = {
+        animate: {
+            y: [0, -15, 0],
+            rotate: [0, 5, -5, 0],
+            transition: {
+                duration: 6,
+                repeat: Infinity,
+                ease: "easeInOut"
+            }
+        }
+    };
+
     return (
         <motion.div
             initial="hidden"
@@ -65,6 +101,8 @@ const Landing = ({ theme, toggleTheme }) => {
                 {/* SAP Wizard Card */}
                 <motion.div
                     variants={itemVariants}
+                    whileHover="hover"
+                    whileTap="tap"
                     className="modern-card"
                     onClick={() => navigate('/sap')}
                     style={{
@@ -77,10 +115,30 @@ const Landing = ({ theme, toggleTheme }) => {
                         justifyContent: 'space-between',
                         cursor: 'pointer',
                         padding: '40px',
-                        position: 'relative'
+                        position: 'relative',
+                        overflow: 'hidden'
                     }}
                 >
-                    <div>
+                    <motion.div variants={cardHoverVariants} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+
+                    {/* Shimmer Effect */}
+                    <motion.div
+                        variants={shimmerVariants}
+                        initial="initial"
+                        animate="animate"
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                            transform: 'skewX(-20deg)',
+                            pointerEvents: 'none'
+                        }}
+                    />
+
+                    <div style={{ position: 'relative', zIndex: 1 }}>
                         <div className="icon-box primary" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
                             <FontAwesomeIcon icon={faDatabase} style={{ fontSize: '32px' }} />
                         </div>
@@ -90,18 +148,24 @@ const Landing = ({ theme, toggleTheme }) => {
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '600', fontSize: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '600', fontSize: '14px', position: 'relative', zIndex: 1 }}>
                         Keşfet <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '16px' }} />
                     </div>
 
-                    <div style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}>
+                    <motion.div
+                        variants={floatingIconVariants}
+                        animate="animate"
+                        style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}
+                    >
                         <FontAwesomeIcon icon={faChartLine} style={{ fontSize: '120px' }} />
-                    </div>
+                    </motion.div>
                 </motion.div>
 
                 {/* Assembly Wizard Card */}
                 <motion.div
                     variants={itemVariants}
+                    whileHover="hover"
+                    whileTap="tap"
                     className="modern-card"
                     onClick={() => navigate('/assembly')}
                     style={{
@@ -115,10 +179,30 @@ const Landing = ({ theme, toggleTheme }) => {
                         cursor: 'pointer',
                         padding: '40px',
                         position: 'relative',
-                        border: '2px solid rgba(16, 185, 129, 0.1)'
+                        border: '2px solid rgba(16, 185, 129, 0.1)',
+                        overflow: 'hidden'
                     }}
                 >
-                    <div>
+                    <motion.div variants={cardHoverVariants} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+
+                    {/* Shimmer Effect */}
+                    <motion.div
+                        variants={shimmerVariants}
+                        initial="initial"
+                        animate="animate"
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                            transform: 'skewX(-20deg)',
+                            pointerEvents: 'none'
+                        }}
+                    />
+
+                    <div style={{ position: 'relative', zIndex: 1 }}>
                         <div className="icon-box success" style={{ width: '70px', height: '70px', borderRadius: '20px', marginBottom: '30px' }}>
                             <FontAwesomeIcon icon={faWrench} style={{ fontSize: '32px' }} />
                         </div>
@@ -128,13 +212,17 @@ const Landing = ({ theme, toggleTheme }) => {
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '600', fontSize: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '600', fontSize: '14px', position: 'relative', zIndex: 1 }}>
                         Başlat <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '16px' }} />
                     </div>
 
-                    <div style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}>
+                    <motion.div
+                        variants={floatingIconVariants}
+                        animate="animate"
+                        style={{ position: 'absolute', top: '20px', right: '20px', opacity: 0.1 }}
+                    >
                         <FontAwesomeIcon icon={faBolt} style={{ fontSize: '120px' }} />
-                    </div>
+                    </motion.div>
                 </motion.div>
 
             </div>
