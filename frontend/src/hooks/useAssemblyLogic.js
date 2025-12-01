@@ -4,57 +4,103 @@ import axios from 'axios';
 const API_URL = 'http://localhost:5000/api';
 
 export const useAssemblyLogic = () => {
-    // Persistent Settings
+    // ==========================================
+    // 1. Persistent Settings (LocalStorage)
+    // ==========================================
     const [rememberSession, setRememberSession] = useState(() => localStorage.getItem('rememberSession') === 'true');
-    const [vaultPath, setVaultPath] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('vaultPath') || '' : ''));
 
-    // State with optional persistence
-    const [codes, setCodes] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('codes') || '' : ''));
+    // Helper to get initial value based on persistence
+    const getPersisted = (key, defaultVal) => {
+        if (localStorage.getItem('rememberSession') !== 'true') return defaultVal;
+        const item = localStorage.getItem(key);
+        if (item === null) return defaultVal;
+        if (item === 'true') return true;
+        if (item === 'false') return false;
+        return item;
+    };
 
-    // Settings with optional persistence
-    const [addToExisting, setAddToExisting] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('addToExisting') === 'true' : false));
-    const [stopOnNotFound, setStopOnNotFound] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('stopOnNotFound') === 'true' : true));
-    const [dedupe, setDedupe] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('dedupe') === 'true' : true));
+    const [vaultPath, setVaultPath] = useState(() => getPersisted('vaultPath', ''));
+    const [codes, setCodes] = useState(() => getPersisted('codes', ''));
+    const [addToExisting, setAddToExisting] = useState(() => getPersisted('addToExisting', false));
+    const [stopOnNotFound, setStopOnNotFound] = useState(() => getPersisted('stopOnNotFound', true));
+    const [dedupe, setDedupe] = useState(() => getPersisted('dedupe', true));
 
-    // Volatile State
+    // ==========================================
+    // 2. Volatile State (UI State)
+    // ==========================================
     const [status, setStatus] = useState('Hazır');
     const [progress, setProgress] = useState(0);
     const [logs, setLogs] = useState([]);
     const [isRunning, setIsRunning] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [stats, setStats] = useState({ total: 0, success: 0, error: 0 });
+
+    // UI Controls
     const [alertState, setAlertState] = useState({ isOpen: false, message: '', type: 'info' });
     const [showSettings, setShowSettings] = useState(false);
     const [highlightVaultSettings, setHighlightVaultSettings] = useState(false);
 
+    // Refs
     const logsEndRef = useRef(null);
     const lastLogIndexRef = useRef(0);
 
-    // Poll status
+    // CRITICAL: Ref to track if a user command is currently being processed.
+    // This prevents the polling interval from overwriting optimistic UI updates
+    // while a command is in flight or immediately after.
+    const commandProcessingRef = useRef(false);
+
+    // ==========================================
+    // 3. Effects
+    // ==========================================
+
+    // Polling Effect
     useEffect(() => {
         const interval = setInterval(async () => {
+            // Skip polling updates if we are in the middle of a user command
+            if (commandProcessingRef.current) return;
+
             try {
                 const res = await axios.get(`${API_URL}/status`, {
                     params: { since: lastLogIndexRef.current }
                 });
 
                 const data = res.data;
-                setStatus(data.status);
-                setProgress(data.progress);
-                setIsRunning(data.is_running);
-                setIsPaused(data.is_paused);
-                if (data.stats) {
-                    console.log("Frontend received stats:", data.stats);
-                    setStats(data.stats);
-                }
 
-                if (data.vault_path && !vaultPath) {
-                    setVaultPath(data.vault_path);
-                }
+                // Only update state if we are not processing a command (double check)
+                if (!commandProcessingRef.current) {
+                    setStatus(data.status);
+                    setProgress(data.progress);
+                    setIsRunning(data.is_running);
+                    setIsPaused(data.is_paused);
 
-                if (data.logs && data.logs.length > 0) {
-                    setLogs(prev => [...prev, ...data.logs]);
-                    lastLogIndexRef.current += data.logs.length;
+                    if (data.stats) {
+                        setStats(data.stats);
+                    }
+
+                    if (data.vault_path && !vaultPath) {
+                        setVaultPath(data.vault_path);
+                    }
+
+                    if (data.logs && data.logs.length > 0) {
+                        setLogs(prev => [...prev, ...data.logs]);
+                        lastLogIndexRef.current += data.logs.length;
+
+                        // USER REQUEST: Log kontrol yapısı
+                        // Belirli mesajlar geldiğinde durumu resetle
+                        const completionMessages = [
+                            'Bulunamayan parçalar var, montaj iptal edildi.',
+                            'İşlem başarıyla tamamlandı.'
+                        ];
+
+                        const hasCompletionMessage = data.logs.some(log =>
+                            completionMessages.includes(log.message)
+                        );
+
+                        if (hasCompletionMessage) {
+                            setIsRunning(false);
+                            setIsPaused(false);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("Polling error", err);
@@ -63,20 +109,17 @@ export const useAssemblyLogic = () => {
         return () => clearInterval(interval);
     }, [vaultPath]);
 
-    // Unified Persistence Effect - Consolidates all localStorage operations
+    // Persistence Effect
     useEffect(() => {
-        // Always save rememberSession preference
         localStorage.setItem('rememberSession', rememberSession);
 
         if (!rememberSession) {
-            // Clear all persisted data when persistence is disabled
             localStorage.removeItem('codes');
             localStorage.removeItem('addToExisting');
             localStorage.removeItem('stopOnNotFound');
             localStorage.removeItem('dedupe');
             localStorage.removeItem('vaultPath');
         } else {
-            // Persist all settings when enabled
             localStorage.setItem('codes', codes);
             localStorage.setItem('addToExisting', addToExisting);
             localStorage.setItem('stopOnNotFound', stopOnNotFound);
@@ -85,22 +128,18 @@ export const useAssemblyLogic = () => {
         }
     }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath]);
 
-    // Clear backend state on mount if persistence is disabled
+    // Cleanup on mount if no persistence
     useEffect(() => {
         if (!rememberSession) {
             const resetSession = async () => {
                 try {
-                    // Force stop any running process first
                     await axios.post(`${API_URL}/stop`);
-                    // Then clear logs and stats
                     await axios.post(`${API_URL}/clear`);
                 } catch (err) {
                     console.error("Session reset error:", err);
                 }
             };
             resetSession();
-
-            // Reset frontend state immediately
             setLogs([]);
             setStats({ total: 0, success: 0, error: 0 });
             setStatus('Hazır');
@@ -110,31 +149,66 @@ export const useAssemblyLogic = () => {
         }
     }, []);
 
-    // Auto scroll logs
+    // Auto-scroll logs
     useEffect(() => {
         logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [logs]);
 
-    const handleStart = useCallback(async () => {
-        if (isRunning) {
-            if (isPaused) {
-                // Resume
-                try {
-                    await axios.post(`${API_URL}/resume`);
-                } catch (err) {
-                    console.error("Resume error", err);
-                }
-            } else {
-                // Pause
-                try {
-                    await axios.post(`${API_URL}/pause`);
-                } catch (err) {
-                    console.error("Pause error", err);
-                }
+    // ==========================================
+    // 4. Action Handlers
+    // ==========================================
+
+    // Helper to execute commands safely with optimistic updates and polling suppression
+    const executeCommand = async (actionName, optimisticUpdateFn, apiCallFn) => {
+        // 1. Lock polling
+        commandProcessingRef.current = true;
+
+        try {
+            // 2. Optimistic UI Update
+            if (optimisticUpdateFn) optimisticUpdateFn();
+
+            // 3. API Call
+            await apiCallFn();
+        } catch (err) {
+            console.error(`${actionName} error:`, err);
+            // On error, we might want to revert, but usually the next poll will fix it.
+            // For now, just log it.
+            const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || "Bilinmeyen hata";
+            setLogs(prev => [...prev, { message: `Hata (${actionName}): ${errorMessage}`, timestamp: Date.now() / 1000, color: '#ef4444' }]);
+
+            // If it was a start command, revert running state
+            if (actionName === 'Start') {
+                setIsRunning(false);
+                setStatus("Hata");
             }
+        } finally {
+            // 4. Unlock polling after a delay to allow backend state to settle
+            setTimeout(() => {
+                commandProcessingRef.current = false;
+            }, 1000);
+        }
+    };
+
+    const handleStart = useCallback(async () => {
+        // CASE 1: Resume
+        if (isRunning && isPaused) {
+            executeCommand('Resume',
+                () => { setIsPaused(false); setStatus("Çalışıyor"); },
+                () => axios.post(`${API_URL}/resume`)
+            );
             return;
         }
 
+        // CASE 2: Pause
+        if (isRunning && !isPaused) {
+            executeCommand('Pause',
+                () => { setIsPaused(true); setStatus("Duraklatıldı"); },
+                () => axios.post(`${API_URL}/pause`)
+            );
+            return;
+        }
+
+        // CASE 3: Start New
         if (!vaultPath) {
             setAlertState({ isOpen: true, message: "Lütfen kasa yolu seçiniz.", type: 'error' });
             setShowSettings(true);
@@ -151,55 +225,51 @@ export const useAssemblyLogic = () => {
             return;
         }
 
-        // Clear logs locally and on server
-        setLogs([{ message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
-        setStats({ total: codeList.length, success: 0, error: 0 });
-        lastLogIndexRef.current = 0;
-
-        // Optimistically set running to prevent double clicks
-        setIsRunning(true);
-
-        await axios.post(`${API_URL}/clear`);
-
-        try {
-            await axios.post(`${API_URL}/start`, {
-                codes: codeList,
-                addToExisting,
-                stopOnNotFound
-            });
-        } catch (err) {
-            setIsRunning(false); // Revert state on error
-            const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || "Bilinmeyen hata";
-            setLogs(prev => [...prev, { message: "Hata: " + errorMessage, timestamp: Date.now() / 1000, color: '#ef4444' }]);
-
-            // Check for PDM/Vault errors and open settings
-            if (errorMessage.toLowerCase().includes('pdm') || errorMessage.toLowerCase().includes('kasa') || errorMessage.toLowerCase().includes('vault')) {
-                setAlertState({
-                    isOpen: true,
-                    message: errorMessage + "\n\nLütfen Ayarlar'ı açıp Kasa Yolu'nu seçiniz.",
-                    type: 'error'
+        executeCommand('Start',
+            () => {
+                setLogs([{ message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
+                setStats({ total: codeList.length, success: 0, error: 0 });
+                lastLogIndexRef.current = 0;
+                setIsRunning(true);
+                setIsPaused(false);
+                setStatus("Başlatılıyor...");
+            },
+            async () => {
+                await axios.post(`${API_URL}/clear`);
+                await axios.post(`${API_URL}/start`, {
+                    codes: codeList,
+                    addToExisting,
+                    stopOnNotFound
                 });
-                setShowSettings(true);
-                setHighlightVaultSettings(true);
-            } else {
-                setAlertState({ isOpen: true, message: "Başlatılamadı: " + errorMessage, type: 'error' });
             }
-        }
+        );
     }, [isRunning, isPaused, vaultPath, codes, dedupe, addToExisting, stopOnNotFound]);
 
-    const handleStop = useCallback(async () => {
-        setLogs(prev => [...prev, { message: "Durdurma isteği gönderildi...", timestamp: Date.now() / 1000, color: '#f59e0b' }]);
-        await axios.post(`${API_URL}/stop`);
+    const handleStop = useCallback(() => {
+        executeCommand('Stop',
+            () => {
+                setLogs(prev => [...prev, { message: "Durdurma isteği gönderildi...", timestamp: Date.now() / 1000, color: '#f59e0b' }]);
+                setIsRunning(false);
+                setStatus("Durduruluyor...");
+            },
+            () => axios.post(`${API_URL}/stop`)
+        );
     }, []);
 
     const handleClear = useCallback(() => {
-        setCodes('');
-        setLogs([{ message: "Kayıtlar temizlendi.", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
-        setStats({ total: 0, success: 0, error: 0 });
-        lastLogIndexRef.current = 0;
-        setProgress(0);
-        setStatus('Hazır');
-        axios.post(`${API_URL}/clear`);
+        executeCommand('Clear',
+            () => {
+                setCodes('');
+                setLogs([{ message: "Kayıtlar temizlendi.", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
+                setStats({ total: 0, success: 0, error: 0 });
+                lastLogIndexRef.current = 0;
+                setProgress(0);
+                setStatus('Hazır');
+                setIsRunning(false);
+                setIsPaused(false);
+            },
+            () => axios.post(`${API_URL}/clear`)
+        );
     }, []);
 
     const handleSelectFolder = useCallback(async () => {
@@ -211,7 +281,6 @@ export const useAssemblyLogic = () => {
                 setHighlightVaultSettings(false);
             }
         } else {
-            // Fallback for browser environment
             const path = prompt("Lütfen Kasa Yolunu Giriniz:", vaultPath);
             if (path) {
                 setVaultPath(path);

@@ -97,7 +97,7 @@ class AutomationServer:
                             current["error"] = new_stats.get("error", current["error"])
                             print(f"Server stats updated: {self.state['stats']}", flush=True)
                         
-                    time.sleep(0.1)
+                    time.sleep(0.01)
                 except Exception as e:
                     print(f"Worker error: {e}", flush=True)
         

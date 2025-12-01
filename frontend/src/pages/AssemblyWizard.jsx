@@ -77,7 +77,13 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     };
 
     // Calculate live count of valid codes
-    const liveCount = codes.split('\n').map(c => c.trim()).filter(c => c).length;
+    const liveCount = (() => {
+        let codeList = codes.split('\n').map(c => c.trim()).filter(c => c);
+        if (dedupe) {
+            codeList = [...new Set(codeList)]; // Remove duplicates
+        }
+        return codeList.length;
+    })();
     const displayTotal = isRunning ? stats.total : liveCount;
 
     return (

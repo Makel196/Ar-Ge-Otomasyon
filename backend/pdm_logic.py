@@ -851,6 +851,7 @@ class LogicHandler:
         finally:
             self.log("İşlem sonlandırılıyor...", "#94a3b8")
             self.is_running = False
+            self.is_paused = False
             vault = None
             try:
                 pythoncom.CoUninitialize()
@@ -872,31 +873,17 @@ class LogicHandler:
         self.update_stats(total=total_codes, success=0, error=0)
         print(f"DEBUG: stats initialized", flush=True)
         
+        success_count = 0
+        error_count = 0
+        
         for i, code in enumerate(codes):
             if not self.is_running:
                 return
             
             while self.is_paused and self.is_running:
                 time.sleep(0.5)
-            path = self.search_file_in_pdm(vault, code)
-            if path:
-                if self.ensure_local_file(vault, path):
-                    found_files.append(path)
-                    self.log(f"Bulundu: {code}", "#2cc985")
-                else:
-                    not_found_codes.append(code)
-                    self.log(f"Yerelde bulunamadı: {code},", "#ef4444")
-            else:
-                not_found_codes.append(code)
-                self.log(f"Bulunamadı: {code},", "#ef4444")
-            self.set_progress(0.1 + (0.4 * (i + 1) / total_codes))
-
-        if not_found_codes:
-            not_found_str = ",".join(not_found_codes)
-            self.log(f"Bulunamayan SAP kodları: {not_found_str} PDM'de yok,", "#f59e0b")
-            self.log("Bulunamayan parçalar var, montaj iptal edildi.", "#f59e0b")
             # Update error stats for not found items
-            self.update_stats(error=len(not_found_codes))
+            self.update_stats(error=error_count)
             self.set_progress(1)
             self.set_status("İptal")
             return
@@ -922,11 +909,10 @@ class LogicHandler:
 
         self.set_status("Parçalar ekleniyor...")
 
-        # Reset stats for assembly phase - all found files will be attempted
-        added_count = 0
-        failed_count = 0
-        self.update_stats(success=0, error=0)
-
+        # Montaj aşaması - İstatistikleri sıfırlama, arama sonuçlarını koru
+        # success_count zaten arama aşamasında doldu.
+        # Montaj hatalarını error'a ekleyeceğiz.
+        
         total_files = len(found_files)
         for i, file_path in enumerate(found_files):
             if not self.is_running:
@@ -947,12 +933,10 @@ class LogicHandler:
                 return
 
             success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, vault)
-            if success:
-                added_count += 1
-                self.update_stats(success=added_count)
-            else:
-                failed_count += 1
-                self.update_stats(error=failed_count)
+            if not success:
+                # Montaja eklenemedi, sadece error'u artırarak montaj hatası olduğunu belirtelim.
+                error_count += 1
+                self.update_stats(error=error_count)
 
             self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
 
@@ -1000,7 +984,7 @@ class LogicHandler:
             
             if not path:
                 not_found_codes.append(code)
-                self.log(f"Bulunamadı: {code},", "#ef4444")
+                self.log(f"Bulunamadı: {code}", "#ef4444")
                 error_count += 1
                 self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
@@ -1008,7 +992,7 @@ class LogicHandler:
             
             # Dosya bulundu, yerelde olduğundan emin ol
             if not self.ensure_local_file(vault, path):
-                self.log(f"Yerelde bulunamadı: {code},", "#ef4444")
+                self.log(f"Yerelde bulunamadı: {code}", "#ef4444")
                 not_found_codes.append(code)
                 error_count += 1
                 self.update_stats(error=error_count)
@@ -1043,7 +1027,7 @@ class LogicHandler:
         # Özet bilgi
         if not_found_codes:
             not_found_str = ",".join(not_found_codes)
-            self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str}", "#f59e0b")
+            self.log(f"Bulunamayan SAP kodları: {not_found_str} PDM'de yok.", "#f59e0b")
         
         if added_count > 0:
             self.log(f"Toplam {added_count} parça montaja eklendi.", "#2cc985")
