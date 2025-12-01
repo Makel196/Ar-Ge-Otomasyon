@@ -150,6 +150,7 @@ class LogicHandler:
         self.vault_path = read_vault_path_registry()
         self.is_running = False
         self.is_paused = False
+        self.stats = {"total": 0, "success": 0, "error": 0}
         if self.stats_queue is None:
             self.log("CRITICAL: Stats Queue is None!", "#ef4444")
         else:
@@ -852,8 +853,9 @@ class LogicHandler:
 
         self.set_status("Parçalar aranıyor...")
         total_codes = len(codes)
-        
+
         # Initialize stats
+        self.stats = {"total": total_codes, "success": 0, "error": 0}
         self.update_stats(total=total_codes, success=0, error=0)
         
         for i, code in enumerate(codes):
@@ -867,21 +869,20 @@ class LogicHandler:
                 if self.ensure_local_file(vault, path):
                     found_files.append(path)
                     self.log(f"Bulundu: {code}", "#2cc985")
-                    self.update_stats(success=len(found_files))
                 else:
                     not_found_codes.append(code)
                     self.log(f"Yerelde bulunamadı: {code},", "#ef4444")
-                    self.update_stats(error=len(not_found_codes))
             else:
                 not_found_codes.append(code)
                 self.log(f"Bulunamadı: {code},", "#ef4444")
-                self.update_stats(error=len(not_found_codes))
             self.set_progress(0.1 + (0.4 * (i + 1) / total_codes))
 
         if not_found_codes:
             not_found_str = ",".join(not_found_codes)
             self.log(f"Bulunamayan SAP kodları: {not_found_str} PDM'de yok,", "#f59e0b")
             self.log("Bulunamayan parçalar var, montaj iptal edildi.", "#f59e0b")
+            # Update error stats for not found items
+            self.update_stats(error=len(not_found_codes))
             self.set_progress(1)
             self.set_status("İptal")
             return
@@ -907,6 +908,11 @@ class LogicHandler:
 
         self.set_status("Parçalar ekleniyor...")
 
+        # Reset stats for assembly phase - all found files will be attempted
+        added_count = 0
+        failed_count = 0
+        self.update_stats(success=0, error=0)
+
         total_files = len(found_files)
         for i, file_path in enumerate(found_files):
             if not self.is_running:
@@ -927,6 +933,13 @@ class LogicHandler:
                 return
 
             success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, vault)
+            if success:
+                added_count += 1
+                self.update_stats(success=added_count)
+            else:
+                failed_count += 1
+                self.update_stats(error=failed_count)
+
             self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
 
         self.set_status("Tamamlandı")
@@ -950,8 +963,9 @@ class LogicHandler:
         added_count = 0
         error_count = 0
         not_found_codes = []
-        
+
         # Initial stats
+        self.stats = {"total": total_codes, "success": 0, "error": 0}
         self.update_stats(total=total_codes, success=0, error=0)
 
         for i, code in enumerate(codes):
