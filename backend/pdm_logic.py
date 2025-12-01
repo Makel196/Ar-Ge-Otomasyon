@@ -908,6 +908,9 @@ class LogicHandler:
         self.set_status("Parçalar ekleniyor...")
 
         total_files = len(found_files)
+        added_count = 0
+        assembly_error_count = 0
+        
         for i, file_path in enumerate(found_files):
             if not self.is_running:
                 return
@@ -927,10 +930,19 @@ class LogicHandler:
                 return
 
             success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
+            if success:
+                added_count += 1
+            else:
+                assembly_error_count += 1
+            
+            # Update stats: success = parts successfully added, error = not found + assembly failures
+            self.update_stats(success=added_count, error=len(not_found_codes) + assembly_error_count)
             self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
 
         self.set_status("Tamamlandı")
         self.set_progress(1.0)
+        if added_count > 0:
+            self.log(f"Toplam {added_count} parça montaja eklendi.", "#2cc985")
         self.log("İşlem başarıyla tamamlandı.", "#2cc985")
     
     def run_process_immediate_mode(self, codes, vault):
