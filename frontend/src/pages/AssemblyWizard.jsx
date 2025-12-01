@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave, faQuestionCircle } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave, faQuestionCircle, faUser, faKey } from '@fortawesome/free-solid-svg-icons';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
@@ -23,6 +23,9 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         addToExisting, setAddToExisting,
         stopOnNotFound, setStopOnNotFound,
         dedupe, setDedupe,
+        multiKitMode, setMultiKitMode,
+        sapUsername, setSapUsername,
+        sapPassword, setSapPassword,
         status, progress, logs, isRunning, isPaused, stats,
         alertState, setAlertState,
         showSettings, setShowSettings,
@@ -33,6 +36,24 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         handleClear,
         handleSelectFolder
     } = useAssemblyLogic();
+
+    const handleSaveSettings = () => {
+        if (multiKitMode) {
+            if (!sapUsername || !sapPassword) {
+                setAlertState({ isOpen: true, message: "Çoklu Kit Montajı aktifken SAP Kullanıcı Adı ve Şifresi zorunludur.", type: 'error' });
+                return;
+            }
+        }
+
+        if (window.electron && window.electron.saveSettings) {
+            window.electron.saveSettings({
+                multiKitMode,
+                sapUsername,
+                sapPassword
+            });
+        }
+        setShowSettings(false);
+    };
 
     const handleExportExcel = () => {
         // Filter ONLY for "not found" (bulunamayan)
@@ -380,7 +401,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             onClick={e => e.stopPropagation()}
                             style={{
                                 padding: '32px',
-                                width: '500px',
+                                width: '900px',
                                 maxWidth: '90%',
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -423,159 +444,179 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                 </button>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <label style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '16px',
-                                    cursor: 'pointer',
-                                    padding: '16px',
-                                    borderRadius: '16px',
-                                    background: rememberSession ? 'rgba(16, 185, 129, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
-                                    border: rememberSession ? '1px solid rgba(16, 185, 129, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
-                                    transition: 'all 0.2s ease'
-                                }}>
-                                    <div style={{
-                                        width: '24px', height: '24px', borderRadius: '6px',
-                                        background: rememberSession ? '#10b981' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: 'white', transition: 'all 0.2s'
-                                    }}>
-                                        {rememberSession && <FontAwesomeIcon icon={faSave} style={{ fontSize: '14px' }} />}
-                                    </div>
-                                    <input type="checkbox" checked={rememberSession} onChange={e => setRememberSession(e.target.checked)} style={{ display: 'none' }} />
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-                                        <span style={{ fontSize: '15px', fontWeight: '600', color: rememberSession ? '#10b981' : 'var(--text)' }}>Oturumu Koru</span>
-                                        <ModernTooltip text="Kapatıldığında ayarları ve kodları hatırla" theme={theme}>
-                                            <div style={{ cursor: 'help', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
-                                                <FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} />
-                                            </div>
-                                        </ModernTooltip>
-                                    </div>
-                                </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', alignItems: 'start' }}>
+                                {/* Left Column: General Settings */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    <div>
+                                        <h4 style={{ margin: '0 0 16px 0', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>Genel Ayarlar</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <label style={{
+                                                display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                background: rememberSession ? 'rgba(16, 185, 129, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                border: rememberSession ? '1px solid rgba(16, 185, 129, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: rememberSession ? '#10b981' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                    {rememberSession && <FontAwesomeIcon icon={faSave} style={{ fontSize: '14px' }} />}
+                                                </div>
+                                                <input type="checkbox" checked={rememberSession} onChange={e => setRememberSession(e.target.checked)} style={{ display: 'none' }} />
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '600', color: rememberSession ? '#10b981' : 'var(--text)' }}>Oturumu Koru</span>
+                                                    <ModernTooltip text="Kapatıldığında ayarları ve kodları hatırla" theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                </div>
+                                            </label>
 
-                                <label style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '16px',
-                                    cursor: 'pointer',
-                                    padding: '16px',
-                                    borderRadius: '16px',
-                                    background: addToExisting ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
-                                    border: addToExisting ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
-                                    transition: 'all 0.2s ease'
-                                }}>
-                                    <div style={{
-                                        width: '24px', height: '24px', borderRadius: '6px',
-                                        background: addToExisting ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: 'white', transition: 'all 0.2s'
-                                    }}>
-                                        {addToExisting && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
-                                    </div>
-                                    <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ display: 'none' }} />
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-                                        <span style={{ fontSize: '15px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
-                                        <ModernTooltip text="Yeni montaj oluşturmak yerine açık olan montaja parça ekler" theme={theme}>
-                                            <div style={{ cursor: 'help', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
-                                                <FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} />
-                                            </div>
-                                        </ModernTooltip>
-                                    </div>
-                                </label>
+                                            <label style={{
+                                                display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                background: addToExisting ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                border: addToExisting ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: addToExisting ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                    {addToExisting && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                                </div>
+                                                <input type="checkbox" checked={addToExisting} onChange={e => setAddToExisting(e.target.checked)} style={{ display: 'none' }} />
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '600', color: addToExisting ? '#6366f1' : 'var(--text)' }}>Mevcut montaja ekle</span>
+                                                    <ModernTooltip text="Yeni montaj oluşturmak yerine açık olan montaja parça ekler" theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                </div>
+                                            </label>
 
-                                <label style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '16px',
-                                    cursor: 'pointer',
-                                    padding: '16px',
-                                    borderRadius: '16px',
-                                    background: stopOnNotFound ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
-                                    border: stopOnNotFound ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
-                                    transition: 'all 0.2s ease'
-                                }}>
-                                    <div style={{
-                                        width: '24px', height: '24px', borderRadius: '6px',
-                                        background: stopOnNotFound ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: 'white', transition: 'all 0.2s'
-                                    }}>
-                                        {stopOnNotFound && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
-                                    </div>
-                                    <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ display: 'none' }} />
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-                                        <span style={{ fontSize: '15px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
-                                        <ModernTooltip text="Parça bulunamadığında işlemi durdurur" theme={theme}>
-                                            <div style={{ cursor: 'help', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
-                                                <FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} />
-                                            </div>
-                                        </ModernTooltip>
-                                    </div>
-                                </label>
+                                            <label style={{
+                                                display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                background: stopOnNotFound ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                border: stopOnNotFound ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: stopOnNotFound ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                    {stopOnNotFound && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                                </div>
+                                                <input type="checkbox" checked={stopOnNotFound} onChange={e => setStopOnNotFound(e.target.checked)} style={{ display: 'none' }} />
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '600', color: stopOnNotFound ? '#6366f1' : 'var(--text)' }}>Bulunamayan varsa durdur</span>
+                                                    <ModernTooltip text="Parça bulunamadığında işlemi durdurur" theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                </div>
+                                            </label>
 
-                                <label style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '16px',
-                                    cursor: 'pointer',
-                                    padding: '16px',
-                                    borderRadius: '16px',
-                                    background: dedupe ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
-                                    border: dedupe ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
-                                    transition: 'all 0.2s ease'
-                                }}>
-                                    <div style={{
-                                        width: '24px', height: '24px', borderRadius: '6px',
-                                        background: dedupe ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: 'white', transition: 'all 0.2s'
-                                    }}>
-                                        {dedupe && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                            <label style={{
+                                                display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                background: dedupe ? 'rgba(99, 102, 241, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                border: dedupe ? '1px solid rgba(99, 102, 241, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: dedupe ? '#6366f1' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                    {dedupe && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                                </div>
+                                                <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ display: 'none' }} />
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
+                                                    <ModernTooltip text="Listeye eklenen mükerrer (aynı) kodları otomatik temizler" theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                </div>
+                                            </label>
+                                        </div>
                                     </div>
-                                    <input type="checkbox" checked={dedupe} onChange={e => setDedupe(e.target.checked)} style={{ display: 'none' }} />
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-                                        <span style={{ fontSize: '15px', fontWeight: '600', color: dedupe ? '#6366f1' : 'var(--text)' }}>Tekrarlı kodları sil</span>
-                                        <ModernTooltip text="Listeye eklenen mükerrer (aynı) kodları otomatik temizler" theme={theme}>
-                                            <div style={{ cursor: 'help', opacity: 0.6, display: 'flex', alignItems: 'center' }}>
-                                                <FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} />
-                                            </div>
-                                        </ModernTooltip>
-                                    </div>
-                                </label>
-                            </div>
 
-                            <div>
-                                <label style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', display: 'block', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>KASA YOLU</label>
-                                <div
-                                    onClick={handleSelectFolder}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'flex-start',
-                                        background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)',
-                                        border: highlightVaultSettings
-                                            ? '2px solid #ef4444'
-                                            : (theme === 'dark' ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)'),
-                                        borderRadius: '16px',
-                                        color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
-                                        padding: '16px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        boxShadow: highlightVaultSettings ? '0 0 0 4px rgba(239, 68, 68, 0.2)' : 'none',
-                                        animation: highlightVaultSettings ? 'pulse-red 2s infinite' : 'none'
-                                    }}
-                                >
-                                    <FontAwesomeIcon icon={faFolder} style={{ fontSize: '20px', color: '#6366f1', marginRight: '12px' }} />
-                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '14px', fontWeight: '500' }}>
-                                        {vaultPath || "Klasör Seç..."}
-                                    </span>
+                                    <div>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>KASA YOLU</h4>
+                                        <div
+                                            onClick={handleSelectFolder}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+                                                background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)',
+                                                border: highlightVaultSettings ? '2px solid #ef4444' : (theme === 'dark' ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)'),
+                                                borderRadius: '16px', color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
+                                                padding: '16px', cursor: 'pointer', transition: 'all 0.2s',
+                                                boxShadow: highlightVaultSettings ? '0 0 0 4px rgba(239, 68, 68, 0.2)' : 'none',
+                                                animation: highlightVaultSettings ? 'pulse-red 2s infinite' : 'none'
+                                            }}
+                                        >
+                                            <FontAwesomeIcon icon={faFolder} style={{ fontSize: '20px', color: '#6366f1', marginRight: '12px' }} />
+                                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '14px', fontWeight: '500' }}>
+                                                {vaultPath || "Klasör Seç..."}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Column: SAP Integration */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    <div>
+                                        <h4 style={{ margin: '0 0 16px 0', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>SAP Entegrasyonu</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <label style={{
+                                                display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                background: multiKitMode ? 'rgba(236, 72, 153, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                border: multiKitMode ? '1px solid rgba(236, 72, 153, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                transition: 'all 0.2s ease'
+                                            }}>
+                                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: multiKitMode ? '#ec4899' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                    {multiKitMode && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                                </div>
+                                                <input type="checkbox" checked={multiKitMode} onChange={e => setMultiKitMode(e.target.checked)} style={{ display: 'none' }} />
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '600', color: multiKitMode ? '#ec4899' : 'var(--text)' }}>Çoklu Kit Montajı</span>
+                                                    <ModernTooltip text="Birden fazla kit için otomatik montaj oluşturur" theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                </div>
+                                            </label>
+
+                                            <AnimatePresence>
+                                                {multiKitMode && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0' }}
+                                                    >
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                            <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginLeft: '4px' }}>SAP Kullanıcı Adı</label>
+                                                            <div style={{ position: 'relative' }}>
+                                                                <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', opacity: 0.7 }}>
+                                                                    <FontAwesomeIcon icon={faUser} style={{ fontSize: '14px' }} />
+                                                                </div>
+                                                                <input
+                                                                    type="text"
+                                                                    value={sapUsername}
+                                                                    onChange={e => setSapUsername(e.target.value)}
+                                                                    placeholder="Kullanıcı adı..."
+                                                                    style={{
+                                                                        width: '100%', padding: '14px 14px 14px 38px', borderRadius: '12px',
+                                                                        border: !sapUsername ? '1px solid #ef4444' : '1px solid var(--border)',
+                                                                        background: 'var(--bg)', color: 'var(--text)', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                            <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginLeft: '4px' }}>SAP Şifresi</label>
+                                                            <div style={{ position: 'relative' }}>
+                                                                <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', opacity: 0.7 }}>
+                                                                    <FontAwesomeIcon icon={faKey} style={{ fontSize: '14px' }} />
+                                                                </div>
+                                                                <input
+                                                                    type="password"
+                                                                    value={sapPassword}
+                                                                    onChange={e => setSapPassword(e.target.value)}
+                                                                    placeholder="Şifre..."
+                                                                    style={{
+                                                                        width: '100%', padding: '14px 14px 14px 38px', borderRadius: '12px',
+                                                                        border: !sapPassword ? '1px solid #ef4444' : '1px solid var(--border)',
+                                                                        background: 'var(--bg)', color: 'var(--text)', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
                             <button
                                 className="modern-btn primary"
-                                onClick={() => setShowSettings(false)}
+                                onClick={handleSaveSettings}
                                 style={{
                                     marginTop: '10px',
                                     height: '50px',
