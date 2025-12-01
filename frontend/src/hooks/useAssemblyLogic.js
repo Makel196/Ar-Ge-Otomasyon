@@ -30,13 +30,6 @@ export const useAssemblyLogic = () => {
     const logsEndRef = useRef(null);
     const lastLogIndexRef = useRef(0);
 
-    // Reset stats on mount if session is not persisted
-    useEffect(() => {
-        if (localStorage.getItem('rememberSession') !== 'true') {
-            setStats({ total: 0, success: 0, error: 0 });
-        }
-    }, []);
-
     // Poll status
     useEffect(() => {
         const interval = setInterval(async () => {
@@ -70,45 +63,27 @@ export const useAssemblyLogic = () => {
         return () => clearInterval(interval);
     }, [vaultPath]);
 
-    // Persistence Effects
+    // Unified Persistence Effect - Consolidates all localStorage operations
     useEffect(() => {
-        if (rememberSession) {
-            localStorage.setItem('vaultPath', vaultPath);
-        }
-    }, [vaultPath, rememberSession]);
-
-    useEffect(() => {
+        // Always save rememberSession preference
         localStorage.setItem('rememberSession', rememberSession);
+
         if (!rememberSession) {
-            // Clear volatile settings if persistence is disabled
+            // Clear all persisted data when persistence is disabled
             localStorage.removeItem('codes');
             localStorage.removeItem('addToExisting');
             localStorage.removeItem('stopOnNotFound');
             localStorage.removeItem('dedupe');
             localStorage.removeItem('vaultPath');
         } else {
-            // Save current state if enabled
+            // Persist all settings when enabled
             localStorage.setItem('codes', codes);
             localStorage.setItem('addToExisting', addToExisting);
             localStorage.setItem('stopOnNotFound', stopOnNotFound);
             localStorage.setItem('dedupe', dedupe);
             localStorage.setItem('vaultPath', vaultPath);
         }
-    }, [rememberSession]);
-
-    useEffect(() => {
-        if (rememberSession) {
-            localStorage.setItem('codes', codes);
-        }
-    }, [codes, rememberSession]);
-
-    useEffect(() => {
-        if (rememberSession) {
-            localStorage.setItem('addToExisting', addToExisting);
-            localStorage.setItem('stopOnNotFound', stopOnNotFound);
-            localStorage.setItem('dedupe', dedupe);
-        }
-    }, [addToExisting, stopOnNotFound, dedupe, rememberSession]);
+    }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath]);
 
     // Clear backend state on mount if persistence is disabled
     useEffect(() => {
