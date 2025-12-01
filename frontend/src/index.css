@@ -64,34 +64,19 @@
 body {
   margin: 0;
   font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  background: var(--bg-gradient);
-  background-attachment: fixed;
+  background: transparent;
   color: var(--text);
   transition: background 0.3s ease, color 0.3s ease;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Title Bar */
-.app-title-bar {
-  height: 32px;
-  width: 100%;
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9999;
-  -webkit-app-region: drag;
-  background: rgba(255, 255, 255, 0.3);
-  /* More transparent */
-  backdrop-filter: blur(20px);
-  /* Stronger blur */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+/* Enforce rounded corners on app container */
+.app-container {
+  border-radius: 12px !important;
+  overflow: hidden !important;
 }
 
-[data-theme='dark'] .app-title-bar {
-  background: rgba(15, 23, 42, 0.3);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
 
 /* Layout Utilities */
 .responsive-grid {
@@ -409,19 +394,19 @@ body {
   overflow: hidden;
 }
 
-/* Light Mode Gradient: Teal -> Blue */
+/* Light Mode Gradient: Blue -> Teal (Dark to Light) */
 [data-theme='light'] .bubble-progress-bar {
-  background: linear-gradient(90deg, #2dd4bf, #3b82f6);
+  background: linear-gradient(90deg, #3b82f6, #2dd4bf);
   box-shadow: 0 0 15px rgba(45, 212, 191, 0.4);
 }
 
-/* Dark Mode Gradient: Purple -> Indigo */
+/* Dark Mode Gradient: Indigo -> Purple (Dark to Light) */
 [data-theme='dark'] .bubble-progress-bar {
-  background: linear-gradient(90deg, #a855f7, #6366f1);
+  background: linear-gradient(90deg, #6366f1, #a855f7);
   box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
 }
 
-/* Bubbles Animation - Reduced Density */
+/* Bubbles Animation - Layer 1 (Small Bubbles - High Density) */
 .bubble-progress-bar::before {
   content: '';
   position: absolute;
@@ -429,24 +414,62 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  /* Reduced to 2 layers with larger spacing for fewer bubbles */
   background-image:
-    radial-gradient(rgba(255, 255, 255, 0.3) 1.5px, transparent 1.5px),
-    radial-gradient(rgba(255, 255, 255, 0.2) 2px, transparent 2px);
-  background-size: 30px 30px, 50px 50px;
-  /* Much larger spacing */
-  background-position: 0 0, 25px 15px;
-  animation: bubble-rise 4s linear infinite;
+    radial-gradient(rgba(255, 255, 255, 0.5) 2px, transparent 2px),
+    radial-gradient(rgba(255, 255, 255, 0.3) 3px, transparent 3px),
+    radial-gradient(rgba(255, 255, 255, 0.4) 2.5px, transparent 2.5px),
+    radial-gradient(rgba(255, 255, 255, 0.2) 3.5px, transparent 3.5px);
+  background-size: 97px 97px, 137px 137px, 79px 79px, 163px 163px;
+  background-position: 10px 10px, 50px 20px, 30px 50px, 80px 80px;
+  animation: bubble-rise-1 7s linear infinite;
   opacity: 0.6;
+  z-index: 1;
+  will-change: background-position;
+  /* Performance Optimization */
+  transform: translateZ(0);
+  /* Force GPU Acceleration */
 }
 
-@keyframes bubble-rise {
+/* Bubbles Animation - Layer 2 (Larger Bubbles - Medium Density) */
+.bubble-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.4) 4px, transparent 4px),
+    radial-gradient(rgba(255, 255, 255, 0.2) 5px, transparent 5px),
+    radial-gradient(rgba(255, 255, 255, 0.3) 4.5px, transparent 4.5px);
+  background-size: 193px 193px, 251px 251px, 223px 223px;
+  background-position: 80px 30px, 20px 60px, 120px 10px;
+  animation: bubble-rise-2 11s linear infinite;
+  opacity: 0.5;
+  z-index: 1;
+  will-change: background-position;
+  /* Performance Optimization */
+  transform: translateZ(0);
+  /* Force GPU Acceleration */
+}
+
+@keyframes bubble-rise-1 {
   0% {
-    background-position: 0 0, 25px 15px;
+    background-position: 10px 10px, 50px 20px, 30px 50px, 80px 80px;
   }
 
   100% {
-    background-position: 0 -30px, 25px -35px;
+    background-position: 10px -200px, 50px -300px, 30px -250px, 80px -400px;
+  }
+}
+
+@keyframes bubble-rise-2 {
+  0% {
+    background-position: 80px 30px, 20px 60px, 120px 10px;
+  }
+
+  100% {
+    background-position: 80px -400px, 20px -500px, 120px -450px;
   }
 }
 

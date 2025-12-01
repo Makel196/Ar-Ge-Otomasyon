@@ -2,7 +2,7 @@
   "name": "arge-otomasyon",
   "productName": "Ar-Ge Otomasyon",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -56,6 +56,10 @@
       {
         "from": "resources/backend.exe",
         "to": "backend.exe"
+      },
+      {
+        "from": "resources/config.json",
+        "to": "config.json"
       }
     ],
     "win": {

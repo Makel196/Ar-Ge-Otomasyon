@@ -40,7 +40,7 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' 
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        zIndex: 2000,
+                        zIndex: 10001,
                     }}
                     onClick={onClose}
                 >
@@ -61,7 +61,7 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' 
                             gap: '20px',
                             background: theme === 'dark' ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.75)',
                             backdropFilter: 'blur(20px) saturate(180%)',
-                            borderRadius: '24px',
+                            borderRadius: '12px',
                             border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(255, 255, 255, 0.8)',
                             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                             color: 'var(--text)'

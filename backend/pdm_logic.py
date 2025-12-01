@@ -150,14 +150,33 @@ class LogicHandler:
         self.vault_path = read_vault_path_registry()
         self.is_running = False
         self.is_paused = False
-        self.stats = {"total": 0, "success": 0, "error": 0}
+        if self.stats_queue is None:
+            self.log("CRITICAL: Stats Queue is None!", "#ef4444")
+        else:
+            # self.log("Stats Queue connected.", "#2cc985")
+            pass
 
     def update_stats(self, total=None, success=None, error=None):
+        print(f"DEBUG: update_stats called with total={total}, success={success}, error={error}", flush=True)
         if total is not None: self.stats["total"] = total
         if success is not None: self.stats["success"] = success
         if error is not None: self.stats["error"] = error
+        
+        # Ensure total is always sent to avoid sync issues
+        if total is None and "total" in self.stats:
+             # Just to be safe, we rely on the self.stats state
+             pass
+
         if self.stats_queue:
-            self.stats_queue.put(self.stats.copy())
+            try:
+                print(f"DEBUG: Putting stats to queue: {self.stats}", flush=True)
+                self.stats_queue.put(self.stats.copy())
+            except Exception as e:
+                self.log(f"Stats Queue Error: {e}", "#ef4444")
+                print(f"DEBUG: Stats Queue Error: {e}", flush=True)
+        else:
+            self.log("Stats Queue is disconnected (None)", "#ef4444")
+            print("DEBUG: Stats Queue is disconnected (None)", flush=True)
 
     def log(self, message, color=None):
         self.log_queue.put({"message": message, "color": color, "timestamp": time.time()})
@@ -604,7 +623,13 @@ class LogicHandler:
             self.log(f"Beklenmedik Hata: {e}", "#ef4444")
             self.set_status("Hata")
         finally:
-            pythoncom.CoUninitialize()
+            self.log("İşlem sonlandırılıyor...", "#94a3b8")
+            self.is_running = False
+            vault = None
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
     
     def run_process_batch_mode(self, codes, vault):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
@@ -613,6 +638,10 @@ class LogicHandler:
 
         self.set_status("Parçalar aranıyor...")
         total_codes = len(codes)
+        
+        # Initialize stats
+        self.update_stats(total=total_codes, success=0, error=0)
+        
         for i, code in enumerate(codes):
             if not self.is_running:
                 return
@@ -624,19 +653,22 @@ class LogicHandler:
                 if self.ensure_local_file(vault, path):
                     found_files.append(path)
                     self.log(f"Bulundu: {code}", "#2cc985")
+                    self.update_stats(success=len(found_files))
                 else:
                     not_found_codes.append(code)
-                    self.log(f"Yerelde bulunamadı: {code}", "#ef4444")
+                    self.log(f"Yerelde bulunamadı: {code},", "#ef4444")
+                    self.update_stats(error=len(not_found_codes))
             else:
                 not_found_codes.append(code)
-                self.log(f"Bulunamadı: {code}", "#ef4444")
+                self.log(f"Bulunamadı: {code},", "#ef4444")
+                self.update_stats(error=len(not_found_codes))
             self.set_progress(0.1 + (0.4 * (i + 1) / total_codes))
 
         if not_found_codes:
             not_found_str = ",".join(not_found_codes)
-            self.log(f"Bulunamayan SAP kodları: {not_found_str} PDM'de yok", "#f59e0b")
+            self.log(f"Bulunamayan SAP kodları: {not_found_str} PDM'de yok,", "#f59e0b")
             self.log("Bulunamayan parçalar var, montaj iptal edildi.", "#f59e0b")
-            self.set_progress(0)
+            self.set_progress(1)
             self.set_status("İptal")
             return
 
@@ -971,7 +1003,7 @@ class LogicHandler:
             
             if not path:
                 not_found_codes.append(code)
-                self.log(f"Bulunamadı: {code}", "#ef4444")
+                self.log(f"Bulunamadı: {code},", "#ef4444")
                 error_count += 1
                 self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
@@ -979,7 +1011,7 @@ class LogicHandler:
             
             # Dosya bulundu, yerelde olduğundan emin ol
             if not self.ensure_local_file(vault, path):
-                self.log(f"Yerelde bulunamadı: {code}", "#ef4444")
+                self.log(f"Yerelde bulunamadı: {code},", "#ef4444")
                 not_found_codes.append(code)
                 error_count += 1
                 self.update_stats(error=error_count)
@@ -1002,7 +1034,7 @@ class LogicHandler:
                 return
             
             if not os.path.exists(path):
-                self.log(f"Local copy missing: {path}", "#ef4444")
+                self.log(f"Local copy missing: {path},", "#ef4444")
                 error_count += 1
                 self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))

@@ -340,6 +340,44 @@ class LogicHandler:
         compare_set = {normalize_path_for_compare(p) for p in candidates if p}
         return candidates, compare_set
 
+    def verify_sap_code(self, vault, file_path, target_code):
+        """Dosyanın SAP Numarası değişkeninin aranan kodla tam eşleşip eşleşmediğini kontrol eder."""
+        try:
+            # Get file object
+            result = vault.GetFileFromPath(file_path, None)
+            if isinstance(result, tuple):
+                file_obj = result[0]
+            else:
+                file_obj = result
+            
+            if not file_obj:
+                return False
+
+            # Get variable enumerator
+            enum_var = file_obj.GetEnumeratorVariable()
+            if not enum_var:
+                return False
+
+            # Check all possible variable names
+            target_str = str(target_code).strip()
+            for var_name in PDM_VAR_NAMES:
+                try:
+                    # Get value for default config ("@") or empty string
+                    val = enum_var.GetVar(var_name, "", 0)
+                    if val is not None and str(val).strip() == target_str:
+                        return True
+                        
+                    # Also try "@" configuration just in case
+                    val_at = enum_var.GetVar(var_name, "@", 0)
+                    if val_at is not None and str(val_at).strip() == target_str:
+                        return True
+                except:
+                    pass
+            
+            return False
+        except Exception:
+            return False
+
     def search_file_in_pdm(self, vault, sap_code):
         # Try searching by PDM variables first
         for var_name in PDM_VAR_NAMES:
@@ -352,12 +390,19 @@ class LogicHandler:
                     found_files.append(result.Name)
                     ext = os.path.splitext(result.Name)[1].lower()
                     if ext in PREFERRED_EXTS:
-                        self.log(f"  → PDM'de bulundu (değişken: {var_name}): {result.Name}", "#6b7280")
-                        return self.map_vault_path(vault, result.Path)
+                        # Tam eşleşme kontrolü yap
+                        if self.verify_sap_code(vault, result.Path, sap_code):
+                            self.log(f"  → PDM'de bulundu (değişken: {var_name}): {result.Name}", "#6b7280")
+                            return self.map_vault_path(vault, result.Path)
+                        else:
+                            self.log(f"  → Olası eşleşme elendi (tam uyuşmuyor): {result.Name}", "#9ca3af")
+                    
                     result = search.GetNextResult()
+                
                 # Log if found files but wrong extension
                 if found_files:
-                    self.log(f"  → Dosya bulundu ama yanlış uzantı: {', '.join(found_files)}", "#6b7280")
+                    # Sadece log kirliliği olmasın diye burayı biraz sadeleştirebiliriz
+                    pass
             except Exception as e:
                 continue
         
@@ -370,7 +415,10 @@ class LogicHandler:
             while result:
                 found_files.append(result.Name)
                 ext = os.path.splitext(result.Name)[1].lower()
-                if ext in PREFERRED_EXTS:
+                filename_no_ext = os.path.splitext(result.Name)[0]
+                
+                # Tam eşleşme kontrolü: Dosya adı (uzantısız) aranan kod ile birebir aynı olmalı
+                if filename_no_ext == sap_code and ext in PREFERRED_EXTS:
                     self.log(f"  → PDM'de bulundu (dosya adı araması): {result.Name}", "#6b7280")
                     return self.map_vault_path(vault, result.Path)
                 result = search.GetNextResult()

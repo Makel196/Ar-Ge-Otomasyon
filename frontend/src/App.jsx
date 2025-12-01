@@ -19,8 +19,17 @@ function App() {
 
   return (
     <Router>
-      <div className="app-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <div className="app-title-bar"></div>
+      <div className="app-container" style={{
+        height: '100vh',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        background: 'var(--bg-gradient)',
+        border: '1px solid var(--border)'
+      }}>
+        <TitleBar theme={theme} />
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <Routes>
             <Route path="/" element={<Landing theme={theme} toggleTheme={toggleTheme} />} />
