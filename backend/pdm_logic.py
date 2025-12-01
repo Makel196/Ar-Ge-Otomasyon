@@ -815,6 +815,9 @@ class LogicHandler:
 
 
     def run_process(self, codes):
+        print(f"DEBUG: run_process started with {len(codes)} codes", flush=True)
+        print(f"DEBUG: vault_path = {self.vault_path}", flush=True)
+
         pythoncom.CoInitialize()
         self.is_running = True
         try:
@@ -822,21 +825,29 @@ class LogicHandler:
             self.set_status("PDM'e bağlanılıyor...")
             vault = self.get_pdm_vault()
             if not vault:
+                self.log("PDM bağlantısı kurulamadı!", "#ef4444")
+                self.set_status("Hata: PDM Bağlantısı")
+                print("DEBUG: Vault connection failed!", flush=True)
                 return
 
             # Checkbox durumuna göre farklı iş akışları
             stop_on_not_found = self.get_stop_on_not_found()
-            
+            print(f"DEBUG: stop_on_not_found = {stop_on_not_found}", flush=True)
+
             if stop_on_not_found:
                 # ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle
+                print("DEBUG: Starting batch mode", flush=True)
                 self.run_process_batch_mode(codes, vault)
             else:
                 # YENİ AKIŞ: Bulundu -> Hemen ekle
+                print("DEBUG: Starting immediate mode", flush=True)
                 self.run_process_immediate_mode(codes, vault)
 
         except Exception as e:
             self.log(f"Beklenmedik Hata: {e}", "#ef4444")
             self.set_status("Hata")
+            import traceback
+            print(f"EXCEPTION TRACEBACK: {traceback.format_exc()}", flush=True)
         finally:
             self.log("İşlem sonlandırılıyor...", "#94a3b8")
             self.is_running = False
@@ -848,15 +859,18 @@ class LogicHandler:
     
     def run_process_batch_mode(self, codes, vault):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
+        print(f"DEBUG: run_process_batch_mode entered", flush=True)
         found_files = []
         not_found_codes = []
 
         self.set_status("Parçalar aranıyor...")
         total_codes = len(codes)
+        print(f"DEBUG: total_codes = {total_codes}", flush=True)
 
         # Initialize stats
         self.stats = {"total": total_codes, "success": 0, "error": 0}
         self.update_stats(total=total_codes, success=0, error=0)
+        print(f"DEBUG: stats initialized", flush=True)
         
         for i, code in enumerate(codes):
             if not self.is_running:
@@ -948,16 +962,21 @@ class LogicHandler:
     
     def run_process_immediate_mode(self, codes, vault):
         """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
+        print(f"DEBUG: run_process_immediate_mode entered", flush=True)
         # SolidWorks'ü başlat ve montajı hazırla
         self.set_status("SolidWorks başlatılıyor...")
         sw_app = self.get_sw_app()
         if not sw_app:
+            print("DEBUG: SolidWorks app not found!", flush=True)
             return
 
+        print("DEBUG: Initializing assembly doc", flush=True)
         assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
         if not assembly_doc:
+            print("DEBUG: Assembly doc initialization failed!", flush=True)
             return
 
+        print("DEBUG: Assembly initialized successfully", flush=True)
         self.set_status("Parçalar aranıyor ve ekleniyor...")
         total_codes = len(codes)
         added_count = 0
@@ -967,6 +986,7 @@ class LogicHandler:
         # Initial stats
         self.stats = {"total": total_codes, "success": 0, "error": 0}
         self.update_stats(total=total_codes, success=0, error=0)
+        print(f"DEBUG: immediate mode stats initialized, total={total_codes}", flush=True)
 
         for i, code in enumerate(codes):
             if not self.is_running:
