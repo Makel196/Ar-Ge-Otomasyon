@@ -624,13 +624,13 @@ class LogicHandler:
 
         return assembly_doc, locked_title, asm_title, pre_open_docs, z_offset
 
-    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs):
+    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, vault):
         """
         Adds a component to the assembly. Returns (success, new_z_offset).
         Extracted common code from batch and immediate modes to follow DRY principle.
         """
         if not os.path.exists(file_path):
-            if not self.ensure_local_file(self.get_pdm_vault(), file_path) or not os.path.exists(file_path):
+            if not self.ensure_local_file(vault, file_path) or not os.path.exists(file_path):
                 self.log(f"Yerel kopya eksik: {file_path}", "#ef4444")
                 return False, z_offset
 
@@ -926,7 +926,7 @@ class LogicHandler:
                 self.log("Montaj oturumu kaybedildi.", "#ef4444")
                 return
 
-            success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
+            success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, vault)
             self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
 
         self.set_status("Tamamlandı")
@@ -996,7 +996,7 @@ class LogicHandler:
                 self.log("Montaj oturumu kaybedildi.", "#ef4444")
                 return
 
-            success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+            success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs, vault)
             if success:
                 added_count += 1
                 self.update_stats(success=added_count)
