@@ -83,7 +83,8 @@ function createWindow() {
     minWidth: 1300,
     minHeight: 800,
     frame: false,
-    transparent: true,
+    transparent: false,
+    resizable: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -91,7 +92,7 @@ function createWindow() {
       sandbox: false // Sometimes needed for complex IPC
     },
     icon: isDev ? path.join(__dirname, '../../logo.ico') : path.join(__dirname, '../dist/logo.ico'),
-    backgroundColor: '#00000000',
+    backgroundColor: '#1a1a1a',
     title: "Ar-Ge Otomasyon"
   });
 
