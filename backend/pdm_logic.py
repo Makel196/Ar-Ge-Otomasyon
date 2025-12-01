@@ -548,12 +548,226 @@ class LogicHandler:
         # Eğer özel bir yol belirtilmemişse SolidWorks ayarlarına bak
         if not TEMPLATE_OVERRIDE:
             try:
-                # DİKKAT: Burası 8 değil 9 olmalı. 
+                # DİKKAT: Burası 8 değil 9 olmalı.
                 # 8 -> Parça (Part), 9 -> Montaj (Assembly)
-                return sw_app.GetUserPreferenceStringValue(9) 
+                return sw_app.GetUserPreferenceStringValue(9)
             except Exception:
                 return ""
         return TEMPLATE_OVERRIDE
+
+    def init_assembly_doc(self, sw_app):
+        """
+        Initialize assembly document. Returns (assembly_doc, locked_title, asm_title, pre_open_docs, z_offset).
+        Extracted common assembly initialization code to follow DRY principle.
+        """
+        add_to_existing = self.get_add_to_existing()
+        locked_title = None
+        assembly_doc = None
+
+        if add_to_existing:
+            assembly_doc = self.get_active_assembly(sw_app)
+            if assembly_doc:
+                self.log("Mevcut montaja parçalar eklenecek.", "#2cc985")
+                try:
+                    locked_title = assembly_doc.GetTitle() or ""
+                except Exception:
+                    locked_title = ""
+            else:
+                self.log("Açık montaj bulunamadı, yeni montaj oluşturulacak.", "#f59e0b")
+                add_to_existing = False
+
+        if not add_to_existing:
+            template = self.get_assembly_template(sw_app)
+            new_doc = sw_app.NewDocument(template, SW_DOC_ASSEMBLY, 0, 0)
+            if not new_doc:
+                self.log("Montaj oluşturulamadı.", "#ef4444")
+                return None, None, None, None, 0.0
+            assembly_doc = new_doc
+            try:
+                locked_title = assembly_doc.GetTitle() or ""
+                self.log(f"Yeni montaj kilitlendi: {locked_title}", "#3B82F6")
+            except Exception:
+                locked_title = ""
+
+        assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
+        if not assembly_doc or self.doc_type_safe(assembly_doc) != SW_DOC_ASSEMBLY:
+            self.log("Aktif montaj alınamadı.", "#ef4444")
+            return None, None, None, None, 0.0
+
+        try:
+            asm_title = assembly_doc.GetTitle()
+            if asm_title:
+                sw_app.ActivateDoc3(asm_title, False, 0, None)
+        except Exception:
+            asm_title = ""
+
+        try:
+            pre_open_docs = set(sw_app.GetOpenDocumentNames() or [])
+        except Exception:
+            pre_open_docs = set()
+
+        # Calculate initial z_offset
+        offset_step = -0.3
+        z_offset = 0.0
+        if self.get_add_to_existing():
+            existing_count = 0
+            try:
+                comps_before = assembly_doc.GetComponents(True) or []
+                existing_count = len(comps_before)
+            except Exception:
+                pass
+            z_offset = existing_count * offset_step
+            if existing_count == 0:
+                self.log(f"Montaj boş, yeni parçalar Z=0m'den başlayacak", "#3B82F6")
+            else:
+                self.log(f"Montajda {existing_count} parça var, yeni parçalar Z={z_offset:.3f}m'den başlayacak", "#3B82F6")
+
+        return assembly_doc, locked_title, asm_title, pre_open_docs, z_offset
+
+    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs):
+        """
+        Adds a component to the assembly. Returns (success, new_z_offset).
+        Extracted common code from batch and immediate modes to follow DRY principle.
+        """
+        if not os.path.exists(file_path):
+            if not self.ensure_local_file(self.get_pdm_vault(), file_path) or not os.path.exists(file_path):
+                self.log(f"Yerel kopya eksik: {file_path}", "#ef4444")
+                return False, z_offset
+
+        path_candidates, target_paths = self.build_path_candidates(file_path)
+
+        comp = None
+        errors = []
+        comp_doc = None
+        try:
+            existing_names = {getattr(c, "Name2", "") for c in (assembly_doc.GetComponents(True) or []) if c}
+        except Exception:
+            existing_names = set()
+
+        ext = os.path.splitext(file_path)[1].lower()
+        doc_type = SW_DOC_PART if ext == ".sldprt" else SW_DOC_ASSEMBLY if ext == ".sldasm" else 0
+
+        config_name = ""
+        if doc_type:
+            for candidate in path_candidates:
+                comp_doc, _ = self.open_component_doc(sw_app, candidate, doc_type)
+                if comp_doc:
+                    break
+            try:
+                cfgs = comp_doc.GetConfigurationNames() if comp_doc else None
+                if cfgs:
+                    config_name = list(cfgs)[0]
+            except Exception:
+                config_name = ""
+
+        math_util = None
+        try:
+            math_util = sw_app.GetMathUtility()
+        except Exception:
+            math_util = None
+
+        transform = None
+        if math_util:
+            try:
+                t = (1.0, 0.0, 0.0,
+                     0.0, 1.0, 0.0,
+                     0.0, 0.0, 1.0,
+                     0.0, 0.0, z_offset)
+                transform = math_util.CreateTransform(t)
+            except Exception as ex:
+                errors.append(f"Transform: {ex}")
+
+        def attempt(label, fn):
+            nonlocal comp
+            if comp:
+                return
+            for candidate in path_candidates:
+                if comp:
+                    return
+                try:
+                    comp = fn(candidate)
+                    if comp:
+                        return
+                except Exception as ex:
+                    errors.append(f"{label} ({candidate}): {ex}")
+
+        attempt("InsertExistingComponent3", lambda p: assembly_doc.InsertExistingComponent3(p, transform, False) if transform else None)
+        attempt("AddComponent6", lambda p: assembly_doc.AddComponent6(p, 1, config_name or "", transform, False, 0) if transform else None)
+        attempt("AddComponent5-0", lambda p: assembly_doc.AddComponent5(p, 0, config_name or "", 0, 0, z_offset))
+        attempt("AddComponent5-1", lambda p: assembly_doc.AddComponent5(p, 1, config_name or "", 0, 0, z_offset))
+        attempt("AddComponent5-2", lambda p: assembly_doc.AddComponent5(p, 2, config_name or "", 0, 0, z_offset))
+        attempt("InsertExistingComponent2", lambda p: assembly_doc.InsertExistingComponent2(p, 0, 0, z_offset))
+        attempt("AddComponent4", lambda p: assembly_doc.AddComponent4(p, 0, 0, z_offset))
+        attempt("AddComponent", lambda p: assembly_doc.AddComponent(p, 0, 0, z_offset))
+
+        if not comp:
+            try:
+                comps_after = assembly_doc.GetComponents(True) or []
+                for c in comps_after:
+                    name = getattr(c, "Name2", "")
+                    comp_path = ""
+                    try:
+                        comp_path = c.GetPathName() or ""
+                    except Exception:
+                        try:
+                            comp_path = c.GetPathName2() or ""
+                        except Exception:
+                            comp_path = ""
+                    if comp_path and normalize_path_for_compare(comp_path) in target_paths:
+                        comp = c
+                        break
+                    if name and name not in existing_names:
+                        comp = c
+                        break
+            except Exception:
+                pass
+
+        success = False
+        new_z_offset = z_offset
+        if comp:
+            self.log(f"✓ Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#2cc985")
+            new_z_offset = z_offset - 0.3  # offset_step
+            success = True
+        else:
+            self.log(f"Eklenemedi: {os.path.basename(file_path)} -> {' | '.join(errors) if errors else 'bilinmeyen'}", "#f59e0b")
+
+        # Close component document
+        try:
+            assembly_title = asm_title or ""
+            if comp_doc:
+                comp_title = ""
+                try:
+                    comp_title = comp_doc.GetTitle()
+                except Exception:
+                    comp_title = ""
+                if comp_title and comp_title != assembly_title:
+                    try:
+                        sw_app.CloseDoc(comp_title)
+                    except Exception:
+                        pass
+
+            close_candidates = set()
+            base_title = os.path.basename(file_path)
+            if base_title:
+                close_candidates.add(base_title)
+            try:
+                current_docs = set(sw_app.GetOpenDocumentNames() or [])
+                for name in current_docs:
+                    if name and name not in pre_open_docs and name != assembly_title:
+                        close_candidates.add(name)
+            except Exception:
+                pass
+
+            for name in close_candidates:
+                if name and name != assembly_title:
+                    try:
+                        sw_app.CloseDoc(name)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        return success, new_z_offset
 
     def open_component_doc(self, sw_app, file_path, doc_type):
         """Open component and let PDM add-in retrieve it if needed"""
@@ -687,70 +901,11 @@ class LogicHandler:
         if not sw_app:
             return
 
-        add_to_existing = self.get_add_to_existing()
-        locked_title = None  # Kilitlenecek montaj başlığı
-        assembly_doc = None
-        if add_to_existing:
-            assembly_doc = self.get_active_assembly(sw_app)
-            if assembly_doc:
-                self.log("Mevcut montaja parçalar eklenecek.", "#2cc985")
-                try:
-                    locked_title = assembly_doc.GetTitle() or ""
-                except Exception:
-                    locked_title = ""
-            else:
-                self.log("Açık montaj bulunamadı, yeni montaj oluşturulacak.", "#f59e0b")
-                add_to_existing = False
-
-        if not add_to_existing:
-            template = self.get_assembly_template(sw_app)
-            new_doc = sw_app.NewDocument(template, SW_DOC_ASSEMBLY, 0, 0)
-            if not new_doc:
-                self.log("Montaj oluşturulamadı.", "#ef4444")
-                return
-            assembly_doc = new_doc
-            # YENİ MONTAJ OLUŞTURULDU - BAŞLIĞI KİLİTLE
-            try:
-                locked_title = assembly_doc.GetTitle() or ""
-                self.log(f"Yeni montaj kilitlendi: {locked_title}", "#3B82F6")
-            except Exception:
-                locked_title = ""
-
-        assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
-        if not assembly_doc or self.doc_type_safe(assembly_doc) != SW_DOC_ASSEMBLY:
-            self.log("Aktif montaj alınamadı.", "#ef4444")
+        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+        if not assembly_doc:
             return
 
         self.set_status("Parçalar ekleniyor...")
-        try:
-            asm_title = assembly_doc.GetTitle()
-            if asm_title:
-                sw_app.ActivateDoc3(asm_title, False, 0, None)
-        except Exception:
-            asm_title = ""
-        
-        try:
-            pre_open_docs = set(sw_app.GetOpenDocumentNames() or [])
-        except Exception:
-            pre_open_docs = set()
-
-        offset_step = -0.3
-        is_adding_to_existing = self.get_add_to_existing()
-        
-        if is_adding_to_existing:
-            existing_count = 0
-            try:
-                comps_before = assembly_doc.GetComponents(True) or []
-                existing_count = len(comps_before)
-            except Exception:
-                pass
-            z_offset = existing_count * offset_step
-            if existing_count == 0:
-                self.log(f"Montaj boş, yeni parçalar Z=0m'den başlayacak", "#3B82F6")
-            else:
-                self.log(f"Montajda {existing_count} parça var, yeni parçalar Z={z_offset:.3f}m'den başlayacak", "#3B82F6")
-        else:
-            z_offset = 0.0
 
         total_files = len(found_files)
         for i, file_path in enumerate(found_files):
@@ -759,151 +914,19 @@ class LogicHandler:
 
             while self.is_paused and self.is_running:
                 time.sleep(0.5)
-            
+
             if locked_title:
                 try:
                     sw_app.ActivateDoc3(locked_title, False, 0, None)
                 except Exception:
                     pass
-            
+
             assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
             if not assembly_doc:
                 self.log("Montaj oturumu kaybedildi.", "#ef4444")
                 return
-            if not os.path.exists(file_path):
-                if not self.ensure_local_file(vault, file_path) or not os.path.exists(file_path):
-                    self.log(f"Yerel kopya eksik: {file_path}", "#ef4444")
-                    continue
 
-            path_candidates, target_paths = self.build_path_candidates(file_path)
-
-            comp = None
-            errors = []
-            comp_doc = None
-            try:
-                existing_names = {getattr(c, "Name2", "") for c in (assembly_doc.GetComponents(True) or []) if c}
-            except Exception:
-                existing_names = set()
-
-            ext = os.path.splitext(file_path)[1].lower()
-            doc_type = SW_DOC_PART if ext == ".sldprt" else SW_DOC_ASSEMBLY if ext == ".sldasm" else 0
-
-            config_name = ""
-            if doc_type:
-                for candidate in path_candidates:
-                    comp_doc, _ = self.open_component_doc(sw_app, candidate, doc_type)
-                    if comp_doc:
-                        break
-                try:
-                    cfgs = comp_doc.GetConfigurationNames() if comp_doc else None
-                    if cfgs:
-                        config_name = list(cfgs)[0]
-                except Exception:
-                    config_name = ""
-
-            math_util = None
-            try:
-                math_util = sw_app.GetMathUtility()
-            except Exception:
-                math_util = None
-
-            transform = None
-            if math_util:
-                try:
-                    t = (1.0, 0.0, 0.0,
-                         0.0, 1.0, 0.0,
-                         0.0, 0.0, 1.0,
-                         0.0, 0.0, z_offset)
-                    transform = math_util.CreateTransform(t)
-                except Exception as ex:
-                    errors.append(f"Transform: {ex}")
-
-            def attempt(label, fn):
-                nonlocal comp
-                if comp:
-                    return
-                for candidate in path_candidates:
-                    if comp:
-                        return
-                    try:
-                        comp = fn(candidate)
-                        if comp:
-                            return
-                    except Exception as ex:
-                        errors.append(f"{label} ({candidate}): {ex}")
-
-            attempt("InsertExistingComponent3", lambda p: assembly_doc.InsertExistingComponent3(p, transform, False) if transform else None)
-            attempt("AddComponent6", lambda p: assembly_doc.AddComponent6(p, 1, config_name or "", transform, False, 0) if transform else None)
-            attempt("AddComponent5-0", lambda p: assembly_doc.AddComponent5(p, 0, config_name or "", 0, 0, z_offset))
-            attempt("AddComponent5-1", lambda p: assembly_doc.AddComponent5(p, 1, config_name or "", 0, 0, z_offset))
-            attempt("AddComponent5-2", lambda p: assembly_doc.AddComponent5(p, 2, config_name or "", 0, 0, z_offset))
-            attempt("InsertExistingComponent2", lambda p: assembly_doc.InsertExistingComponent2(p, 0, 0, z_offset))
-            attempt("AddComponent4", lambda p: assembly_doc.AddComponent4(p, 0, 0, z_offset))
-            attempt("AddComponent", lambda p: assembly_doc.AddComponent(p, 0, 0, z_offset))
-
-            if not comp:
-                try:
-                    comps_after = assembly_doc.GetComponents(True) or []
-                    for c in comps_after:
-                        name = getattr(c, "Name2", "")
-                        comp_path = ""
-                        try:
-                            comp_path = c.GetPathName() or ""
-                        except Exception:
-                            try:
-                                comp_path = c.GetPathName2() or ""
-                            except Exception:
-                                comp_path = ""
-                        if comp_path and normalize_path_for_compare(comp_path) in target_paths:
-                            comp = c
-                            break
-                        if name and name not in existing_names:
-                            comp = c
-                            break
-                except Exception:
-                    pass
-
-            if comp:
-                self.log(f"✓ Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#2cc985")
-                z_offset += offset_step
-            else:
-                self.log(f"Eklenemedi: {os.path.basename(file_path)} -> {' | '.join(errors) if errors else 'bilinmeyen'}", "#f59e0b")
-
-            try:
-                assembly_title = asm_title or ""
-                if comp_doc:
-                    comp_title = ""
-                    try:
-                        comp_title = comp_doc.GetTitle()
-                    except Exception:
-                        comp_title = ""
-                    if comp_title and comp_title != assembly_title:
-                        try:
-                            sw_app.CloseDoc(comp_title)
-                        except Exception:
-                            pass
-                
-                close_candidates = set()
-                base_title = os.path.basename(file_path)
-                if base_title:
-                    close_candidates.add(base_title)
-                try:
-                    current_docs = set(sw_app.GetOpenDocumentNames() or [])
-                    for name in current_docs:
-                        if name and name not in pre_open_docs and name != assembly_title:
-                            close_candidates.add(name)
-                except Exception:
-                    pass
-                
-                for name in close_candidates:
-                    if name and name != assembly_title:
-                        try:
-                            sw_app.CloseDoc(name)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
+            success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
             self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
 
         self.set_status("Tamamlandı")
@@ -918,69 +941,9 @@ class LogicHandler:
         if not sw_app:
             return
 
-        add_to_existing = self.get_add_to_existing()
-        locked_title = None  # Kilitlenecek montaj başlığı
-        assembly_doc = None
-        if add_to_existing:
-            assembly_doc = self.get_active_assembly(sw_app)
-            if assembly_doc:
-                self.log("Mevcut montaja parçalar eklenecek.", "#2cc985")
-                try:
-                    locked_title = assembly_doc.GetTitle() or ""
-                except Exception:
-                    locked_title = ""
-            else:
-                self.log("Açık montaj bulunamadı, yeni montaj oluşturulacak.", "#f59e0b")
-                add_to_existing = False
-
-        if not add_to_existing:
-            template = self.get_assembly_template(sw_app)
-            new_doc = sw_app.NewDocument(template, SW_DOC_ASSEMBLY, 0, 0)
-            if not new_doc:
-                self.log("Montaj oluşturulamadı.", "#ef4444")
-                return
-            assembly_doc = new_doc
-            # YENİ MONTAJ OLUŞTURULDU - BAŞLIĞI KİLİTLE
-            try:
-                locked_title = assembly_doc.GetTitle() or ""
-                self.log(f"Yeni montaj kilitlendi: {locked_title}", "#3B82F6")
-            except Exception:
-                locked_title = ""
-
-        assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
-        if not assembly_doc or self.doc_type_safe(assembly_doc) != SW_DOC_ASSEMBLY:
-            self.log("Aktif montaj alınamadı.", "#ef4444")
+        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+        if not assembly_doc:
             return
-
-        try:
-            asm_title = assembly_doc.GetTitle()
-            if asm_title:
-                sw_app.ActivateDoc3(asm_title, False, 0, None)
-        except Exception:
-            asm_title = ""
-        
-        try:
-            pre_open_docs = set(sw_app.GetOpenDocumentNames() or [])
-        except Exception:
-            pre_open_docs = set()
-
-        offset_step = -0.3
-        is_adding_to_existing = self.get_add_to_existing()
-        
-        if is_adding_to_existing:
-            existing_count = 0
-            try:
-                comps_before = assembly_doc.GetComponents(True) or []
-                existing_count = len(comps_before)
-            except Exception:
-                pass
-            z_offset = existing_count * offset_step
-            if existing_count == 0:
-                self.log(f"Montaj boş, yeni parçalar Z=0m'den başlayacak", "#3B82F6")
-            else:
-                self.log(f"Montajda {existing_count} parça var, yeni parçalar Z={z_offset:.3f}m'den başlayacak", "#3B82F6")
-        else:
-            z_offset = 0.0
 
         self.set_status("Parçalar aranıyor ve ekleniyor...")
         total_codes = len(codes)
@@ -1020,159 +983,26 @@ class LogicHandler:
             
             # Bulundu log'u
             self.log(f"Bulundu: {code}", "#2cc985")
-            
+
             # HEMEN MONTAJA EKLE
             if locked_title:
                 try:
                     sw_app.ActivateDoc3(locked_title, False, 0, None)
                 except Exception:
                     pass
-            
+
             assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
             if not assembly_doc:
                 self.log("Montaj oturumu kaybedildi.", "#ef4444")
                 return
-            
-            if not os.path.exists(path):
-                self.log(f"Local copy missing: {path},", "#ef4444")
-                error_count += 1
-                self.update_stats(error=error_count)
-                self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
-                continue
 
-            path_candidates, target_paths = self.build_path_candidates(path)
-
-            comp = None
-            errors = []
-            comp_doc = None
-            
-            try:
-                existing_names = {getattr(c, "Name2", "") for c in (assembly_doc.GetComponents(True) or []) if c}
-            except Exception:
-                existing_names = set()
-
-            ext = os.path.splitext(path)[1].lower()
-            doc_type = SW_DOC_PART if ext == ".sldprt" else SW_DOC_ASSEMBLY if ext == ".sldasm" else 0
-
-            config_name = ""
-            if doc_type:
-                for candidate in path_candidates:
-                    comp_doc, _ = self.open_component_doc(sw_app, candidate, doc_type)
-                    if comp_doc:
-                        break
-                try:
-                    cfgs = comp_doc.GetConfigurationNames() if comp_doc else None
-                    if cfgs:
-                        config_name = list(cfgs)[0]
-                except Exception:
-                    config_name = ""
-
-            math_util = None
-            try:
-                math_util = sw_app.GetMathUtility()
-            except Exception:
-                math_util = None
-
-            transform = None
-            if math_util:
-                try:
-                    t = (1.0, 0.0, 0.0,
-                         0.0, 1.0, 0.0,
-                         0.0, 0.0, 1.0,
-                         0.0, 0.0, z_offset)
-                    transform = math_util.CreateTransform(t)
-                except Exception as ex:
-                    errors.append(f"Transform: {ex}")
-
-            def attempt(label, fn):
-                nonlocal comp
-                if comp:
-                    return
-                for candidate in path_candidates:
-                    if comp:
-                        return
-                    try:
-                        comp = fn(candidate)
-                        if comp:
-                            return
-                    except Exception as ex:
-                        errors.append(f"{label} ({candidate}): {ex}")
-
-            attempt("InsertExistingComponent3", lambda p: assembly_doc.InsertExistingComponent3(p, transform, False) if transform else None)
-            attempt("AddComponent6", lambda p: assembly_doc.AddComponent6(p, 1, config_name or "", transform, False, 0) if transform else None)
-            attempt("AddComponent5-0", lambda p: assembly_doc.AddComponent5(p, 0, config_name or "", 0, 0, z_offset))
-            attempt("AddComponent5-1", lambda p: assembly_doc.AddComponent5(p, 1, config_name or "", 0, 0, z_offset))
-            attempt("AddComponent5-2", lambda p: assembly_doc.AddComponent5(p, 2, config_name or "", 0, 0, z_offset))
-            attempt("InsertExistingComponent2", lambda p: assembly_doc.InsertExistingComponent2(p, 0, 0, z_offset))
-            attempt("AddComponent4", lambda p: assembly_doc.AddComponent4(p, 0, 0, z_offset))
-            attempt("AddComponent", lambda p: assembly_doc.AddComponent(p, 0, 0, z_offset))
-
-            if not comp:
-                try:
-                    comps_after = assembly_doc.GetComponents(True) or []
-                    for c in comps_after:
-                        name = getattr(c, "Name2", "")
-                        comp_path = ""
-                        try:
-                            comp_path = c.GetPathName() or ""
-                        except Exception:
-                            try:
-                                comp_path = c.GetPathName2() or ""
-                            except Exception:
-                                comp_path = ""
-                        if comp_path and normalize_path_for_compare(comp_path) in target_paths:
-                            comp = c
-                            break
-                        if name and name not in existing_names:
-                            comp = c
-                            break
-                except Exception:
-                    pass
-
-            if comp:
-                self.log(f"✓ Eklendi: {os.path.basename(path)} (Z={z_offset:.3f}m)", "#2cc985")
+            success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+            if success:
                 added_count += 1
                 self.update_stats(success=added_count)
-                z_offset += offset_step
             else:
-                self.log(f"Eklenemedi: {os.path.basename(path)} -> {' | '.join(errors) if errors else 'bilinmeyen'}", "#f59e0b")
                 error_count += 1
                 self.update_stats(error=error_count)
-
-            try:
-                assembly_title = asm_title or ""
-                if comp_doc:
-                    comp_title = ""
-                    try:
-                        comp_title = comp_doc.GetTitle()
-                    except Exception:
-                        comp_title = ""
-                    if comp_title and comp_title != assembly_title:
-                        try:
-                            sw_app.CloseDoc(comp_title)
-                        except Exception:
-                            pass
-                
-                close_candidates = set()
-                base_title = os.path.basename(path)
-                if base_title:
-                    close_candidates.add(base_title)
-                try:
-                    current_docs = set(sw_app.GetOpenDocumentNames() or [])
-                    for name in current_docs:
-                        if name and name not in pre_open_docs and name != assembly_title:
-                            close_candidates.add(name)
-                except Exception:
-                    pass
-                
-                for name in close_candidates:
-                    if name and name != assembly_title:
-                        try:
-                            sw_app.CloseDoc(name)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
 
             self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
 

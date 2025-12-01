@@ -7,68 +7,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
 import PageLayout from '../components/PageLayout';
 import CustomAlert from '../components/CustomAlert';
+import ModernTooltip from '../components/ModernTooltip';
 import { useAssemblyLogic } from '../hooks/useAssemblyLogic';
-
-
-
-// Tooltip Component
-const ModernTooltip = ({ text, children, theme }) => {
-    const [isVisible, setIsVisible] = useState(false);
-
-    return (
-        <div
-            onMouseEnter={() => setIsVisible(true)}
-            onMouseLeave={() => setIsVisible(false)}
-            style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '15px', // Increase hit area
-                margin: '-15px', // Compensate for padding to maintain layout
-                cursor: 'help'
-            }}
-        >
-            {children}
-            <AnimatePresence>
-                {isVisible && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 5, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                        style={{
-                            position: 'absolute',
-                            bottom: '100%',
-                            right: 0,
-                            marginBottom: '5px', // Reduced gap
-                            padding: '8px 12px',
-                            background: theme === 'dark' ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.95)',
-                            color: theme === 'dark' ? '#0f172a' : '#ffffff',
-                            borderRadius: '12px',
-                            fontSize: '12px',
-                            fontWeight: '500',
-                            whiteSpace: 'nowrap',
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                            zIndex: 9999,
-                            pointerEvents: 'auto', // Allow hovering the tooltip itself
-                            minWidth: 'max-content'
-                        }}
-                    >
-                        {text}
-                        <div style={{
-                            position: 'absolute',
-                            top: '100%',
-                            right: '18px', // Adjusted for padding
-                            borderLeft: '6px solid transparent',
-                            borderRight: '6px solid transparent',
-                            borderTop: `6px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.95)'}`
-                        }} />
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-};
+import { logoAnimationVariants } from '../constants/animations';
 
 const AssemblyWizard = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
@@ -138,26 +79,6 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     // Calculate live count of valid codes
     const liveCount = codes.split('\n').map(c => c.trim()).filter(c => c).length;
     const displayTotal = isRunning ? stats.total : liveCount;
-
-    const logoAnimationVariants = {
-        animate: {
-            y: [0, -5, 0],
-            scale: [1, 1.05, 1],
-            filter: ["drop-shadow(0 0 0px rgba(0,0,0,0))", "drop-shadow(0 5px 5px rgba(0,0,0,0.2))", "drop-shadow(0 0 0px rgba(0,0,0,0))"],
-            transition: {
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut"
-            }
-        },
-        hover: {
-            scale: 1.1,
-            rotate: [0, -5, 5, 0],
-            transition: {
-                duration: 0.5
-            }
-        }
-    };
 
     return (
         <PageLayout>
