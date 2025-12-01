@@ -151,10 +151,9 @@ export const useAssemblyLogic = () => {
             return;
         }
 
-        // Clear logs locally and on server
-        setLogs([{ message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
+        // Add starting message without clearing logs
+        setLogs(prev => [...prev, { message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
         setStats({ total: codeList.length, success: 0, error: 0 });
-        lastLogIndexRef.current = 0;
 
         // Optimistically set running to prevent double clicks
         setIsRunning(true);
