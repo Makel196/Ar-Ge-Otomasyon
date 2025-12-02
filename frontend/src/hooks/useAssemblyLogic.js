@@ -30,7 +30,17 @@ export const useAssemblyLogic = () => {
   // Volatile State
   const [status, setStatus] = useState(STATUS.READY);
   const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState(() => {
+    if (localStorage.getItem('rememberSession') === 'true') {
+      try {
+        const saved = localStorage.getItem('savedLogs');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [stats, setStats] = useState({ total: 0, success: 0, error: 0 });
@@ -126,7 +136,13 @@ export const useAssemblyLogic = () => {
         if (data.logs && data.logs.length > 0) {
           const normalized = data.logs.map(normalizeLog);
           normalized.forEach((log) => applyLogImpact(log.message));
-          setLogs((prev) => [...prev, ...normalized]);
+          setLogs((prev) => {
+            const newLogs = [...prev, ...normalized];
+            if (rememberSession) {
+              localStorage.setItem('savedLogs', JSON.stringify(newLogs));
+            }
+            return newLogs;
+          });
           lastLogIndexRef.current += normalized.length;
         }
       } catch (err) {
@@ -135,6 +151,13 @@ export const useAssemblyLogic = () => {
     }, 500);
     return () => clearInterval(interval);
   }, [vaultPath]);
+
+  // Auto-save codes if rememberSession is true
+  useEffect(() => {
+    if (rememberSession) {
+      localStorage.setItem('codes', codes);
+    }
+  }, [codes, rememberSession]);
 
   // Clear backend state on mount if persistence is disabled
   useEffect(() => {
@@ -149,7 +172,10 @@ export const useAssemblyLogic = () => {
       };
       resetSession();
 
+      resetSession();
+
       setLogs([]);
+      localStorage.removeItem('savedLogs');
       setStats({ total: 0, success: 0, error: 0 });
       setStatus(STATUS.READY);
       setProgress(0);
@@ -173,7 +199,12 @@ export const useAssemblyLogic = () => {
           await axios.post(`${API_URL}/resume`);
           setIsPaused(false);
           setStatus(STATUS.RESUMING);
-          setLogs((prev) => [...prev, { message: 'İşlem devam ediyor.', timestamp: Date.now() / 1000, color: '#0ea5e9' }]);
+          setStatus(STATUS.RESUMING);
+          setLogs((prev) => {
+            const newLogs = [...prev, { message: 'İşlem devam ediyor.', timestamp: Date.now() / 1000, color: '#0ea5e9' }];
+            if (rememberSession) localStorage.setItem('savedLogs', JSON.stringify(newLogs));
+            return newLogs;
+          });
         } catch (err) {
           console.error('Resume error', err);
         }
@@ -182,7 +213,13 @@ export const useAssemblyLogic = () => {
           await axios.post(`${API_URL}/pause`);
           setStatus(STATUS.PAUSED);
           setIsPaused(true);
-          setLogs((prev) => [...prev, { message: 'İşlem duraklatıldı.', timestamp: Date.now() / 1000, color: '#475569' }]);
+          setStatus(STATUS.PAUSED);
+          setIsPaused(true);
+          setLogs((prev) => {
+            const newLogs = [...prev, { message: 'İşlem duraklatıldı.', timestamp: Date.now() / 1000, color: '#475569' }];
+            if (rememberSession) localStorage.setItem('savedLogs', JSON.stringify(newLogs));
+            return newLogs;
+          });
         } catch (err) {
           console.error('Pause error', err);
         }
@@ -217,7 +254,23 @@ export const useAssemblyLogic = () => {
     setIsRunning(true);
     setStatus(STATUS.STARTING);
     lastLogIndexRef.current = 0; // ensure next poll reads all fresh logs for this run
-    setLogs((prev) => [...prev, { message: 'İşlem başlatılıyor...', timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
+    setStatus(STATUS.STARTING);
+    lastLogIndexRef.current = 0; // ensure next poll reads all fresh logs for this run
+
+    // Clear old logs on new run if that's the desired behavior, OR append. 
+    // Usually a new run implies new context. But user might want history.
+    // Given the backend clears its logs, we should probably clear frontend logs too to stay in sync?
+    // Or we keep them. If we keep them, we just append.
+    // Let's append for now as per previous logic.
+
+    setLogs((prev) => {
+      const newLog = { message: 'İşlem başlatılıyor...', timestamp: Date.now() / 1000, color: 'var(--text-secondary)' };
+      const newLogs = [...prev, newLog];
+      if (rememberSession) {
+        localStorage.setItem('savedLogs', JSON.stringify(newLogs));
+      }
+      return newLogs;
+    });
 
     try {
       await axios.post(`${API_URL}/start`, {
@@ -228,7 +281,11 @@ export const useAssemblyLogic = () => {
     } catch (err) {
       setIsRunning(false);
       const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Bilinmeyen hata';
-      setLogs((prev) => [...prev, { message: 'Hata: ' + errorMessage, timestamp: Date.now() / 1000, color: '#ef4444' }]);
+      setLogs((prev) => {
+        const newLogs = [...prev, { message: 'Hata: ' + errorMessage, timestamp: Date.now() / 1000, color: '#ef4444' }];
+        if (rememberSession) localStorage.setItem('savedLogs', JSON.stringify(newLogs));
+        return newLogs;
+      });
 
       if (errorMessage.toLowerCase().includes('pdm') || errorMessage.toLowerCase().includes('kasa') || errorMessage.toLowerCase().includes('vault')) {
         setAlertState({
@@ -260,12 +317,22 @@ export const useAssemblyLogic = () => {
     setIsRunning(false);
     setIsPaused(false);
     setStatus(STATUS.STOPPED);
-    setLogs((prev) => [...prev, { message: 'İşlem durduruldu.', timestamp: Date.now() / 1000, color: '#f97316' }]);
+    setIsPaused(false);
+    setStatus(STATUS.STOPPED);
+    setLogs((prev) => {
+      const newLogs = [...prev, { message: 'İşlem durduruldu.', timestamp: Date.now() / 1000, color: '#f97316' }];
+      if (rememberSession) localStorage.setItem('savedLogs', JSON.stringify(newLogs));
+      return newLogs;
+    });
   }, []);
 
   const handleClear = useCallback(() => {
     setCodes('');
-    setLogs([{ message: 'Kayıtlar temizlendi.', timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
+    const clearLog = { message: 'Kayıtlar temizlendi.', timestamp: Date.now() / 1000, color: 'var(--text-secondary)' };
+    setLogs([clearLog]);
+    if (rememberSession) {
+      localStorage.setItem('savedLogs', JSON.stringify([clearLog]));
+    }
     setStats({ total: 0, success: 0, error: 0 });
     lastLogIndexRef.current = 0;
     setProgress(0);
@@ -322,7 +389,9 @@ export const useAssemblyLogic = () => {
       localStorage.removeItem('addToExisting');
       localStorage.removeItem('stopOnNotFound');
       localStorage.removeItem('dedupe');
+      localStorage.removeItem('dedupe');
       localStorage.removeItem('vaultPath');
+      localStorage.removeItem('savedLogs');
     } else {
       localStorage.setItem('codes', codes);
       localStorage.setItem('addToExisting', addToExisting);

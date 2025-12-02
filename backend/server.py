@@ -4,9 +4,14 @@ import signal
 import threading
 import queue
 import time
+import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pdm_logic import LogicHandler, read_vault_path_registry, write_vault_path_registry
+
+# Disable Flask default logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 class AutomationServer:
     def __init__(self):

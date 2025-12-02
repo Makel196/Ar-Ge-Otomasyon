@@ -156,6 +156,7 @@ class LogicHandler:
             # self.log("Stats Queue connected.", "#2cc985")
             pass
         self.current_status = "Hazır"
+        self.stats = {"total": 0, "success": 0, "error": 0}
 
     def update_stats(self, total=None, success=None, error=None):
         print(f"DEBUG: update_stats called with total={total}, success={success}, error={error}", flush=True)
