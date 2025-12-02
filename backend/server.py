@@ -151,6 +151,14 @@ class AutomationServer:
             self.current_settings["add_to_existing"] = data.get('addToExisting', False)
             self.current_settings["stop_on_not_found"] = data.get('stopOnNotFound', True)
             
+            # If multiKitMode is active, force disable other settings
+            if data.get('multiKitMode', False):
+                self.current_settings["add_to_existing"] = False
+                self.current_settings["stop_on_not_found"] = False
+                # Dedupe logic is handled in frontend before sending codes, but we can also ensure it here if needed
+                # For now, we trust the frontend sent the raw codes or deduped codes based on its logic
+
+            
             if not codes:
                 return jsonify({"error": "No codes provided"}), 400
                 

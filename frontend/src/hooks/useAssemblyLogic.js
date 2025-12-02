@@ -37,6 +37,8 @@ export const useAssemblyLogic = () => {
   const [sapUsername, setSapUsername] = useState(() => localStorage.getItem('sapUsername') || '');
   const [sapPassword, setSapPassword] = useState(() => localStorage.getItem('sapPassword') || '');
   const [assemblySavePath, setAssemblySavePath] = useState(() => localStorage.getItem('assemblySavePath') || '');
+  const [batchRenameMode, setBatchRenameMode] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('batchRenameMode') === 'true' : false));
+  const [batchSettingsUnlocked, setBatchSettingsUnlocked] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('batchSettingsUnlocked') === 'true' : false));
 
   // Volatile State
   const [status, setStatus] = useState(STATUS.READY);
@@ -379,7 +381,9 @@ export const useAssemblyLogic = () => {
       multiKitMode,
       sapUsername,
       sapPassword,
-      assemblySavePath
+      assemblySavePath,
+      batchRenameMode,
+      batchSettingsUnlocked
     };
     setShowSettings(true);
   }, [rememberSession, vaultPath, addToExisting, stopOnNotFound, dedupe]);
@@ -396,6 +400,8 @@ export const useAssemblyLogic = () => {
       setSapUsername(backup.sapUsername);
       setSapPassword(backup.sapPassword);
       setAssemblySavePath(backup.assemblySavePath);
+      setBatchRenameMode(backup.batchRenameMode);
+      setBatchSettingsUnlocked(backup.batchSettingsUnlocked);
     }
     setShowSettings(false);
   }, []);
@@ -422,16 +428,21 @@ export const useAssemblyLogic = () => {
     localStorage.setItem('sapUsername', sapUsername);
     localStorage.setItem('sapPassword', sapPassword);
     localStorage.setItem('assemblySavePath', assemblySavePath);
+    localStorage.setItem('assemblySavePath', assemblySavePath);
     localStorage.setItem('vaultPath', vaultPath);
 
     if (rememberSession) {
       localStorage.setItem('codes', codes);
+      localStorage.setItem('batchSettingsUnlocked', batchSettingsUnlocked);
+      localStorage.setItem('batchRenameMode', batchRenameMode);
     } else {
       localStorage.removeItem('codes');
       localStorage.removeItem('savedLogs');
+      localStorage.removeItem('batchSettingsUnlocked');
+      localStorage.removeItem('batchRenameMode');
     }
     setShowSettings(false);
-  }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath, multiKitMode, sapUsername, sapPassword, assemblySavePath]);
+  }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath, multiKitMode, sapUsername, sapPassword, assemblySavePath, batchRenameMode, batchSettingsUnlocked]);
 
   return {
     rememberSession, setRememberSession,
@@ -444,6 +455,8 @@ export const useAssemblyLogic = () => {
     sapUsername, setSapUsername,
     sapPassword, setSapPassword,
     assemblySavePath, setAssemblySavePath,
+    batchRenameMode, setBatchRenameMode,
+    batchSettingsUnlocked, setBatchSettingsUnlocked,
     status, progress, logs, isRunning, isPaused, stats,
     alertState, setAlertState,
     showSettings, setShowSettings,

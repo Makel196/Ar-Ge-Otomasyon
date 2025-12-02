@@ -11,19 +11,21 @@ import ModernTooltip from '../components/ModernTooltip';
 import { useAssemblyLogic } from '../hooks/useAssemblyLogic';
 import { logoAnimationVariants } from '../constants/animations';
 
-const SettingsToggle = ({ label, checked, onChange, theme, activeColor = '#10b981', tooltip, icon = faCheckCircle }) => (
+const SettingsToggle = ({ label, checked, onChange, theme, activeColor = '#10b981', tooltip, icon = faCheckCircle, disabled = false }) => (
     <label style={{
         display: 'flex',
         alignItems: 'center',
         gap: '16px',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         padding: '0 16px',
         height: '56px',
         borderRadius: '16px',
         background: checked ? `${activeColor}20` : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
         border: checked ? `1px solid ${activeColor}40` : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
         transition: 'all 0.2s ease',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        opacity: disabled ? 0.5 : 1,
+        pointerEvents: disabled ? 'none' : 'auto'
     }}>
         <div style={{
             width: '24px', height: '24px', borderRadius: '6px',
@@ -34,7 +36,7 @@ const SettingsToggle = ({ label, checked, onChange, theme, activeColor = '#10b98
         }}>
             {checked && <FontAwesomeIcon icon={icon} style={{ fontSize: '14px' }} />}
         </div>
-        <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} style={{ display: 'none' }} />
+        <input type="checkbox" checked={checked} onChange={e => !disabled && onChange(e.target.checked)} style={{ display: 'none' }} disabled={disabled} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
             <span style={{ fontSize: '14px', fontWeight: '600', color: checked ? activeColor : 'var(--text)' }}>{label}</span>
             {tooltip && (
@@ -52,6 +54,7 @@ const SettingsToggle = ({ label, checked, onChange, theme, activeColor = '#10b98
 const AssemblyWizard = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
+    const [batchPasswordInput, setBatchPasswordInput] = useState('');
 
 
     // Use custom hook for logic
@@ -66,6 +69,8 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         sapUsername, setSapUsername,
         sapPassword, setSapPassword,
         assemblySavePath, setAssemblySavePath,
+        batchRenameMode, setBatchRenameMode,
+        batchSettingsUnlocked, setBatchSettingsUnlocked,
         status, progress, logs, isRunning, isPaused, stats,
         alertState, setAlertState,
         showSettings, setShowSettings,
@@ -512,6 +517,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Yeni montaj oluşturmak yerine açık olan montaja parça ekler"
+                                                disabled={multiKitMode}
                                             />
                                             <SettingsToggle
                                                 label="Bulunamayan varsa durdur"
@@ -520,6 +526,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Parça bulunamadığında işlemi durdurur"
+                                                disabled={multiKitMode}
                                             />
                                             <SettingsToggle
                                                 label="Tekrarlı kodları sil"
@@ -528,6 +535,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Listeye eklenen mükerrer (aynı) kodları otomatik temizler"
+                                                disabled={multiKitMode}
                                             />
                                         </div>
                                     </div>
@@ -643,7 +651,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                     {/* Batch Settings (Protected) */}
                                     <div>
                                         <label style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', display: 'block', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>TOPLU AYARLAR</label>
-                                        <div style={{
+                                        <div style={!batchSettingsUnlocked ? {
                                             background: theme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)',
                                             borderRadius: '20px',
                                             padding: '24px',
@@ -652,39 +660,96 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                             flexDirection: 'column',
                                             alignItems: 'center',
                                             gap: '16px',
-                                            textAlign: 'center'
+                                            textAlign: 'center',
+                                            opacity: multiKitMode ? 0.5 : 1,
+                                            transition: 'opacity 0.3s'
+                                        } : {
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '12px',
+                                            opacity: multiKitMode ? 0.5 : 1,
+                                            transition: 'opacity 0.3s'
                                         }}>
-                                            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <FontAwesomeIcon icon={faLock} style={{ fontSize: '14px' }} />
-                                                <span>Bu ayarlar korumalıdır</span>
-                                            </div>
+                                            {!batchSettingsUnlocked ? (
+                                                <>
+                                                    <div style={{ color: 'var(--text-secondary)', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <FontAwesomeIcon icon={faLock} style={{ fontSize: '14px' }} />
+                                                        <span>Bu ayarlar korumalıdır</span>
+                                                    </div>
 
-                                            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-                                                <input
-                                                    type="password"
-                                                    placeholder="Erişim şifresi..."
-                                                    className="modern-input"
-                                                    style={{
-                                                        padding: '0 16px',
-                                                        height: '56px',
-                                                        borderRadius: '12px',
-                                                        fontSize: '14px',
-                                                        background: theme === 'dark' ? 'rgba(0,0,0,0.2)' : 'white',
-                                                        boxSizing: 'border-box'
-                                                    }}
-                                                />
-                                                <button
-                                                    className="modern-btn primary"
-                                                    style={{
-                                                        padding: '0 24px',
-                                                        height: '56px',
-                                                        borderRadius: '12px',
-                                                        background: '#6366f1'
-                                                    }}
-                                                >
-                                                    Aç
-                                                </button>
-                                            </div>
+                                                    <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+                                                        <input
+                                                            type="password"
+                                                            placeholder="Erişim şifresi..."
+                                                            className="modern-input"
+                                                            value={batchPasswordInput}
+                                                            onChange={(e) => setBatchPasswordInput(e.target.value)}
+                                                            style={{
+                                                                padding: '0 20px',
+                                                                height: '56px',
+                                                                borderRadius: '16px',
+                                                                fontSize: '15px',
+                                                                background: theme === 'dark' ? 'rgba(0,0,0,0.2)' : 'white',
+                                                                border: '2px solid #3b82f6',
+                                                                color: 'var(--text)',
+                                                                outline: 'none',
+                                                                boxSizing: 'border-box',
+                                                                boxShadow: '0 0 20px rgba(59, 130, 246, 0.15)',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                        />
+                                                        <button
+                                                            className="modern-btn primary"
+                                                            onClick={() => {
+                                                                if (multiKitMode) {
+                                                                    setAlertState({
+                                                                        isOpen: true,
+                                                                        message: 'Toplu Kit Montajı aktif olduğu için giriş yapılamaz',
+                                                                        type: 'error'
+                                                                    });
+                                                                    return;
+                                                                }
+
+                                                                if (batchPasswordInput === 'KB3183') {
+                                                                    setBatchSettingsUnlocked(true);
+                                                                    setBatchPasswordInput('');
+                                                                } else {
+                                                                    setAlertState({
+                                                                        isOpen: true,
+                                                                        message: 'Hatalı şifre!',
+                                                                        type: 'error'
+                                                                    });
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                padding: '0 32px',
+                                                                height: '56px',
+                                                                borderRadius: '16px',
+                                                                background: '#3b82f6',
+                                                                boxShadow: '0 8px 20px -4px rgba(59, 130, 246, 0.5)',
+                                                                fontSize: '14px',
+                                                                fontWeight: '800',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '1px',
+                                                                cursor: multiKitMode ? 'not-allowed' : 'pointer'
+                                                            }}
+                                                        >
+                                                            AÇ
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div style={{ width: '100%' }}>
+                                                    <SettingsToggle
+                                                        label="Toplu Dosya İsimlendir"
+                                                        checked={batchRenameMode}
+                                                        onChange={setBatchRenameMode}
+                                                        theme={theme}
+                                                        activeColor="#3b82f6"
+                                                        tooltip="Dosya isimlendir yapılmayan dosyaların hepsine dosya isimlendir yapılması"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
