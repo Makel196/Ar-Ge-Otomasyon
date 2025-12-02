@@ -312,8 +312,8 @@ body {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 20px;
-  height: 10px;
+  width: 16px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -322,7 +322,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 12px;
+  border-radius: 20px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
