@@ -17,15 +17,26 @@ const STATUS = {
 export const useAssemblyLogic = () => {
   // Persistent Settings
   const [rememberSession, setRememberSession] = useState(() => localStorage.getItem('rememberSession') === 'true');
-  const [vaultPath, setVaultPath] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('vaultPath') || '' : ''));
+  const [vaultPath, setVaultPath] = useState(() => localStorage.getItem('vaultPath') || '');
 
   // State with optional persistence
   const [codes, setCodes] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('codes') || '' : ''));
 
   // Settings with optional persistence
-  const [addToExisting, setAddToExisting] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('addToExisting') === 'true' : false));
-  const [stopOnNotFound, setStopOnNotFound] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('stopOnNotFound') === 'true' : true));
-  const [dedupe, setDedupe] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('dedupe') === 'true' : true));
+  // Settings - Always Persistent
+  const [addToExisting, setAddToExisting] = useState(() => localStorage.getItem('addToExisting') === 'true');
+  const [stopOnNotFound, setStopOnNotFound] = useState(() => {
+    const saved = localStorage.getItem('stopOnNotFound');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [dedupe, setDedupe] = useState(() => {
+    const saved = localStorage.getItem('dedupe');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [multiKitMode, setMultiKitMode] = useState(() => localStorage.getItem('multiKitMode') === 'true');
+  const [sapUsername, setSapUsername] = useState(() => localStorage.getItem('sapUsername') || '');
+  const [sapPassword, setSapPassword] = useState(() => localStorage.getItem('sapPassword') || '');
+  const [assemblySavePath, setAssemblySavePath] = useState(() => localStorage.getItem('assemblySavePath') || '');
 
   // Volatile State
   const [status, setStatus] = useState(STATUS.READY);
@@ -364,7 +375,11 @@ export const useAssemblyLogic = () => {
       vaultPath,
       addToExisting,
       stopOnNotFound,
-      dedupe
+      dedupe,
+      multiKitMode,
+      sapUsername,
+      sapPassword,
+      assemblySavePath
     };
     setShowSettings(true);
   }, [rememberSession, vaultPath, addToExisting, stopOnNotFound, dedupe]);
@@ -377,30 +392,46 @@ export const useAssemblyLogic = () => {
       setAddToExisting(backup.addToExisting);
       setStopOnNotFound(backup.stopOnNotFound);
       setDedupe(backup.dedupe);
+      setMultiKitMode(backup.multiKitMode);
+      setSapUsername(backup.sapUsername);
+      setSapPassword(backup.sapPassword);
+      setAssemblySavePath(backup.assemblySavePath);
     }
     setShowSettings(false);
   }, []);
 
   const saveSettings = useCallback(() => {
+    if (multiKitMode) {
+      if (!sapUsername || !sapPassword || !assemblySavePath) {
+        setAlertState({
+          isOpen: true,
+          message: 'Çoklu Kit Montajı için SAP Kullanıcı Adı, Şifre ve Montaj Kayıt Yolu zorunludur.',
+          type: 'warning'
+        });
+        return;
+      }
+    }
+
     localStorage.setItem('rememberSession', rememberSession);
 
-    if (!rememberSession) {
-      localStorage.removeItem('codes');
-      localStorage.removeItem('addToExisting');
-      localStorage.removeItem('stopOnNotFound');
-      localStorage.removeItem('dedupe');
-      localStorage.removeItem('dedupe');
-      localStorage.removeItem('vaultPath');
-      localStorage.removeItem('savedLogs');
-    } else {
+    // Always save settings regardless of rememberSession
+    localStorage.setItem('addToExisting', addToExisting);
+    localStorage.setItem('stopOnNotFound', stopOnNotFound);
+    localStorage.setItem('dedupe', dedupe);
+    localStorage.setItem('multiKitMode', multiKitMode);
+    localStorage.setItem('sapUsername', sapUsername);
+    localStorage.setItem('sapPassword', sapPassword);
+    localStorage.setItem('assemblySavePath', assemblySavePath);
+    localStorage.setItem('vaultPath', vaultPath);
+
+    if (rememberSession) {
       localStorage.setItem('codes', codes);
-      localStorage.setItem('addToExisting', addToExisting);
-      localStorage.setItem('stopOnNotFound', stopOnNotFound);
-      localStorage.setItem('dedupe', dedupe);
-      localStorage.setItem('vaultPath', vaultPath);
+    } else {
+      localStorage.removeItem('codes');
+      localStorage.removeItem('savedLogs');
     }
     setShowSettings(false);
-  }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath]);
+  }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath, multiKitMode, sapUsername, sapPassword, assemblySavePath]);
 
   return {
     rememberSession, setRememberSession,
@@ -409,6 +440,10 @@ export const useAssemblyLogic = () => {
     addToExisting, setAddToExisting,
     stopOnNotFound, setStopOnNotFound,
     dedupe, setDedupe,
+    multiKitMode, setMultiKitMode,
+    sapUsername, setSapUsername,
+    sapPassword, setSapPassword,
+    assemblySavePath, setAssemblySavePath,
     status, progress, logs, isRunning, isPaused, stats,
     alertState, setAlertState,
     showSettings, setShowSettings,

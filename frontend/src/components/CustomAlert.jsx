@@ -10,6 +10,7 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' 
         switch (type) {
             case 'success': return faCheckCircle;
             case 'error': return faExclamationTriangle;
+            case 'warning': return faExclamationTriangle;
             default: return faInfoCircle;
         }
     };
@@ -18,6 +19,7 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' 
         switch (type) {
             case 'success': return '#10b981';
             case 'error': return '#ef4444';
+            case 'warning': return '#ef4444';
             default: return '#3b82f6';
         }
     };
@@ -83,7 +85,7 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' 
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>
-                                {type === 'error' ? 'Hata' : (type === 'success' ? 'Başarılı' : 'Bilgi')}
+                                {type === 'error' ? 'Hata' : (type === 'success' ? 'Başarılı' : (type === 'warning' ? 'Uyarı' : 'Bilgi'))}
                             </h3>
                             <p style={{ margin: 0, fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                                 {message}
