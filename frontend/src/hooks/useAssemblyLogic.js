@@ -38,6 +38,10 @@ export const useAssemblyLogic = () => {
   const [sapPassword, setSapPassword] = useState(() => localStorage.getItem('sapPassword') || '');
   const [assemblySavePath, setAssemblySavePath] = useState(() => localStorage.getItem('assemblySavePath') || '');
   const [batchRenameMode, setBatchRenameMode] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('batchRenameMode') === 'true' : false));
+  const [batchFixDataCardMode, setBatchFixDataCardMode] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('batchFixDataCardMode') === 'true' : false));
+  const [batchFileLayoutMode, setBatchFileLayoutMode] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('batchFileLayoutMode') === 'true' : false));
+  const [batchAssemblyWeightCorrectionMode, setBatchAssemblyWeightCorrectionMode] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('batchAssemblyWeightCorrectionMode') === 'true' : false));
+  const [batchDuplicateCodeCheckMode, setBatchDuplicateCodeCheckMode] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('batchDuplicateCodeCheckMode') === 'true' : false));
   const [batchSettingsUnlocked, setBatchSettingsUnlocked] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('batchSettingsUnlocked') === 'true' : false));
 
   // Volatile State
@@ -383,6 +387,10 @@ export const useAssemblyLogic = () => {
       sapPassword,
       assemblySavePath,
       batchRenameMode,
+      batchFixDataCardMode,
+      batchFileLayoutMode,
+      batchAssemblyWeightCorrectionMode,
+      batchDuplicateCodeCheckMode,
       batchSettingsUnlocked
     };
     setShowSettings(true);
@@ -401,6 +409,10 @@ export const useAssemblyLogic = () => {
       setSapPassword(backup.sapPassword);
       setAssemblySavePath(backup.assemblySavePath);
       setBatchRenameMode(backup.batchRenameMode);
+      setBatchFixDataCardMode(backup.batchFixDataCardMode);
+      setBatchFileLayoutMode(backup.batchFileLayoutMode);
+      setBatchAssemblyWeightCorrectionMode(backup.batchAssemblyWeightCorrectionMode);
+      setBatchDuplicateCodeCheckMode(backup.batchDuplicateCodeCheckMode);
       setBatchSettingsUnlocked(backup.batchSettingsUnlocked);
     }
     setShowSettings(false);
@@ -435,14 +447,22 @@ export const useAssemblyLogic = () => {
       localStorage.setItem('codes', codes);
       localStorage.setItem('batchSettingsUnlocked', batchSettingsUnlocked);
       localStorage.setItem('batchRenameMode', batchRenameMode);
+      localStorage.setItem('batchFixDataCardMode', batchFixDataCardMode);
+      localStorage.setItem('batchFileLayoutMode', batchFileLayoutMode);
+      localStorage.setItem('batchAssemblyWeightCorrectionMode', batchAssemblyWeightCorrectionMode);
+      localStorage.setItem('batchDuplicateCodeCheckMode', batchDuplicateCodeCheckMode);
     } else {
       localStorage.removeItem('codes');
       localStorage.removeItem('savedLogs');
       localStorage.removeItem('batchSettingsUnlocked');
       localStorage.removeItem('batchRenameMode');
+      localStorage.removeItem('batchFixDataCardMode');
+      localStorage.removeItem('batchFileLayoutMode');
+      localStorage.removeItem('batchAssemblyWeightCorrectionMode');
+      localStorage.removeItem('batchDuplicateCodeCheckMode');
     }
     setShowSettings(false);
-  }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath, multiKitMode, sapUsername, sapPassword, assemblySavePath, batchRenameMode, batchSettingsUnlocked]);
+  }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath, multiKitMode, sapUsername, sapPassword, assemblySavePath, batchRenameMode, batchFixDataCardMode, batchFileLayoutMode, batchAssemblyWeightCorrectionMode, batchDuplicateCodeCheckMode, batchSettingsUnlocked]);
 
   return {
     rememberSession, setRememberSession,
@@ -456,6 +476,10 @@ export const useAssemblyLogic = () => {
     sapPassword, setSapPassword,
     assemblySavePath, setAssemblySavePath,
     batchRenameMode, setBatchRenameMode,
+    batchFixDataCardMode, setBatchFixDataCardMode,
+    batchFileLayoutMode, setBatchFileLayoutMode,
+    batchAssemblyWeightCorrectionMode, setBatchAssemblyWeightCorrectionMode,
+    batchDuplicateCodeCheckMode, setBatchDuplicateCodeCheckMode,
     batchSettingsUnlocked, setBatchSettingsUnlocked,
     status, progress, logs, isRunning, isPaused, stats,
     alertState, setAlertState,

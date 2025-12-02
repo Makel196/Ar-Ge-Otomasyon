@@ -56,7 +56,6 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [batchPasswordInput, setBatchPasswordInput] = useState('');
 
-
     // Use custom hook for logic
     const {
         rememberSession, setRememberSession,
@@ -70,6 +69,10 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         sapPassword, setSapPassword,
         assemblySavePath, setAssemblySavePath,
         batchRenameMode, setBatchRenameMode,
+        batchFixDataCardMode, setBatchFixDataCardMode,
+        batchFileLayoutMode, setBatchFileLayoutMode,
+        batchAssemblyWeightCorrectionMode, setBatchAssemblyWeightCorrectionMode,
+        batchDuplicateCodeCheckMode, setBatchDuplicateCodeCheckMode,
         batchSettingsUnlocked, setBatchSettingsUnlocked,
         status, progress, logs, isRunning, isPaused, stats,
         alertState, setAlertState,
@@ -84,6 +87,20 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         discardSettings,
         saveSettings
     } = useAssemblyLogic();
+
+    const isAnyBatchModeActive = batchRenameMode || batchFixDataCardMode || batchFileLayoutMode || batchAssemblyWeightCorrectionMode || batchDuplicateCodeCheckMode;
+
+    const handleBatchToggle = (newValue, setter) => {
+        if (newValue && isAnyBatchModeActive) {
+            setAlertState({
+                isOpen: true,
+                message: 'Aynı anda sadece bir toplu işlem seçilebilir!',
+                type: 'error'
+            });
+            return;
+        }
+        setter(newValue);
+    };
 
     const handleExportExcel = () => {
         // Filter ONLY for "not found" (bulunamayan)
@@ -511,31 +528,31 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 icon={faSave}
                                             />
                                             <SettingsToggle
-                                                label="Mevcut montaja ekle"
+                                                label="Mevcut Montaja Ekle"
                                                 checked={addToExisting}
                                                 onChange={setAddToExisting}
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Yeni montaj oluşturmak yerine açık olan montaja parça ekler"
-                                                disabled={multiKitMode}
+                                                disabled={multiKitMode || isAnyBatchModeActive}
                                             />
                                             <SettingsToggle
-                                                label="Bulunamayan varsa durdur"
+                                                label="Bulunamayan Varsa Durdur"
                                                 checked={stopOnNotFound}
                                                 onChange={setStopOnNotFound}
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Parça bulunamadığında işlemi durdurur"
-                                                disabled={multiKitMode}
+                                                disabled={multiKitMode || isAnyBatchModeActive}
                                             />
                                             <SettingsToggle
-                                                label="Tekrarlı kodları sil"
+                                                label="Tekrarlı Kodları Sil"
                                                 checked={dedupe}
                                                 onChange={setDedupe}
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Listeye eklenen mükerrer (aynı) kodları otomatik temizler"
-                                                disabled={multiKitMode}
+                                                disabled={multiKitMode || isAnyBatchModeActive}
                                             />
                                         </div>
                                     </div>
@@ -552,7 +569,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)',
                                                 border: highlightVaultSettings
                                                     ? '2px solid #ef4444'
-                                                    : (theme === 'dark' ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)'),
+                                                    : (!vaultPath ? '2px dashed #6366f1' : (theme === 'dark' ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)')),
                                                 borderRadius: '16px',
                                                 color: vaultPath ? 'var(--text)' : 'var(--text-secondary)',
                                                 padding: '0 16px',
@@ -585,6 +602,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 theme={theme}
                                                 activeColor="#ef4444"
                                                 tooltip="Birden fazla kit için montaj oluşturur (Bu özellik diğer özelliklerden bağımsız çalışmaktadır)"
+                                                disabled={isAnyBatchModeActive}
                                             />
                                             <AnimatePresence>
                                                 {multiKitMode && (
@@ -594,7 +612,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                         exit={{ opacity: 0, height: 0 }}
                                                         style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '12px' }}
                                                     >
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', padding: '0 16px', borderRadius: '16px', height: '56px', border: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', padding: '0 16px', borderRadius: '16px', height: '56px', border: !sapUsername ? '1px solid #ef4444' : (theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'), boxSizing: 'border-box' }}>
                                                             <FontAwesomeIcon icon={faUser} style={{ color: 'var(--text-secondary)', fontSize: '14px' }} />
                                                             <input
                                                                 type="text"
@@ -604,7 +622,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                                 style={{ background: 'transparent', border: 'none', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
                                                             />
                                                         </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', padding: '0 16px', borderRadius: '16px', height: '56px', border: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', padding: '0 16px', borderRadius: '16px', height: '56px', border: !sapPassword ? '1px solid #ef4444' : (theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'), boxSizing: 'border-box' }}>
                                                             <FontAwesomeIcon icon={faKey} style={{ color: 'var(--text-secondary)', fontSize: '14px' }} />
                                                             <input
                                                                 type={showPassword ? "text" : "password"}
@@ -628,11 +646,11 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                                 display: 'flex',
                                                                 alignItems: 'center',
                                                                 gap: '12px',
-                                                                background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                                                background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(255, 255, 255, 0.5)',
                                                                 padding: '0 16px',
                                                                 borderRadius: '16px',
                                                                 height: '56px',
-                                                                border: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                                                                border: !assemblySavePath ? '2px dashed #ef4444' : (theme === 'dark' ? '2px dashed rgba(255,255,255,0.1)' : '2px dashed rgba(0,0,0,0.1)'),
                                                                 cursor: 'pointer',
                                                                 boxSizing: 'border-box'
                                                             }}
@@ -739,14 +757,46 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                     </div>
                                                 </>
                                             ) : (
-                                                <div style={{ width: '100%' }}>
+                                                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                     <SettingsToggle
                                                         label="Toplu Dosya İsimlendir"
                                                         checked={batchRenameMode}
-                                                        onChange={setBatchRenameMode}
+                                                        onChange={(val) => handleBatchToggle(val, setBatchRenameMode)}
                                                         theme={theme}
                                                         activeColor="#3b82f6"
                                                         tooltip="Dosya isimlendir yapılmayan dosyaların hepsine dosya isimlendir yapılması"
+                                                    />
+                                                    <SettingsToggle
+                                                        label="Toplu Veri Kartı Düzeltme"
+                                                        checked={batchFixDataCardMode}
+                                                        onChange={(val) => handleBatchToggle(val, setBatchFixDataCardMode)}
+                                                        theme={theme}
+                                                        activeColor="#3b82f6"
+                                                        tooltip="Bütün parçalarda arama yaptır, kütle veya malzeme yazmayan parçaların şablonlarını değiştir"
+                                                    />
+                                                    <SettingsToggle
+                                                        label="Toplu Dosya Düzeni"
+                                                        checked={batchFileLayoutMode}
+                                                        onChange={(val) => handleBatchToggle(val, setBatchFileLayoutMode)}
+                                                        theme={theme}
+                                                        activeColor="#3b82f6"
+                                                        tooltip="Bütün parçaların ve motajların arka planının beyaz olması ağaç görünümünün düzeltilmesi"
+                                                    />
+                                                    <SettingsToggle
+                                                        label="Toplu Montaj Kilosu Düzeltme"
+                                                        checked={batchAssemblyWeightCorrectionMode}
+                                                        onChange={(val) => handleBatchToggle(val, setBatchAssemblyWeightCorrectionMode)}
+                                                        theme={theme}
+                                                        activeColor="#3b82f6"
+                                                        tooltip="Montajlarda görünmez bileşenleride kiloya dahil ettiği için kütle özelliklerinden düzenlenmesi"
+                                                    />
+                                                    <SettingsToggle
+                                                        label="Toplu Tekrarlı Kodların Belirlenmesi"
+                                                        checked={batchDuplicateCodeCheckMode}
+                                                        onChange={(val) => handleBatchToggle(val, setBatchDuplicateCodeCheckMode)}
+                                                        theme={theme}
+                                                        activeColor="#3b82f6"
+                                                        tooltip="Bütün mükerrer kodların belirlenip excel olarak çekilmesi"
                                                     />
                                                 </div>
                                             )}
