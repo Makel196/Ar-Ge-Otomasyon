@@ -1,20 +1,30 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
-
-const API_URL = 'http://localhost:5000/api';
 
 export const useAssemblyLogic = () => {
-    // Persistent Settings
+    // Persistent Settings (Unconditional)
     const [rememberSession, setRememberSession] = useState(() => localStorage.getItem('rememberSession') === 'true');
-    const [vaultPath, setVaultPath] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('vaultPath') || '' : ''));
+    const [vaultPath, setVaultPath] = useState(() => localStorage.getItem('vaultPath') || '');
+    const [addToExisting, setAddToExisting] = useState(() => localStorage.getItem('addToExisting') === 'true');
+    const [stopOnNotFound, setStopOnNotFound] = useState(() => {
+        const item = localStorage.getItem('stopOnNotFound');
+        return item === null ? true : item === 'true';
+    });
+    const [dedupe, setDedupe] = useState(() => {
+        const item = localStorage.getItem('dedupe');
+        return item === null ? true : item === 'true';
+    });
+    const [multiKitMode, setMultiKitMode] = useState(() => localStorage.getItem('multiKitMode') === 'true');
+    const [sapUsername, setSapUsername] = useState(() => localStorage.getItem('sapUsername') || '');
+    const [sapPassword, setSapPassword] = useState(() => localStorage.getItem('sapPassword') || '');
 
-    // State with optional persistence
+    // Batch Settings
+    const [batchLayoutFix, setBatchLayoutFix] = useState(() => localStorage.getItem('batchLayoutFix') === 'true');
+    const [batchFileNaming, setBatchFileNaming] = useState(() => localStorage.getItem('batchFileNaming') === 'true');
+    const [batchMaterialCheck, setBatchMaterialCheck] = useState(() => localStorage.getItem('batchMaterialCheck') === 'true');
+    const [batchDuplicateAnalysis, setBatchDuplicateAnalysis] = useState(() => localStorage.getItem('batchDuplicateAnalysis') === 'true');
+
+    // Session Data (Controlled by rememberSession)
     const [codes, setCodes] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('codes') || '' : ''));
-
-    // Settings with optional persistence
-    const [addToExisting, setAddToExisting] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('addToExisting') === 'true' : false));
-    const [stopOnNotFound, setStopOnNotFound] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('stopOnNotFound') === 'true' : true));
-    const [dedupe, setDedupe] = useState(() => (localStorage.getItem('rememberSession') === 'true' ? localStorage.getItem('dedupe') === 'true' : true));
 
     // Volatile State
     const [status, setStatus] = useState('Hazır');
@@ -28,79 +38,96 @@ export const useAssemblyLogic = () => {
     const [highlightVaultSettings, setHighlightVaultSettings] = useState(false);
 
     const logsEndRef = useRef(null);
-    const lastLogIndexRef = useRef(0);
 
-    // Poll status
+    // --- IPC Listener for Logs & Results ---
     useEffect(() => {
-        const interval = setInterval(async () => {
-            try {
-                const res = await axios.get(`${API_URL}/status`, {
-                    params: { since: lastLogIndexRef.current }
-                });
+        let cleanup;
+        if (window.electron && window.electron.onLogUpdate) {
+            cleanup = window.electron.onLogUpdate((data) => {
+                const { message, type } = data;
 
-                const data = res.data;
-                setStatus(data.status);
-                setProgress(data.progress);
-                setIsRunning(data.is_running);
-                setIsPaused(data.is_paused);
-                if (data.stats) {
-                    console.log("Frontend received stats:", data.stats);
-                    setStats(data.stats);
+                // 1. Handle Success Result
+                if (message.startsWith('[RESULT_SUCCESS]')) {
+                    try {
+                        const jsonStr = message.replace('[RESULT_SUCCESS]', '');
+                        const result = JSON.parse(jsonStr);
+                        setStatus('Tamamlandı');
+                        setIsRunning(false);
+                        setAlertState({
+                            isOpen: true,
+                            message: `İşlem Başarıyla Tamamlandı!\nDosya: ${result.file}`,
+                            type: 'success'
+                        });
+                        setStats(prev => ({ ...prev, success: prev.success + 1 }));
+                        setLogs(prev => [...prev, { message: "İşlem başarıyla tamamlandı.", timestamp: Date.now() / 1000, color: '#10b981' }]);
+                    } catch (e) {
+                        console.error("Success Parse Error", e);
+                    }
                 }
-
-                if (data.vault_path && !vaultPath) {
-                    setVaultPath(data.vault_path);
+                // 2. Handle Missing Parts Result
+                else if (message.startsWith('[RESULT_MISSING]')) {
+                    try {
+                        const jsonStr = message.replace('[RESULT_MISSING]', '');
+                        const missing = JSON.parse(jsonStr);
+                        setStatus('Eksik Parça');
+                        setIsRunning(false);
+                        setAlertState({
+                            isOpen: true,
+                            message: `${missing.length} adet eksik parça bulundu. Excel dosyası oluşturuldu.`,
+                            type: 'warning'
+                        });
+                        setStats(prev => ({ ...prev, error: prev.error + missing.length }));
+                        setLogs(prev => [...prev, { message: `${missing.length} adet eksik parça nedeniyle işlem durduruldu.`, timestamp: Date.now() / 1000, color: '#ef4444' }]);
+                    } catch (e) {
+                        console.error("Missing Parse Error", e);
+                    }
                 }
+                // 3. Normal Logs
+                else {
+                    setLogs(prev => [...prev, {
+                        message: message,
+                        timestamp: Date.now() / 1000,
+                        color: type === 'error' ? '#ef4444' : (type === 'system' ? '#3b82f6' : 'var(--text)')
+                    }]);
 
-                if (data.logs && data.logs.length > 0) {
-                    setLogs(prev => [...prev, ...data.logs]);
-                    lastLogIndexRef.current += data.logs.length;
+                    // Update status based on log content (optional heuristic)
+                    if (message.includes('İşlem başlıyor')) setStatus('Çalışıyor');
+                    if (message.includes('Login başarılı')) setStatus('SAP Bağlı');
                 }
-            } catch (err) {
-                console.error("Polling error", err);
-            }
-        }, 500);
-        return () => clearInterval(interval);
-    }, [vaultPath]);
-
-    // Unified Persistence Effect - Consolidates all localStorage operations
-    useEffect(() => {
-        // Always save rememberSession preference
-        localStorage.setItem('rememberSession', rememberSession);
-
-        if (!rememberSession) {
-            // Clear all persisted data when persistence is disabled
-            localStorage.removeItem('codes');
-            localStorage.removeItem('addToExisting');
-            localStorage.removeItem('stopOnNotFound');
-            localStorage.removeItem('dedupe');
-            localStorage.removeItem('vaultPath');
-        } else {
-            // Persist all settings when enabled
-            localStorage.setItem('codes', codes);
-            localStorage.setItem('addToExisting', addToExisting);
-            localStorage.setItem('stopOnNotFound', stopOnNotFound);
-            localStorage.setItem('dedupe', dedupe);
-            localStorage.setItem('vaultPath', vaultPath);
+            });
         }
-    }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath]);
+        return () => {
+            if (cleanup) cleanup();
+        };
+    }, []);
 
-    // Clear backend state on mount if persistence is disabled
+    // Unified Persistence Effect
+    useEffect(() => {
+        // Always save settings
+        localStorage.setItem('rememberSession', rememberSession);
+        localStorage.setItem('vaultPath', vaultPath);
+        localStorage.setItem('addToExisting', addToExisting);
+        localStorage.setItem('stopOnNotFound', stopOnNotFound);
+        localStorage.setItem('dedupe', dedupe);
+        localStorage.setItem('multiKitMode', multiKitMode);
+        localStorage.setItem('sapUsername', sapUsername);
+        localStorage.setItem('sapPassword', sapPassword);
+        localStorage.setItem('batchLayoutFix', batchLayoutFix);
+        localStorage.setItem('batchFileNaming', batchFileNaming);
+        localStorage.setItem('batchMaterialCheck', batchMaterialCheck);
+        localStorage.setItem('batchDuplicateAnalysis', batchDuplicateAnalysis);
+
+        // Save codes only if rememberSession is true
+        if (rememberSession) {
+            localStorage.setItem('codes', codes);
+        } else {
+            localStorage.removeItem('codes');
+        }
+    }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath, multiKitMode, sapUsername, sapPassword]);
+
+    // Clear state on mount if persistence is disabled
     useEffect(() => {
         if (!rememberSession) {
-            const resetSession = async () => {
-                try {
-                    // Force stop any running process first
-                    await axios.post(`${API_URL}/stop`);
-                    // Then clear logs and stats
-                    await axios.post(`${API_URL}/clear`);
-                } catch (err) {
-                    console.error("Session reset error:", err);
-                }
-            };
-            resetSession();
-
-            // Reset frontend state immediately
             setLogs([]);
             setStats({ total: 0, success: 0, error: 0 });
             setStatus('Hazır');
@@ -116,24 +143,7 @@ export const useAssemblyLogic = () => {
     }, [logs]);
 
     const handleStart = useCallback(async () => {
-        if (isRunning) {
-            if (isPaused) {
-                // Resume
-                try {
-                    await axios.post(`${API_URL}/resume`);
-                } catch (err) {
-                    console.error("Resume error", err);
-                }
-            } else {
-                // Pause
-                try {
-                    await axios.post(`${API_URL}/pause`);
-                } catch (err) {
-                    console.error("Pause error", err);
-                }
-            }
-            return;
-        }
+        if (isRunning) return;
 
         if (!vaultPath) {
             setAlertState({ isOpen: true, message: "Lütfen kasa yolu seçiniz.", type: 'error' });
@@ -151,54 +161,51 @@ export const useAssemblyLogic = () => {
             return;
         }
 
-        // Add starting message without clearing logs
-        setLogs(prev => [...prev, { message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
-        setStats({ total: codeList.length, success: 0, error: 0 });
-
-        // Optimistically set running to prevent double clicks
-        setIsRunning(true);
-
-        await axios.post(`${API_URL}/clear`);
-
-        try {
-            await axios.post(`${API_URL}/start`, {
-                codes: codeList,
-                addToExisting,
-                stopOnNotFound
-            });
-        } catch (err) {
-            setIsRunning(false); // Revert state on error
-            const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || "Bilinmeyen hata";
-            setLogs(prev => [...prev, { message: "Hata: " + errorMessage, timestamp: Date.now() / 1000, color: '#ef4444' }]);
-
-            // Check for PDM/Vault errors and open settings
-            if (errorMessage.toLowerCase().includes('pdm') || errorMessage.toLowerCase().includes('kasa') || errorMessage.toLowerCase().includes('vault')) {
-                setAlertState({
-                    isOpen: true,
-                    message: errorMessage + "\n\nLütfen Ayarlar'ı açıp Kasa Yolu'nu seçiniz.",
-                    type: 'error'
-                });
-                setShowSettings(true);
-                setHighlightVaultSettings(true);
-            } else {
-                setAlertState({ isOpen: true, message: "Başlatılamadı: " + errorMessage, type: 'error' });
-            }
+        if (multiKitMode && (!sapUsername || !sapPassword)) {
+            setAlertState({ isOpen: true, message: "Çoklu Kit Modu için SAP Kullanıcı Adı ve Şifresi gereklidir.", type: 'error' });
+            setShowSettings(true);
+            return;
         }
-    }, [isRunning, isPaused, vaultPath, codes, dedupe, addToExisting, stopOnNotFound]);
 
-    const handleStop = useCallback(async () => {
-        setLogs(prev => [...prev, { message: "Durdurma isteği gönderildi...", timestamp: Date.now() / 1000, color: '#f59e0b' }]);
-        await axios.post(`${API_URL}/stop`);
+        // Reset and Start
+        setLogs([{ message: "İşlem başlatılıyor...", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
+        setStats({ total: codeList.length, success: 0, error: 0 });
+        setIsRunning(true);
+        setStatus('Başlatılıyor...');
+
+        // Prepare Data
+        const processData = {
+            kits: codeList,
+            vaultPath,
+            sapUsername,
+            sapPassword,
+            addToExisting,
+            stopOnNotFound
+        };
+
+        if (window.electron && window.electron.startProcess) {
+            window.electron.startProcess(processData);
+        } else {
+            console.error("Electron API not found");
+            setLogs(prev => [...prev, { message: "Hata: Electron API bulunamadı.", timestamp: Date.now() / 1000, color: '#ef4444' }]);
+            setIsRunning(false);
+        }
+
+    }, [isRunning, vaultPath, codes, dedupe, addToExisting, stopOnNotFound, multiKitMode, sapUsername, sapPassword]);
+
+    const handleStop = useCallback(() => {
+        if (window.electron && window.electron.stopProcess) {
+            window.electron.stopProcess();
+            setLogs(prev => [...prev, { message: "Durdurma isteği gönderildi...", timestamp: Date.now() / 1000, color: '#f59e0b' }]);
+        }
     }, []);
 
     const handleClear = useCallback(() => {
         setCodes('');
         setLogs([{ message: "Kayıtlar temizlendi.", timestamp: Date.now() / 1000, color: 'var(--text-secondary)' }]);
         setStats({ total: 0, success: 0, error: 0 });
-        lastLogIndexRef.current = 0;
         setProgress(0);
         setStatus('Hazır');
-        axios.post(`${API_URL}/clear`);
     }, []);
 
     const handleSelectFolder = useCallback(async () => {
@@ -206,19 +213,10 @@ export const useAssemblyLogic = () => {
             const path = await window.electron.selectFolder();
             if (path) {
                 setVaultPath(path);
-                await axios.post(`${API_URL}/vault-path`, { path });
-                setHighlightVaultSettings(false);
-            }
-        } else {
-            // Fallback for browser environment
-            const path = prompt("Lütfen Kasa Yolunu Giriniz:", vaultPath);
-            if (path) {
-                setVaultPath(path);
-                await axios.post(`${API_URL}/vault-path`, { path });
                 setHighlightVaultSettings(false);
             }
         }
-    }, [vaultPath]);
+    }, []);
 
     return {
         rememberSession, setRememberSession,
@@ -227,6 +225,9 @@ export const useAssemblyLogic = () => {
         addToExisting, setAddToExisting,
         stopOnNotFound, setStopOnNotFound,
         dedupe, setDedupe,
+        multiKitMode, setMultiKitMode,
+        sapUsername, setSapUsername,
+        sapPassword, setSapPassword,
         status, progress, logs, isRunning, isPaused, stats,
         alertState, setAlertState,
         showSettings, setShowSettings,
@@ -235,6 +236,11 @@ export const useAssemblyLogic = () => {
         handleStart,
         handleStop,
         handleClear,
-        handleSelectFolder
+        handleSelectFolder,
+        // Batch Settings Exports
+        batchLayoutFix, setBatchLayoutFix,
+        batchFileNaming, setBatchFileNaming,
+        batchMaterialCheck, setBatchMaterialCheck,
+        batchDuplicateAnalysis, setBatchDuplicateAnalysis
     };
 };

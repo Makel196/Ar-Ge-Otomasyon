@@ -1,3 +1,4 @@
+
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -157,4 +158,57 @@ ipcMain.handle('select-folder', async () => {
     properties: ['openDirectory']
   });
   return result.canceled ? null : result.filePaths[0];
+});
+
+ipcMain.on('save-settings', (event, data) => {
+  console.log('Settings received in Main:', data);
+  // Future: Save to file or store
+});
+
+ipcMain.on('start-process', (event, data) => {
+  console.log('Starting SAP process...');
+
+  // Path to sap_automation.py in backend folder
+  const scriptPath = path.join(__dirname, '../../backend/sap_automation.py');
+
+  // Spawn python process
+  // We pass '--headless' as an argument to signal the script (if we modify it later)
+  const pythonProcess = spawn('python', [scriptPath, '--headless'], {
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+
+  // Send data via stdin
+  if (pythonProcess.stdin) {
+    pythonProcess.stdin.write(JSON.stringify(data));
+    pythonProcess.stdin.end();
+  }
+
+  // Handle stdout
+  pythonProcess.stdout.on('data', (chunk) => {
+    const message = chunk.toString();
+    console.log('[SAP]:', message);
+    if (mainWindow) {
+      mainWindow.webContents.send('log-update', { type: 'info', message });
+    }
+  });
+
+  // Handle stderr
+  pythonProcess.stderr.on('data', (chunk) => {
+    const message = chunk.toString();
+    console.error('[SAP Error]:', message);
+    if (mainWindow) {
+      mainWindow.webContents.send('log-update', { type: 'error', message });
+    }
+  });
+
+  pythonProcess.on('close', (code) => {
+    console.log(`SAP process exited with code ${code}`);
+    if (mainWindow) {
+      mainWindow.webContents.send('log-update', { type: 'system', message: `İşlem tamamlandı (Kod: ${code})` });
+    }
+  });
+});
+
+ipcMain.on('stop-process', () => {
+  pythonManager.stop();
 });

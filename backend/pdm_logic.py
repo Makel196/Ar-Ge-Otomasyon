@@ -531,15 +531,15 @@ class LogicHandler:
                     latest_version = file_obj.CurrentVersion
                     
                     if local_version >= latest_version:
-                        self.log(f"  ✓ Dosya güncel (v{local_version}): {file_name}", "#6b7280")
+                        self.log(f" ✓ Dosya güncel (v{local_version}): {file_name}", "#6b7280")
                         return True
                     else:
                         self.log(f"  → Güncelleme gerekli (v{local_version} → v{latest_version}): {file_name}", "#f59e0b")
             except Exception as ver_check_err:
                 # Sürüm kontrolü başarısız, yine de güncellemeyi dene
-                self.log(f"  → Sürüm kontrolü yapılamadı, güncelleniyor: {file_name}", "#f59e0b")
+                self.log(f" → Sürüm kontrolü yapılamadı, güncelleniyor: {file_name}", "#f59e0b")
         else:
-            self.log(f"  → Dosya yerelde yok, indiriliyor: {file_name}", "#f59e0b")
+            self.log(f" → Dosya yerelde yok, indiriliyor: {file_name}", "#f59e0b")
         
         # fetch_pdm_latest.py mantığını kullanarak son sürümü çek
         return self.fetch_latest_revision(vault, file_path)
@@ -794,9 +794,9 @@ class LogicHandler:
                     
                     # Verify file is now local
                     if not os.path.exists(file_path):
-                        self.log(f"  ⚠ Dosya açıldı ancak yerel diskte bulunamadı: {os.path.basename(file_path)}", "#f59e0b")
+                        self.log(f"⚠ Dosya açıldı ancak yerel diskte bulunamadı: {os.path.basename(file_path)}", "#f59e0b")
                     else:
-                        self.log(f"  ✔ Dosya başarıyla yerel diske çekildi: {os.path.basename(file_path)}", "#6b7280")
+                        self.log(f"✔ Dosya başarıyla yerel diske çekildi: {os.path.basename(file_path)}", "#6b7280")
             except Exception:
                 doc = sw_app.OpenDoc(file_path, doc_type)
                 time.sleep(1.5)

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave, faQuestionCircle, faUser, faKey } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave, faQuestionCircle, faUser, faKey, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
@@ -13,6 +13,7 @@ import { logoAnimationVariants } from '../constants/animations';
 
 const AssemblyWizard = ({ theme, toggleTheme }) => {
     const navigate = useNavigate();
+    const [showPassword, setShowPassword] = useState(false);
 
 
     // Use custom hook for logic
@@ -34,8 +35,16 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         handleStart,
         handleStop,
         handleClear,
-        handleSelectFolder
+        handleSelectFolder,
+        // Batch Settings Exports
+        batchLayoutFix, setBatchLayoutFix,
+        batchFileNaming, setBatchFileNaming,
+        batchMaterialCheck, setBatchMaterialCheck,
+        batchDuplicateAnalysis, setBatchDuplicateAnalysis
     } = useAssemblyLogic();
+
+    const [batchSettingsUnlocked, setBatchSettingsUnlocked] = useState(false);
+    const [batchPasswordInput, setBatchPasswordInput] = useState('');
 
     const handleSaveSettings = () => {
         if (multiKitMode) {
@@ -594,22 +603,184 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                                     <FontAwesomeIcon icon={faKey} style={{ fontSize: '14px' }} />
                                                                 </div>
                                                                 <input
-                                                                    type="password"
+                                                                    type={showPassword ? "text" : "password"}
                                                                     value={sapPassword}
                                                                     onChange={e => setSapPassword(e.target.value)}
                                                                     placeholder="Şifre..."
                                                                     style={{
-                                                                        width: '100%', padding: '14px 14px 14px 38px', borderRadius: '12px',
+                                                                        width: '100%', padding: '14px 40px 14px 38px', borderRadius: '12px',
                                                                         border: !sapPassword ? '1px solid #ef4444' : '1px solid var(--border)',
                                                                         background: 'var(--bg)', color: 'var(--text)', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
                                                                     }}
                                                                 />
+                                                                <button
+                                                                    onClick={() => setShowPassword(!showPassword)}
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        right: '12px',
+                                                                        top: '50%',
+                                                                        transform: 'translateY(-50%)',
+                                                                        background: 'none',
+                                                                        border: 'none',
+                                                                        cursor: 'pointer',
+                                                                        color: 'var(--text-secondary)',
+                                                                        opacity: 0.7,
+                                                                        padding: 0,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center'
+                                                                    }}
+                                                                >
+                                                                    <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} style={{ fontSize: '14px' }} />
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
                                         </div>
+                                    </div>
+
+                                    {/* Batch Settings Section */}
+                                    <div>
+                                        <h4 style={{ margin: '0 0 16px 0', fontSize: '12px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8 }}>Toplu Ayarlar</h4>
+
+                                        {!batchSettingsUnlocked ? (
+                                            <div style={{
+                                                padding: '20px',
+                                                borderRadius: '16px',
+                                                background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0,0,0,0.03)',
+                                                border: theme === 'dark' ? '1px dashed rgba(255,255,255,0.1)' : '1px dashed rgba(0,0,0,0.1)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '12px',
+                                                alignItems: 'center',
+                                                textAlign: 'center'
+                                            }}>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>
+                                                    <FontAwesomeIcon icon={faKey} style={{ marginRight: '8px' }} />
+                                                    Bu ayarlar korumalıdır
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                                    <input
+                                                        type="password"
+                                                        placeholder="Erişim şifresi..."
+                                                        value={batchPasswordInput}
+                                                        onChange={(e) => setBatchPasswordInput(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                if (batchPasswordInput === 'KB3183') {
+                                                                    setBatchSettingsUnlocked(true);
+                                                                    setBatchPasswordInput('');
+                                                                } else {
+                                                                    setAlertState({ isOpen: true, message: "Hatalı şifre!", type: 'error' });
+                                                                }
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '10px 14px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid var(--border)',
+                                                            background: 'var(--bg)',
+                                                            color: 'var(--text)',
+                                                            fontSize: '14px',
+                                                            outline: 'none'
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            if (batchPasswordInput === 'KB3183') {
+                                                                setBatchSettingsUnlocked(true);
+                                                                setBatchPasswordInput('');
+                                                            } else {
+                                                                setAlertState({ isOpen: true, message: "Hatalı şifre!", type: 'error' });
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '0 16px',
+                                                            borderRadius: '10px',
+                                                            background: '#6366f1',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontWeight: '600'
+                                                        }}
+                                                    >
+                                                        Aç
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                {/* 1. Toplu Düzen Yapılanması */}
+                                                <label style={{
+                                                    display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                    background: batchLayoutFix ? 'rgba(16, 185, 129, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                    border: batchLayoutFix ? '1px solid rgba(16, 185, 129, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                    transition: 'all 0.2s ease'
+                                                }}>
+                                                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: batchLayoutFix ? '#10b981' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                        {batchLayoutFix && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                                    </div>
+                                                    <input type="checkbox" checked={batchLayoutFix} onChange={e => setBatchLayoutFix(e.target.checked)} style={{ display: 'none' }} />
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                        <span style={{ fontSize: '14px', fontWeight: '600', color: batchLayoutFix ? '#10b981' : 'var(--text)' }}>Toplu Düzen Yapılanması</span>
+                                                        <ModernTooltip text="Bütün yapılan parça ve montajların arka planı beyaz, dosyalardaki ağaç görünümü bileşen adı ve tanımı olacak şekilde düzenlenip kaydedilme özelliği" theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                    </div>
+                                                </label>
+
+                                                {/* 2. Toplu Dosya İsimlendir */}
+                                                <label style={{
+                                                    display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                    background: batchFileNaming ? 'rgba(16, 185, 129, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                    border: batchFileNaming ? '1px solid rgba(16, 185, 129, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                    transition: 'all 0.2s ease'
+                                                }}>
+                                                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: batchFileNaming ? '#10b981' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                        {batchFileNaming && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                                    </div>
+                                                    <input type="checkbox" checked={batchFileNaming} onChange={e => setBatchFileNaming(e.target.checked)} style={{ display: 'none' }} />
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                        <span style={{ fontSize: '14px', fontWeight: '600', color: batchFileNaming ? '#10b981' : 'var(--text)' }}>Toplu Dosya İsimlendir</span>
+                                                        <ModernTooltip text="Dosya isimlendir yapılmayan formatların hepsinin dosya isimlendir yapılması özelliği" theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                    </div>
+                                                </label>
+
+                                                {/* 3. Eksik Veri Tamamlama */}
+                                                <label style={{
+                                                    display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                    background: batchMaterialCheck ? 'rgba(16, 185, 129, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                    border: batchMaterialCheck ? '1px solid rgba(16, 185, 129, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                    transition: 'all 0.2s ease'
+                                                }}>
+                                                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: batchMaterialCheck ? '#10b981' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                        {batchMaterialCheck && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                                    </div>
+                                                    <input type="checkbox" checked={batchMaterialCheck} onChange={e => setBatchMaterialCheck(e.target.checked)} style={{ display: 'none' }} />
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                        <span style={{ fontSize: '14px', fontWeight: '600', color: batchMaterialCheck ? '#10b981' : 'var(--text)' }}>Eksik Veri Tamamlama</span>
+                                                        <ModernTooltip text="Bütün parçalarda arama yaptır veri kartında kilo veya malzeme yazmayanların solid şablonunu değiştirme özelliği" theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                    </div>
+                                                </label>
+
+                                                {/* 4. Mükerrer Kod Analizi */}
+                                                <label style={{
+                                                    display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '16px', borderRadius: '16px',
+                                                    background: batchDuplicateAnalysis ? 'rgba(16, 185, 129, 0.15)' : (theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.5)'),
+                                                    border: batchDuplicateAnalysis ? '1px solid rgba(16, 185, 129, 0.3)' : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0,0,0,0.05)'),
+                                                    transition: 'all 0.2s ease'
+                                                }}>
+                                                    <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: batchDuplicateAnalysis ? '#10b981' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', transition: 'all 0.2s' }}>
+                                                        {batchDuplicateAnalysis && <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '14px' }} />}
+                                                    </div>
+                                                    <input type="checkbox" checked={batchDuplicateAnalysis} onChange={e => setBatchDuplicateAnalysis(e.target.checked)} style={{ display: 'none' }} />
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                                                        <span style={{ fontSize: '14px', fontWeight: '600', color: batchDuplicateAnalysis ? '#10b981' : 'var(--text)' }}>Mükerrer Kod Analizi</span>
+                                                        <ModernTooltip text="Bütün mükerrer parçaların belirlenip excel olarak çekilmesi." theme={theme}><div style={{ cursor: 'help', opacity: 0.6 }}><FontAwesomeIcon icon={faQuestionCircle} style={{ fontSize: '14px' }} /></div></ModernTooltip>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

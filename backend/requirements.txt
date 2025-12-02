@@ -1,3 +1,5 @@
 flask
 flask-cors
 pywin32
+pandas
+openpyxl
