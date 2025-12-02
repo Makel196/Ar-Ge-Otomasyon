@@ -13,4 +13,11 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.on('log-update', subscription);
         return () => ipcRenderer.removeListener('log-update', subscription);
     },
+    getWindowState: () => ipcRenderer.invoke('get-window-state'),
+    onWindowStateChange: (callback) => {
+        if (typeof callback !== 'function') return () => {};
+        const listener = (_event, state) => callback(state);
+        ipcRenderer.on('window-state', listener);
+        return () => ipcRenderer.removeListener('window-state', listener);
+    }
 });

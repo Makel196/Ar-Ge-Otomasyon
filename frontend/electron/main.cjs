@@ -79,13 +79,18 @@ const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1300,
-    height: 800,
-    minWidth: 1300,
-    minHeight: 800,
+    width: 1000,
+    height: 850,
+    minWidth: 1000,
+    minHeight: 850,
     frame: false,
     transparent: false,
+    roundedCorners: false,
     resizable: true,
+    maximizable: true,
+    minimizable: true,
+    movable: true,
+    thickFrame: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -93,7 +98,7 @@ function createWindow() {
       sandbox: false // Sometimes needed for complex IPC
     },
     icon: isDev ? path.join(__dirname, '../../logo.ico') : path.join(__dirname, '../dist/logo.ico'),
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#00000000',
     title: "Ar-Ge Otomasyon"
   });
 
@@ -103,6 +108,15 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // Window state events for renderer UI (maximize/restore icon)
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window-state', { maximized: true });
+  });
+
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window-state', { maximized: false });
+  });
 
   // Handle window closed
   mainWindow.on('closed', () => {
@@ -150,6 +164,13 @@ ipcMain.on('maximize-window', () => {
 
 ipcMain.on('close-window', () => {
   if (mainWindow) mainWindow.close();
+});
+
+ipcMain.handle('get-window-state', () => {
+  if (!mainWindow) return { maximized: false };
+  return {
+    maximized: mainWindow.isMaximized()
+  };
 });
 
 ipcMain.handle('select-folder', async () => {

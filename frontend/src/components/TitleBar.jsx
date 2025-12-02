@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMinus, faSquare, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faMinus, faSquare, faTimes, faWindowRestore } from '@fortawesome/free-solid-svg-icons';
 
 const TitleBar = ({ theme }) => {
+    const [isMaximized, setIsMaximized] = useState(false);
+
     const handleMinimize = () => {
         window.electron?.minimize();
     };
@@ -15,19 +17,52 @@ const TitleBar = ({ theme }) => {
 
     const hoverColor = theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
 
+    useEffect(() => {
+        // Sync initial state
+        window.electron?.getWindowState?.().then((state) => {
+            if (state && typeof state.maximized === 'boolean') {
+                setIsMaximized(state.maximized);
+            }
+        });
+
+        // Listen to future changes
+        const unsubscribe = window.electron?.onWindowStateChange?.((state) => {
+            if (state && typeof state.maximized === 'boolean') {
+                setIsMaximized(state.maximized);
+            }
+        });
+
+        const onDoubleClick = (e) => {
+            // Only trigger when near the top bar to mimic native behavior
+            if (e.clientY <= 50) {
+                handleMaximize();
+            }
+        };
+
+        window.addEventListener('dblclick', onDoubleClick);
+        return () => {
+            window.removeEventListener('dblclick', onDoubleClick);
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, []);
+
     return (
         <>
             {/* Draggable title bar area */}
-            <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '40px',
-                WebkitAppRegion: 'drag',
-                zIndex: 9999,
-                pointerEvents: 'none'
-            }} />
+            <div
+                onDoubleClick={handleMaximize}
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '40px',
+                    WebkitAppRegion: 'drag',
+                    zIndex: 9999,
+                    pointerEvents: 'auto',
+                    userSelect: 'none'
+                }}
+            />
 
             {/* Window controls */}
             <div style={{
@@ -78,7 +113,7 @@ const TitleBar = ({ theme }) => {
                     onMouseEnter={(e) => e.currentTarget.style.background = hoverColor}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
-                    <FontAwesomeIcon icon={faSquare} style={{ fontSize: '11px' }} />
+                    <FontAwesomeIcon icon={isMaximized ? faWindowRestore : faSquare} style={{ fontSize: '11px' }} />
                 </button>
                 <button
                     onClick={handleClose}

@@ -71,13 +71,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Enforce rounded corners on app container */
-.app-container {
-  border-radius: 12px !important;
-  overflow: hidden !important;
-}
-
-
 /* Layout Utilities */
 .responsive-grid {
   display: grid;
