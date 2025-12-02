@@ -1,8 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMinus, faSquare, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faMinus, faSquare, faTimes, faWindowRestore } from '@fortawesome/free-solid-svg-icons';
 
 const TitleBar = ({ theme }) => {
+    const [isMaximized, setIsMaximized] = useState(false);
+
+    useEffect(() => {
+        // Initial state check
+        if (window.electron?.getWindowState) {
+            window.electron.getWindowState().then(state => {
+                setIsMaximized(state.maximized);
+            });
+        }
+
+        // Listen for changes
+        const cleanup = window.electron?.onWindowStateChange?.((state) => {
+            setIsMaximized(state.maximized);
+        });
+
+        return () => {
+            if (cleanup) cleanup();
+        };
+    }, []);
+
     const handleMinimize = () => {
         window.electron?.minimize();
     };
@@ -79,7 +99,7 @@ const TitleBar = ({ theme }) => {
                     onMouseEnter={(e) => e.currentTarget.style.background = hoverColor}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
-                    <FontAwesomeIcon icon={faSquare} style={{ fontSize: '11px' }} />
+                    <FontAwesomeIcon icon={isMaximized ? faWindowRestore : faSquare} style={{ fontSize: isMaximized ? '12px' : '11px' }} />
                 </button>
                 <button
                     onClick={handleClose}

@@ -96,7 +96,9 @@ export const useAssemblyLogic = () => {
         const data = res.data;
 
         // Sync running/paused/status from backend
-        if (data.is_running) {
+        const isFinishedStatus = data.status === STATUS.DONE || data.status === STATUS.STOPPED || data.status === STATUS.ERROR || data.status === 'İptal';
+
+        if (data.is_running && !isFinishedStatus) {
           setIsRunning(true);
           setIsPaused(!!data.is_paused);
           if (data.is_paused) {
