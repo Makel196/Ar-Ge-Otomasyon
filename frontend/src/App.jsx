@@ -24,7 +24,7 @@ function App() {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: '12px',
+        borderRadius: '0',
         overflow: 'hidden',
         background: 'var(--bg-gradient)',
         border: '1px solid var(--border)'

@@ -29,6 +29,7 @@ export const useAssemblyLogic = () => {
 
     const logsEndRef = useRef(null);
     const lastLogIndexRef = useRef(0);
+    const settingsBackup = useRef({});
 
     // Poll status
     useEffect(() => {
@@ -63,27 +64,8 @@ export const useAssemblyLogic = () => {
         return () => clearInterval(interval);
     }, [vaultPath]);
 
-    // Unified Persistence Effect - Consolidates all localStorage operations
-    useEffect(() => {
-        // Always save rememberSession preference
-        localStorage.setItem('rememberSession', rememberSession);
-
-        if (!rememberSession) {
-            // Clear all persisted data when persistence is disabled
-            localStorage.removeItem('codes');
-            localStorage.removeItem('addToExisting');
-            localStorage.removeItem('stopOnNotFound');
-            localStorage.removeItem('dedupe');
-            localStorage.removeItem('vaultPath');
-        } else {
-            // Persist all settings when enabled
-            localStorage.setItem('codes', codes);
-            localStorage.setItem('addToExisting', addToExisting);
-            localStorage.setItem('stopOnNotFound', stopOnNotFound);
-            localStorage.setItem('dedupe', dedupe);
-            localStorage.setItem('vaultPath', vaultPath);
-        }
-    }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath]);
+    // Manual save/discard removed automatic persistence
+    // Settings are only saved when explicitly confirmed
 
     // Clear backend state on mount if persistence is disabled
     useEffect(() => {
@@ -221,6 +203,51 @@ export const useAssemblyLogic = () => {
         }
     }, [vaultPath]);
 
+    const openSettings = useCallback(() => {
+        // Backup current settings
+        settingsBackup.current = {
+            rememberSession,
+            vaultPath,
+            addToExisting,
+            stopOnNotFound,
+            dedupe
+        };
+        setShowSettings(true);
+    }, [rememberSession, vaultPath, addToExisting, stopOnNotFound, dedupe]);
+
+    const discardSettings = useCallback(() => {
+        // Restore from backup
+        const backup = settingsBackup.current;
+        if (backup) {
+            setRememberSession(backup.rememberSession);
+            setVaultPath(backup.vaultPath);
+            setAddToExisting(backup.addToExisting);
+            setStopOnNotFound(backup.stopOnNotFound);
+            setDedupe(backup.dedupe);
+        }
+        setShowSettings(false);
+    }, []);
+
+    const saveSettings = useCallback(() => {
+        // Save to localStorage
+        localStorage.setItem('rememberSession', rememberSession);
+
+        if (!rememberSession) {
+            localStorage.removeItem('codes');
+            localStorage.removeItem('addToExisting');
+            localStorage.removeItem('stopOnNotFound');
+            localStorage.removeItem('dedupe');
+            localStorage.removeItem('vaultPath');
+        } else {
+            localStorage.setItem('codes', codes);
+            localStorage.setItem('addToExisting', addToExisting);
+            localStorage.setItem('stopOnNotFound', stopOnNotFound);
+            localStorage.setItem('dedupe', dedupe);
+            localStorage.setItem('vaultPath', vaultPath);
+        }
+        setShowSettings(false);
+    }, [rememberSession, codes, addToExisting, stopOnNotFound, dedupe, vaultPath]);
+
     return {
         rememberSession, setRememberSession,
         vaultPath, setVaultPath,
@@ -236,6 +263,9 @@ export const useAssemblyLogic = () => {
         handleStart,
         handleStop,
         handleClear,
-        handleSelectFolder
+        handleSelectFolder,
+        openSettings,
+        discardSettings,
+        saveSettings
     };
 };

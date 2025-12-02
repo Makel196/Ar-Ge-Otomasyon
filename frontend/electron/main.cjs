@@ -78,13 +78,14 @@ const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1300,
-    height: 800,
-    minWidth: 1300,
-    minHeight: 800,
+    width: 1000,
+    height: 850,
+    minWidth: 1000,
+    minHeight: 850,
     frame: false,
     transparent: false,
     resizable: true,
+    roundedCorners: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,

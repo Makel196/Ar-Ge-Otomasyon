@@ -73,7 +73,7 @@ body {
 
 /* Enforce rounded corners on app container */
 .app-container {
-  border-radius: 12px !important;
+  border-radius: 0 !important;
   overflow: hidden !important;
 }
 

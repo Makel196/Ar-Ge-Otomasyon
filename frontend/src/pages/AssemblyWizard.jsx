@@ -31,7 +31,10 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         handleStart,
         handleStop,
         handleClear,
-        handleSelectFolder
+        handleSelectFolder,
+        openSettings,
+        discardSettings,
+        saveSettings
     } = useAssemblyLogic();
 
     const handleExportExcel = () => {
@@ -129,7 +132,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
                     <button
                         className={`modern-btn ${showSettings ? 'primary' : ''}`}
-                        onClick={() => setShowSettings(true)}
+                        onClick={openSettings}
                         style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                         <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
@@ -370,7 +373,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             justifyContent: 'center',
                             zIndex: 1000,
                         }}
-                        onClick={() => setShowSettings(false)}
+                        onClick={discardSettings}
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -396,7 +399,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '700', letterSpacing: '-0.5px' }}>Ayarlar</h3>
                                 <button
-                                    onClick={() => setShowSettings(false)}
+                                    onClick={discardSettings}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
                                         e.currentTarget.style.color = '#ef4444';
@@ -575,7 +578,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
                             <button
                                 className="modern-btn primary"
-                                onClick={() => setShowSettings(false)}
+                                onClick={saveSettings}
                                 style={{
                                     marginTop: '10px',
                                     height: '50px',

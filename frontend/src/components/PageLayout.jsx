@@ -19,7 +19,7 @@ const PageLayout = ({ children, className = '', style = {}, ...props }) => {
             <div style={{
                 maxWidth: '1600px',
                 margin: '0 auto',
-                padding: '50px 20px 20px 20px',
+                padding: '70px 20px 20px 20px',
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',

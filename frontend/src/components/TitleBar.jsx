@@ -23,10 +23,11 @@ const TitleBar = ({ theme }) => {
                 top: 0,
                 left: 0,
                 right: 0,
-                height: '40px',
+                height: '48px',
                 WebkitAppRegion: 'drag',
                 zIndex: 9999,
-                pointerEvents: 'none'
+                pointerEvents: 'none',
+                borderBottom: '2px solid var(--border)'
             }} />
 
             {/* Window controls */}
