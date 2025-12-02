@@ -155,6 +155,7 @@ class LogicHandler:
         else:
             # self.log("Stats Queue connected.", "#2cc985")
             pass
+        self.current_status = "Hazır"
 
     def update_stats(self, total=None, success=None, error=None):
         print(f"DEBUG: update_stats called with total={total}, success={success}, error={error}", flush=True)
@@ -182,6 +183,7 @@ class LogicHandler:
         self.log_queue.put({"message": message, "color": color, "timestamp": time.time()})
 
     def set_status(self, status):
+        self.current_status = status
         self.status_queue.put(status)
 
     def set_progress(self, progress):
@@ -205,7 +207,7 @@ class LogicHandler:
     def resume_process(self):
         if self.is_running and self.is_paused:
             self.is_paused = False
-            self.log("İşlem devam ettiriliyor...", "#2cc985")
+            self.log("İşlem devam ettiriliyor...", "#3b82f6")
             self.set_status("Çalışıyor")
 
     def doc_type_safe(self, doc):
@@ -291,7 +293,7 @@ class LogicHandler:
     def get_sw_app(self):
         try:
             sw_app = win32com.client.GetActiveObject("SldWorks.Application")
-            self.log("Mevcut SolidWorks oturumu bulundu.", "#2cc985")
+            self.log("Mevcut SolidWorks oturumu bulundu.", "#10b981")
             return sw_app
         except Exception:
             self.log("Açık SolidWorks oturumu bulunamadı, başlatılıyor...", "#f59e0b")
@@ -453,7 +455,7 @@ class LogicHandler:
                     self.log(f"  ✓ Dosya güncel (v{local_version}): {file_name}", "#6b7280")
                     return True
                 
-                self.log(f"  → Sürüm güncelleniyor (v{local_version} → v{latest_version}): {file_name}", "#3B82F6")
+                self.log(f"  → Sürüm güncelleniyor (v{local_version} → v{latest_version}): {file_name}", "#3b82f6")
             except Exception as ver_err:
                 self.log(f"  → Sürüm bilgisi alınamadı, son sürüm çekiliyor: {file_name}", "#f59e0b")
             
@@ -481,7 +483,7 @@ class LogicHandler:
                     try:
                         size = os.path.getsize(file_path)
                         if size > 0:
-                            self.log(f"  ✓ Son sürüm indirildi: {file_name}", "#2cc985")
+                            self.log(f"  ✓ Son sürüm indirildi: {file_name}", "#10b981")
                             return True
                     except Exception:
                         pass
@@ -489,7 +491,7 @@ class LogicHandler:
             
             # Son kontrol
             if os.path.exists(file_path):
-                self.log(f"  ✓ Dosya indirildi: {file_name}", "#2cc985")
+                self.log(f"  ✓ Dosya indirildi: {file_name}", "#10b981")
                 return True
             
             self.log(f"  ✗ Dosya indirme zaman aşımına uğradı: {file_name}", "#ef4444")
@@ -567,7 +569,7 @@ class LogicHandler:
         if add_to_existing:
             assembly_doc = self.get_active_assembly(sw_app)
             if assembly_doc:
-                self.log("Mevcut montaja parçalar eklenecek.", "#2cc985")
+                self.log("Mevcut montaja parçalar eklenecek.", "#10b981")
                 try:
                     locked_title = assembly_doc.GetTitle() or ""
                 except Exception:
@@ -585,7 +587,7 @@ class LogicHandler:
             assembly_doc = new_doc
             try:
                 locked_title = assembly_doc.GetTitle() or ""
-                self.log(f"Yeni montaj kilitlendi: {locked_title}", "#3B82F6")
+                self.log(f"Yeni montaj kilitlendi: {locked_title}", "#3b82f6")
             except Exception:
                 locked_title = ""
 
@@ -618,9 +620,9 @@ class LogicHandler:
                 pass
             z_offset = existing_count * offset_step
             if existing_count == 0:
-                self.log(f"Montaj boş, yeni parçalar Z=0m'den başlayacak", "#3B82F6")
+                self.log(f"Montaj boş, yeni parçalar Z=0m'den başlayacak", "#3b82f6")
             else:
-                self.log(f"Montajda {existing_count} parça var, yeni parçalar Z={z_offset:.3f}m'den başlayacak", "#3B82F6")
+                self.log(f"Montajda {existing_count} parça var, yeni parçalar Z={z_offset:.3f}m'den başlayacak", "#3b82f6")
 
         return assembly_doc, locked_title, asm_title, pre_open_docs, z_offset
 
@@ -725,7 +727,7 @@ class LogicHandler:
         success = False
         new_z_offset = z_offset
         if comp:
-            self.log(f"✓ Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#2cc985")
+            self.log(f"✓ Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#10b981")
             new_z_offset = z_offset - 0.3  # offset_step
             success = True
         else:
@@ -821,6 +823,8 @@ class LogicHandler:
             self.set_status("PDM'e bağlanılıyor...")
             vault = self.get_pdm_vault()
             if not vault:
+                self.set_status("Hata")
+                self.log("PDM bağlantısı sağlanamadı. İşlem durduruldu.", "#ef4444")
                 return
 
             # Checkbox durumuna göre farklı iş akışları
@@ -837,8 +841,16 @@ class LogicHandler:
             self.log(f"Beklenmedik Hata: {e}", "#ef4444")
             self.set_status("Hata")
         finally:
-            self.log("İşlem sonlandırılıyor...", "#94a3b8")
+            if self.is_running:
+                 self.log("İşlem sonlandırılıyor...", "#64748b")
+            
             self.is_running = False
+            
+            # Eğer işlem bittiğinde statü hala aktif bir durumdaysa, Durduruldu olarak işaretle
+            final_statuses = ["Tamamlandı", "Hata", "İptal", "Durduruldu"]
+            if self.current_status not in final_statuses:
+                self.set_status("Durduruldu")
+
             vault = None
             try:
                 pythoncom.CoUninitialize()
@@ -866,7 +878,7 @@ class LogicHandler:
             if path:
                 if self.ensure_local_file(vault, path):
                     found_files.append(path)
-                    self.log(f"Bulundu: {code}", "#2cc985")
+                    self.log(f"Bulundu: {code}", "#10b981")
                     self.update_stats(success=len(found_files))
                 else:
                     not_found_codes.append(code)
@@ -899,6 +911,8 @@ class LogicHandler:
         self.set_status("SolidWorks başlatılıyor...")
         sw_app = self.get_sw_app()
         if not sw_app:
+            self.set_status("Hata")
+            self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
             return
 
         assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
@@ -931,7 +945,7 @@ class LogicHandler:
 
         self.set_status("Tamamlandı")
         self.set_progress(1.0)
-        self.log("İşlem başarıyla tamamlandı.", "#2cc985")
+        self.log("İşlem başarıyla tamamlandı.", "#10b981")
     
     def run_process_immediate_mode(self, codes, vault):
         """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
@@ -939,6 +953,8 @@ class LogicHandler:
         self.set_status("SolidWorks başlatılıyor...")
         sw_app = self.get_sw_app()
         if not sw_app:
+            self.set_status("Hata")
+            self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
             return
 
         assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
@@ -982,7 +998,7 @@ class LogicHandler:
                 continue
             
             # Bulundu log'u
-            self.log(f"Bulundu: {code}", "#2cc985")
+            self.log(f"Bulundu: {code}", "#10b981")
 
             # HEMEN MONTAJA EKLE
             if locked_title:
@@ -1012,10 +1028,10 @@ class LogicHandler:
             self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str}", "#f59e0b")
         
         if added_count > 0:
-            self.log(f"Toplam {added_count} parça montaja eklendi.", "#2cc985")
+            self.log(f"Toplam {added_count} parça montaja eklendi.", "#10b981")
             self.set_status("Tamamlandı")
             self.set_progress(1.0)
-            self.log("İşlem başarıyla tamamlandı.", "#2cc985")
+            self.log("İşlem başarıyla tamamlandı.", "#10b981")
         else:
             self.log("Hiçbir parça eklenemedi.", "#f59e0b")
             self.set_status("Tamamlandı")

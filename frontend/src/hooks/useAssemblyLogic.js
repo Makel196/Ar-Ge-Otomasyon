@@ -64,7 +64,7 @@ export const useAssemblyLogic = () => {
       setIsRunning(false);
       setIsPaused(false);
       setStatus(STATUS.DONE);
-    } else if (lower.includes('durduruldu')) {
+    } else if (lower.includes('durduruldu') || lower.includes('sonlandırılıyor')) {
       setIsRunning(false);
       setIsPaused(false);
       setStatus(STATUS.STOPPED);
@@ -80,6 +80,8 @@ export const useAssemblyLogic = () => {
       setIsRunning(true);
       setIsPaused(false);
       setStatus(STATUS.STARTING);
+    } else if (lower.includes('hata') || lower.includes('başarısız')) {
+      setStatus(STATUS.ERROR);
     }
   };
 

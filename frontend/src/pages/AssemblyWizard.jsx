@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave, faQuestionCircle } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faPlay, faPause, faSquare, faTrash, faCopy, faCheckCircle, faExclamationTriangle, faFolder, faTerminal, faLayerGroup, faListOl, faCog, faTimes, faFileExcel, faSave, faQuestionCircle, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
@@ -89,7 +89,16 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             ? { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.35)', color: '#f97316' }
             : status === 'Duraklatıldı'
                 ? { bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.3)', color: '#475569' }
-            : { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.2)', color: '#10b981' };
+                : { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.2)', color: '#10b981' };
+
+    const getLogIcon = (color) => {
+        if (!color) return faInfoCircle;
+        const c = color.toLowerCase();
+        if (c.includes('#10b981') || c.includes('#2cc985')) return faCheckCircle;
+        if (c.includes('#ef4444')) return faExclamationTriangle;
+        if (c.includes('#f59e0b')) return faExclamationTriangle;
+        return faInfoCircle;
+    };
 
     return (
         <PageLayout>
@@ -347,11 +356,15 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                             gap: '12px',
                                             lineHeight: '1.4',
                                             paddingBottom: '8px',
-                                            borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.05)'
+                                            borderBottom: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.05)',
+                                            alignItems: 'flex-start'
                                         }}
                                     >
-                                        <span style={{ opacity: 0.5, minWidth: '60px', fontSize: '11px', paddingTop: '2px' }}>{new Date(log.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                                        <span>{log.message}</span>
+                                        <span style={{ opacity: 0.5, minWidth: '60px', fontSize: '11px', paddingTop: '2px', flexShrink: 0 }}>{new Date(log.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                            <FontAwesomeIcon icon={getLogIcon(log.color)} style={{ fontSize: '14px', marginTop: '2px', opacity: 0.8 }} />
+                                            <span>{log.message}</span>
+                                        </div>
                                     </motion.div>
                                 ))
                             )}
