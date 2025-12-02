@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 
-// --- Python Process Manager ---
+// --- Python Process Manager (long-lived backend) ---
 class PythonProcessManager {
   constructor() {
     this.process = null;
@@ -10,7 +10,7 @@ class PythonProcessManager {
 
   start() {
     if (this.process) {
-      console.log('Python process is already running.');
+      console.log('Python süreci zaten çalışıyor.');
       return;
     }
 
@@ -19,61 +19,127 @@ class PythonProcessManager {
     let args;
 
     if (app.isPackaged) {
-      // Production: Use the compiled executable
       backendPath = path.join(process.resourcesPath, 'backend.exe');
       command = backendPath;
       args = [];
-      console.log('Starting packaged Python backend from:', backendPath);
+      console.log('Paketlenmiş Python backend başlatılıyor:', backendPath);
     } else {
-      // Development: Use the python script
-      // Assuming main.cjs is in frontend/electron/
       backendPath = path.join(__dirname, '../../backend/server.py');
       command = 'python';
       args = [backendPath];
-      console.log('Starting development Python backend from:', backendPath);
+      console.log('Geliştirme Python backend başlatılıyor:', backendPath);
     }
 
-    // Spawn the process
-    // detached: false ensures the child process is terminated when the parent dies (on Windows mostly)
-    // stdio: pipe allows us to capture output
     this.process = spawn(command, args, {
       detached: false,
       stdio: ['ignore', 'pipe', 'pipe']
     });
 
     this.process.stdout.on('data', (data) => {
-      const output = data.toString();
-      // Log to Electron console
-      console.log(`[Python]: ${output.trim()}`);
+      console.log(`[Python]: ${data.toString().trim()}`);
     });
 
     this.process.stderr.on('data', (data) => {
-      const error = data.toString();
-      console.error(`[Python Error]: ${error.trim()}`);
+      console.error(`[Python Error]: ${data.toString().trim()}`);
     });
 
     this.process.on('close', (code) => {
-      console.log(`Python process exited with code ${code}`);
+      console.log(`Python süreci kod ${code} ile kapandı`);
       this.process = null;
     });
 
     this.process.on('error', (err) => {
-      console.error('Failed to start Python process:', err);
+      console.error('Python süreci başlatılamadı:', err);
     });
   }
 
   stop() {
     if (this.process) {
-      console.log('Stopping Python process...');
-      this.process.kill(); // Sends SIGTERM
+      console.log('Python süreci durduruluyor...');
+      this.process.kill();
       this.process = null;
     }
+  }
+}
+
+// --- SAP Automation Runner (per-run) ---
+class SapAutomationRunner {
+  constructor() {
+    this.process = null;
+  }
+
+  start(processData, mainWindow) {
+    if (this.process) {
+      this._sendLog(mainWindow, { type: 'system', message: 'İşlem zaten çalışıyor.' });
+      return;
+    }
+
+    const scriptPath = path.join(__dirname, '../../backend/sap_automation.py');
+    this.process = spawn('python', [scriptPath, '--headless'], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    try {
+      if (this.process.stdin) {
+        this.process.stdin.write(JSON.stringify(processData));
+        this.process.stdin.end();
+      }
+    } catch (err) {
+      this._sendLog(mainWindow, { type: 'error', message: `Veri gönderilemedi: ${err.message}` });
+    }
+
+    this.process.stdout.on('data', (chunk) => {
+      this._sendLog(mainWindow, { type: 'info', message: chunk.toString() });
+    });
+
+    this.process.stderr.on('data', (chunk) => {
+      this._sendLog(mainWindow, { type: 'error', message: chunk.toString() });
+    });
+
+    this.process.on('close', (code) => {
+      this._sendLog(mainWindow, { type: 'system', message: `İşlem tamamlandı (Kod: ${code})` });
+      this.process = null;
+    });
+
+    this.process.on('error', (err) => {
+      console.error('[SAP Runner Error]:', err);
+      this._sendLog(mainWindow, { type: 'error', message: `Başlatılamadı: ${err.message}` });
+      this.process = null;
+    });
+  }
+
+  stop(mainWindow) {
+    if (this.process) {
+      const pid = this.process.pid;
+      if (process.platform === 'win32') {
+        try {
+          spawn('taskkill', ['/PID', `${pid}`, '/T', '/F']);
+        } catch (err) {
+          console.error('taskkill başarısız:', err);
+          try { this.process.kill(); } catch { /* ignore */ }
+        }
+      } else {
+        try {
+          this.process.kill('SIGKILL');
+        } catch {
+          this.process.kill();
+        }
+      }
+      this.process = null;
+      this._sendLog(mainWindow, { type: 'system', message: 'İşlem durduruldu.' });
+    }
+  }
+
+  _sendLog(mainWindow, payload) {
+    if (!mainWindow) return;
+    mainWindow.webContents.send('log-update', payload);
   }
 }
 
 // --- Main Window Management ---
 let mainWindow;
 const pythonManager = new PythonProcessManager();
+const sapRunner = new SapAutomationRunner();
 const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow() {
@@ -90,7 +156,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false // Sometimes needed for complex IPC
+      sandbox: false
     },
     icon: isDev ? path.join(__dirname, '../../logo.ico') : path.join(__dirname, '../dist/logo.ico'),
     backgroundColor: '#1a1a1a',
@@ -99,24 +165,26 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    // mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  // Handle window closed
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window-state', { maximized: true });
+  });
+
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window-state', { maximized: false });
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
 // --- App Lifecycle ---
-
 app.whenReady().then(() => {
-  // 1. Start Python Backend
   pythonManager.start();
-
-  // 2. Create Window
   createWindow();
 
   app.on('activate', () => {
@@ -131,12 +199,11 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
-  // Ensure Python process is killed
   pythonManager.stop();
+  sapRunner.stop(mainWindow);
 });
 
 // --- IPC Handlers ---
-
 ipcMain.on('minimize-window', () => {
   if (mainWindow) mainWindow.minimize();
 });
@@ -152,10 +219,27 @@ ipcMain.on('close-window', () => {
   if (mainWindow) mainWindow.close();
 });
 
+ipcMain.handle('get-window-state', () => {
+  if (!mainWindow) return { maximized: false };
+  return { maximized: mainWindow.isMaximized() };
+});
+
 ipcMain.handle('select-folder', async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory']
   });
   return result.canceled ? null : result.filePaths[0];
+});
+
+ipcMain.on('save-settings', (_event, data) => {
+  console.log('Ayarlar alındı:', data);
+});
+
+ipcMain.on('start-process', (_event, data) => {
+  sapRunner.start(data, mainWindow);
+});
+
+ipcMain.on('stop-process', () => {
+  sapRunner.stop(mainWindow);
 });

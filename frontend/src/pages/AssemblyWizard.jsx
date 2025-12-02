@@ -83,6 +83,14 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     const liveCount = codes.split('\n').map(c => c.trim()).filter(c => c).length;
     const displayTotal = isRunning ? stats.total : liveCount;
 
+    const statusTheme = status === 'Hata'
+        ? { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }
+        : status === 'Durduruldu'
+            ? { bg: 'rgba(249, 115, 22, 0.12)', border: 'rgba(249, 115, 22, 0.35)', color: '#f97316' }
+            : status === 'Duraklatıldı'
+                ? { bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.3)', color: '#475569' }
+            : { bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.2)', color: '#10b981' };
+
     return (
         <PageLayout>
             {/* Header Section */}
@@ -119,15 +127,15 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: '12px',
-                        background: status === 'Hata' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                        background: statusTheme.bg,
                         padding: '8px 16px', borderRadius: '12px',
-                        border: `1px solid ${status === 'Hata' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`
+                        border: `1px solid ${statusTheme.border}`
                     }}>
                         {status === 'Hata' ?
                             <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '16px', color: '#ef4444' }} /> :
-                            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '16px', color: '#10b981' }} />
+                            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '16px', color: statusTheme.color }} />
                         }
-                        <span style={{ fontWeight: '700', fontSize: '13px', color: status === 'Hata' ? '#ef4444' : '#10b981' }}>{status}</span>
+                        <span style={{ fontWeight: '700', fontSize: '13px', color: statusTheme.color }}>{status}</span>
                     </div>
 
                     <button
