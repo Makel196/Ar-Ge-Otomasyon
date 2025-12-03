@@ -145,8 +145,11 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     };
 
     // Calculate live count of valid codes
-    const liveCount = codes.split('\n').map(c => c.trim()).filter(c => c).length;
-    const displayTotal = isRunning ? stats.total : liveCount;
+    const allCodes = codes.split('\n').map(c => c.trim()).filter(c => c);
+    const liveCount = allCodes.length;
+    const uniqueCount = dedupe ? new Set(allCodes).size : liveCount;
+    const duplicateCount = liveCount - uniqueCount;
+    const displayTotal = isRunning ? stats.total : (dedupe ? uniqueCount : liveCount);
 
     const statusTheme = status === 'Hata'
         ? { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }
@@ -313,6 +316,32 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             minHeight: '0'
                         }}
                     />
+
+                    {/* Duplicate Count Indicator */}
+                    {dedupe && duplicateCount > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '10px 14px',
+                                background: 'rgba(245, 158, 11, 0.1)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                borderRadius: '10px',
+                                marginBottom: '15px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                color: '#f59e0b',
+                                flexShrink: 0
+                            }}
+                        >
+                            <FontAwesomeIcon icon={faInfoCircle} style={{ fontSize: '14px' }} />
+                            <span>Tekrarlayan {duplicateCount} adet kod {isRunning ? 'silindi' : 'silinecek'}</span>
+                        </motion.div>
+                    )}
 
                     {/* Progress Bar */}
                     <div style={{ marginBottom: '20px', flexShrink: 0 }}>

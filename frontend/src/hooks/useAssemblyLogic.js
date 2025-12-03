@@ -256,8 +256,24 @@ export const useAssemblyLogic = () => {
     }
 
     let codeList = codes.split('\n').map((c) => c.trim()).filter((c) => c);
+    const originalCount = codeList.length;
     if (dedupe) {
       codeList = [...new Set(codeList)];
+      const duplicateCount = originalCount - codeList.length;
+      if (duplicateCount > 0) {
+        setLogs((prev) => {
+          const newLog = {
+            message: `Tekrarlayan ${duplicateCount} adet kod silindi.`,
+            timestamp: Date.now() / 1000,
+            color: '#f59e0b'
+          };
+          const newLogs = [...prev, newLog];
+          if (rememberSession) {
+            localStorage.setItem('savedLogs', JSON.stringify(newLogs));
+          }
+          return newLogs;
+        });
+      }
     }
 
     if (codeList.length === 0) {
@@ -318,7 +334,7 @@ export const useAssemblyLogic = () => {
     } finally {
       startInFlightRef.current = false;
     }
-  }, [isRunning, isPaused, vaultPath, codes, dedupe, addToExisting, stopOnNotFound]);
+  }, [isRunning, isPaused, vaultPath, codes, dedupe, addToExisting, stopOnNotFound, rememberSession]);
 
   const handleStop = useCallback(async () => {
     try {
@@ -355,7 +371,7 @@ export const useAssemblyLogic = () => {
     setProgress(0);
     setStatus(STATUS.READY);
     axios.post(`${API_URL}/clear`);
-  }, []);
+  }, [rememberSession]);
 
   const handleSelectFolder = useCallback(async () => {
     if (window.electron) {

@@ -883,17 +883,17 @@ class LogicHandler:
                     self.update_stats(success=len(found_files))
                 else:
                     not_found_codes.append(code)
-                    self.log(f"Yerelde bulunamadı: {code},", "#ef4444")
+                    self.log(f"Bulunamadı: {code}", "#ef4444")
                     self.update_stats(error=len(not_found_codes))
             else:
                 not_found_codes.append(code)
-                self.log(f"Bulunamadı: {code},", "#ef4444")
+                self.log(f"Bulunamadı: {code}", "#ef4444")
                 self.update_stats(error=len(not_found_codes))
             self.set_progress(0.1 + (0.4 * (i + 1) / total_codes))
 
         if not_found_codes:
             not_found_str = ",".join(not_found_codes)
-            self.log(f"Bulunamayan SAP kodları: {not_found_str} PDM'de yok,", "#f59e0b")
+            self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str} PDM'de yok.", "#f59e0b")
             self.log("Bulunamayan parçalar var, montaj iptal edildi.", "#f59e0b")
             self.set_progress(1)
             self.set_status("İptal")
@@ -983,7 +983,7 @@ class LogicHandler:
             
             if not path:
                 not_found_codes.append(code)
-                self.log(f"Bulunamadı: {code},", "#ef4444")
+                self.log(f"Bulunamadı: {code}", "#ef4444")
                 error_count += 1
                 self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
@@ -991,7 +991,7 @@ class LogicHandler:
             
             # Dosya bulundu, yerelde olduğundan emin ol
             if not self.ensure_local_file(vault, path):
-                self.log(f"Yerelde bulunamadı: {code},", "#ef4444")
+                self.log(f"Bulunamadı: {code}", "#ef4444")
                 not_found_codes.append(code)
                 error_count += 1
                 self.update_stats(error=error_count)
@@ -1026,7 +1026,7 @@ class LogicHandler:
         # Özet bilgi
         if not_found_codes:
             not_found_str = ",".join(not_found_codes)
-            self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str}", "#f59e0b")
+            self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str} PDM'de yok.", "#f59e0b")
         
         if added_count > 0:
             self.log(f"Toplam {added_count} parça montaja eklendi.", "#10b981")
