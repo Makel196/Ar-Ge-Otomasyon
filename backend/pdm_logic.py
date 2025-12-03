@@ -373,44 +373,49 @@ class LogicHandler:
         return candidates, compare_set
 
     def search_file_in_pdm(self, vault, sap_code):
-        # Try searching by PDM variables first
-        for var_name in PDM_VAR_NAMES:
-            try:
-                search = vault.CreateSearch()
-                search.AddVariable(var_name, sap_code)
-                result = search.GetFirstResult()
-                found_files = []
-                while result:
-                    found_files.append(result.Name)
-                    ext = os.path.splitext(result.Name)[1].lower()
-                    if ext in PREFERRED_EXTS:
-                        self.log(f"  → PDM'de bulundu (değişken: {var_name}): {result.Name}", "#6b7280")
-                        return self.map_vault_path(vault, result.Path)
-                    result = search.GetNextResult()
-                # Log if found files but wrong extension
-                if found_files:
-                    self.log(f"  → Dosya bulundu ancak desteklenmeyen uzantı: {', '.join(found_files)}", "#6b7280")
-            except Exception as e:
-                continue
-        
-        # Try filename search as fallback
+        # 1. Try C# Searcher first (Requested by User)
         try:
-            search = vault.CreateSearch()
-            search.FileName = f"*{sap_code}*"
-            result = search.GetFirstResult()
-            found_files = []
-            while result:
-                found_files.append(result.Name)
-                ext = os.path.splitext(result.Name)[1].lower()
-                if ext in PREFERRED_EXTS:
-                    self.log(f"  → PDM'de bulundu (dosya adı araması): {result.Name}", "#6b7280")
-                    return self.map_vault_path(vault, result.Path)
-                result = search.GetNextResult()
-            # Log if found files but wrong extension
-            if found_files:
-                self.log(f"  → Dosya adıyla bulundu ancak desteklenmeyen uzantı: {', '.join(found_files)}", "#6b7280")
+            # Use the directory of the current script (backend/) to find PdmSearcher
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            exe_path = os.path.join(current_dir, "PdmSearcher", "PdmSearcher.exe")
+            
+            if os.path.exists(exe_path):
+                # Run C# executable
+                # CREATE_NO_WINDOW = 0x08000000
+                creation_flags = 0x08000000
+                result = subprocess.run(
+                    [exe_path, sap_code], 
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True, 
+                    encoding='utf-8',
+                    errors='replace',
+                    creationflags=creation_flags
+                )
+                
+                if result.stdout:
+                    found_path = result.stdout.strip()
+                    if found_path:
+                        self.log(f"  → PDM'de bulundu: {os.path.basename(found_path)}", "#6b7280")
+                        return self.map_vault_path(vault, found_path)
+                
+                if result.stderr:
+                    self.log(f"  ⚠ C# Hatası: {result.stderr.strip()}", "#f59e0b")
+                
+                # If C# returned nothing but ran successfully, maybe it didn't find it.
+                # We can choose to fallback or stop here. 
+                # Let's fallback to Python search just in case C# logic missed something 
+                # or if the user wants robust search.
+                # But if C# is the "master", maybe we should trust it.
+                # For now, I will let it fall through to Python logic if C# returns empty.
+            else:
+                self.log("  ⚠ PdmSearcher.exe bulunamadı, Python araması kullanılıyor.", "#f59e0b")
+
         except Exception as e:
-            self.log(f"  → Dosya adı ile aranırken bir hata oluştu: {str(e)}", "#6b7280")
+            self.log(f"  ⚠ C# araması sırasında hata: {e}", "#f59e0b")
+
+        # Fallback search removed to ensure only exact matches from C# are used.
+        # If C# searcher doesn't find it, it means no exact match exists.
         
         return None
 
@@ -819,6 +824,27 @@ class LogicHandler:
     def run_process(self, codes):
         pythoncom.CoInitialize()
         self.is_running = True
+
+        # Clean and validate codes
+        cleaned_codes = []
+        for c in codes:
+            c = c.strip()
+            if not c: continue
+            # Ignore likely row numbers (e.g., "1", "10") or list markers (e.g., "1.")
+            if (c.isdigit() and len(c) < 3) or (c.endswith(".") and c[:-1].isdigit() and len(c) < 4):
+                self.log(f"  ⚠ '{c}' geçersiz kod/sıra no olarak algılandı ve atlandı.", "#f59e0b")
+                continue
+            cleaned_codes.append(c)
+        
+        codes = cleaned_codes
+
+        if not codes:
+            self.log("İşlenecek geçerli kod bulunamadı.", "#ef4444")
+            self.set_status("Durduruldu")
+            self.is_running = False
+            pythoncom.CoUninitialize()
+            return
+
         try:
             self.set_progress(0.1)
             self.set_status("PDM'e bağlanılıyor...")

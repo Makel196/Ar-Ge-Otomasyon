@@ -751,7 +751,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                                 if (multiKitMode) {
                                                                     setAlertState({
                                                                         isOpen: true,
-                                                                        message: 'Toplu Kit Montajı aktif olduğu için giriş yapılamaz',
+                                                                        message: 'Çoklu Kit Montajı aktif olduğu için giriş yapılamaz.',
                                                                         type: 'error'
                                                                     });
                                                                     return;
