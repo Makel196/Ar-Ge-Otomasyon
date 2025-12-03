@@ -24,14 +24,25 @@ export const useAssemblyLogic = () => {
 
   // Settings with optional persistence
   // Settings - Always Persistent
-  const [addToExisting, setAddToExisting] = useState(() => localStorage.getItem('addToExisting') === 'true');
+  const [addToExisting, setAddToExisting] = useState(() => {
+    if (localStorage.getItem('rememberSession') === 'true') {
+      return localStorage.getItem('addToExisting') === 'true';
+    }
+    return false;
+  });
   const [stopOnNotFound, setStopOnNotFound] = useState(() => {
-    const saved = localStorage.getItem('stopOnNotFound');
-    return saved !== null ? saved === 'true' : true;
+    if (localStorage.getItem('rememberSession') === 'true') {
+      const saved = localStorage.getItem('stopOnNotFound');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
   });
   const [dedupe, setDedupe] = useState(() => {
-    const saved = localStorage.getItem('dedupe');
-    return saved !== null ? saved === 'true' : true;
+    if (localStorage.getItem('rememberSession') === 'true') {
+      const saved = localStorage.getItem('dedupe');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
   });
   const [multiKitMode, setMultiKitMode] = useState(() => localStorage.getItem('multiKitMode') === 'true');
   const [sapUsername, setSapUsername] = useState(() => localStorage.getItem('sapUsername') || '');
@@ -232,11 +243,6 @@ export const useAssemblyLogic = () => {
           setIsPaused(true);
           setStatus(STATUS.PAUSED);
           setIsPaused(true);
-          setLogs((prev) => {
-            const newLogs = [...prev, { message: 'İşlem duraklatıldı.', timestamp: Date.now() / 1000, color: '#475569' }];
-            if (rememberSession) localStorage.setItem('savedLogs', JSON.stringify(newLogs));
-            return newLogs;
-          });
         } catch (err) {
           console.error('Pause error', err);
         }
@@ -350,13 +356,6 @@ export const useAssemblyLogic = () => {
     setIsRunning(false);
     setIsPaused(false);
     setStatus(STATUS.STOPPED);
-    setIsPaused(false);
-    setStatus(STATUS.STOPPED);
-    setLogs((prev) => {
-      const newLogs = [...prev, { message: 'İşlem durduruldu.', timestamp: Date.now() / 1000, color: '#f97316' }];
-      if (rememberSession) localStorage.setItem('savedLogs', JSON.stringify(newLogs));
-      return newLogs;
-    });
   }, []);
 
   const handleClear = useCallback(() => {
@@ -449,17 +448,16 @@ export const useAssemblyLogic = () => {
     localStorage.setItem('rememberSession', rememberSession);
 
     // Always save settings regardless of rememberSession
-    localStorage.setItem('addToExisting', addToExisting);
-    localStorage.setItem('stopOnNotFound', stopOnNotFound);
-    localStorage.setItem('dedupe', dedupe);
     localStorage.setItem('multiKitMode', multiKitMode);
     localStorage.setItem('sapUsername', sapUsername);
     localStorage.setItem('sapPassword', sapPassword);
     localStorage.setItem('assemblySavePath', assemblySavePath);
-    localStorage.setItem('assemblySavePath', assemblySavePath);
     localStorage.setItem('vaultPath', vaultPath);
 
     if (rememberSession) {
+      localStorage.setItem('addToExisting', addToExisting);
+      localStorage.setItem('stopOnNotFound', stopOnNotFound);
+      localStorage.setItem('dedupe', dedupe);
       localStorage.setItem('codes', codes);
       localStorage.setItem('batchSettingsUnlocked', batchSettingsUnlocked);
       localStorage.setItem('batchRenameMode', batchRenameMode);
@@ -468,6 +466,9 @@ export const useAssemblyLogic = () => {
       localStorage.setItem('batchAssemblyWeightCorrectionMode', batchAssemblyWeightCorrectionMode);
       localStorage.setItem('batchDuplicateCodeCheckMode', batchDuplicateCodeCheckMode);
     } else {
+      localStorage.removeItem('addToExisting');
+      localStorage.removeItem('stopOnNotFound');
+      localStorage.removeItem('dedupe');
       localStorage.removeItem('codes');
       localStorage.removeItem('savedLogs');
       localStorage.removeItem('batchSettingsUnlocked');

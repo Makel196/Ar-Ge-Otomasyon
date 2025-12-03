@@ -349,12 +349,19 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             <span>İlerleme Durumu</span>
                             <span>{Math.round(progress * 100)}%</span>
                         </div>
-                        <div className="bubble-progress-container">
+                        <div className="bubble-progress-container" style={{ overflow: 'visible' }}>
                             <div
                                 className="bubble-progress-bar"
-                                style={{ width: `${progress * 100}%` }}
+                                style={{
+                                    width: `${progress * 100}%`,
+                                    boxShadow: progress === 1
+                                        ? `0 0 20px 4px ${theme === 'dark' ? '#a855f7' : '#2dd4bf'}`
+                                        : undefined,
+                                    transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.5s ease'
+                                }}
                             >
                             </div>
+
                         </div>
                     </div>
 

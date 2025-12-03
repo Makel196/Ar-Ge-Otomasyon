@@ -202,13 +202,11 @@ class LogicHandler:
     def pause_process(self):
         if self.is_running:
             self.is_paused = True
-            self.log("İşlem duraklatıldı.", "#f59e0b")
             self.set_status("Duraklatıldı")
 
     def resume_process(self):
         if self.is_running and self.is_paused:
             self.is_paused = False
-            self.log("İşlem devam ettiriliyor...", "#3b82f6")
             self.set_status("Çalışıyor")
 
     def doc_type_safe(self, doc):
@@ -373,6 +371,7 @@ class LogicHandler:
         return candidates, compare_set
 
     def search_file_in_pdm(self, vault, sap_code):
+        if not self.is_running: return None
         # 1. Try C# Searcher first (Requested by User)
         try:
             # Use the directory of the current script (backend/) to find PdmSearcher
@@ -396,7 +395,7 @@ class LogicHandler:
                 if result.stdout:
                     found_path = result.stdout.strip()
                     if found_path:
-                        self.log(f"  → PDM'de bulundu: {os.path.basename(found_path)}", "#6b7280")
+                        self.log(f"  → PDM'de bulundu: {os.path.basename(found_path)}", "#0ea5e9")
                         return self.map_vault_path(vault, found_path)
                 
                 if result.stderr:
@@ -458,7 +457,7 @@ class LogicHandler:
                 latest_version = file_obj.CurrentVersion
                 
                 if os.path.exists(file_path) and local_version >= latest_version:
-                    self.log(f"  ✓ Dosya güncel (v{local_version}): {file_name}", "#6b7280")
+                    self.log(f"  ✓ Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
                     return True
                 
                 self.log(f"  → Sürüm güncelleniyor (v{local_version} → v{latest_version}): {file_name}", "#3b82f6")
@@ -539,7 +538,7 @@ class LogicHandler:
                     latest_version = file_obj.CurrentVersion
                     
                     if local_version >= latest_version:
-                        self.log(f"  ✓ Dosya güncel (v{local_version}): {file_name}", "#6b7280")
+                        self.log(f"  ✓ Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
                         return True
                     else:
                         self.log(f"  → Güncelleme gerekli (v{local_version} → v{latest_version}): {file_name}", "#f59e0b")
@@ -897,11 +896,17 @@ class LogicHandler:
         
         for i, code in enumerate(codes):
             if not self.is_running:
+                self.log("İşlem durduruldu.", "#f97316")
                 return
             
+            if self.is_paused and self.is_running:
+                self.log("İşlem duraklatıldı.", "#0ea5e9")
             while self.is_paused and self.is_running:
                 time.sleep(0.5)
             path = self.search_file_in_pdm(vault, code)
+            if not self.is_running:
+                self.log("İşlem durduruldu.", "#f97316")
+                return
             if path:
                 if self.ensure_local_file(vault, path):
                     found_files.append(path)
@@ -932,6 +937,7 @@ class LogicHandler:
             return
 
         if not self.is_running:
+            self.log("İşlem durduruldu.", "#f97316")
             return
 
         # SolidWorks'ü başlat ve montajı hazırla
@@ -951,8 +957,11 @@ class LogicHandler:
         total_files = len(found_files)
         for i, file_path in enumerate(found_files):
             if not self.is_running:
+                self.log("İşlem durduruldu.", "#f97316")
                 return
 
+            if self.is_paused and self.is_running:
+                self.log("İşlem duraklatıldı.", "#0ea5e9")
             while self.is_paused and self.is_running:
                 time.sleep(0.5)
 
@@ -999,13 +1008,20 @@ class LogicHandler:
 
         for i, code in enumerate(codes):
             if not self.is_running:
+                self.log("İşlem durduruldu.", "#f97316")
                 return
 
+            if self.is_paused and self.is_running:
+                self.log("İşlem duraklatıldı.", "#0ea5e9")
             while self.is_paused and self.is_running:
                 time.sleep(0.5)
             
             # PDM'de ara
             path = self.search_file_in_pdm(vault, code)
+            
+            if not self.is_running:
+                self.log("İşlem durduruldu.", "#f97316")
+                return
             
             if not path:
                 not_found_codes.append(code)
