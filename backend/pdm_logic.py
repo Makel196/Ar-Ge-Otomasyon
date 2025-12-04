@@ -5,6 +5,7 @@ import time
 import subprocess
 import ctypes
 import threading
+import socket
 import win32com.client
 import pythoncom
 import winreg
@@ -76,6 +77,15 @@ def write_vault_path_registry(path):
         winreg.SetValueEx(key, REG_VALUE_NAME, 0, winreg.REG_SZ, path or "")
     except Exception:
         pass
+
+def check_internet_connection(host="8.8.8.8", port=53, timeout=3):
+    """Check if internet connection is available."""
+    try:
+        socket.setdefaulttimeout(timeout)
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        return True
+    except Exception:
+        return False
 
 def to_short_path(path):
     """Return Windows short (8.3) path if available; helps with long/unicode paths in COM."""
@@ -296,10 +306,15 @@ class LogicHandler:
             return vault
         except Exception as e:
             err_str = str(e)
+            # Simplify error messages
             if "Geçersiz sınıf dizesi" in err_str or "-2147221005" in err_str:
-                self.log("PDM Bağlanılmadı. Lütfen PDM istemcisinin kurulu ve çalışır durumda olduğundan emin olun.", "#ef4444")
+                self.log("PDM istemcisi kurulu değil veya çalışmıyor.", "#ef4444")
+            elif "Arşiv sunucusu bulunamadı" in err_str:
+                self.log("PDM sunucusuna bağlanılamıyor. Sunucu kapalı olabilir.", "#ef4444")
+            elif "LoginAuto" in err_str or "IsLoggedIn" in err_str:
+                self.log("PDM oturum açılamadı. Giriş bilgilerini kontrol edin.", "#ef4444")
             else:
-                self.log(f"PDM Bağlantı Hatası: {err_str}", "#ef4444")
+                self.log("PDM bağlantı hatası.", "#ef4444")
             return None
 
     def get_sw_app(self):
@@ -385,51 +400,61 @@ class LogicHandler:
 
     def search_file_in_pdm(self, vault, sap_code):
         if not self.is_running: return None
-        # 1. Try C# Searcher first (Requested by User)
-        try:
-            # Use the directory of the current script (backend/) to find PdmSearcher
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            exe_path = os.path.join(current_dir, "PdmSearcher", "PdmSearcher.exe")
-            # Ensure exe path is safe for long paths
-            exe_path = to_long_path(exe_path)
+        
+        # 1. Try C# Searcher - retry indefinitely until success or user stops
+        retry_count = 0
+        while self.is_running:
+            retry_count += 1
+            try:
+                # Use the directory of the current script (backend/) to find PdmSearcher
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                exe_path = os.path.join(current_dir, "PdmSearcher", "PdmSearcher.exe")
+                # Ensure exe path is safe for long paths
+                exe_path = to_long_path(exe_path)
+                
+                if os.path.exists(exe_path):
+                    # Run C# executable
+                    # CREATE_NO_WINDOW = 0x08000000
+                    creation_flags = 0x08000000
+                    result = subprocess.run(
+                        [exe_path, sap_code], 
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True, 
+                        encoding='utf-8',
+                        errors='replace',
+                        creationflags=creation_flags,
+                        timeout=30  # 30 second timeout
+                    )
+                    
+                    if result.stdout:
+                        found_path = result.stdout.strip()
+                        if found_path:
+                            self.log(f"  PDM'de bulundu: {os.path.basename(found_path)}", "#0ea5e9")
+                            return self.map_vault_path(vault, found_path)
+                    
+                    if result.stderr:
+                        self.log(f"  C# Hatası: {result.stderr.strip()}", "#f59e0b")
+                    
+                    # C# ran but found nothing - this is not an error, just not found
+                    return None
+                else:
+                    self.log("  PdmSearcher.exe bulunamadı.", "#f59e0b")
+                    return None
+
+            except subprocess.TimeoutExpired:
+                self.log(f"  PDM araması zaman aşımına uğradı (deneme #{retry_count})", "#f59e0b")
+            except Exception as e:
+                self.log(f"  PDM araması sırasında hata: {e} (deneme #{retry_count})", "#f59e0b")
             
-            if os.path.exists(exe_path):
-                # Run C# executable
-                # CREATE_NO_WINDOW = 0x08000000
-                creation_flags = 0x08000000
-                result = subprocess.run(
-                    [exe_path, sap_code], 
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True, 
-                    encoding='utf-8',
-                    errors='replace',
-                    creationflags=creation_flags
-                )
-                
-                if result.stdout:
-                    found_path = result.stdout.strip()
-                    if found_path:
-                        self.log(f"  PDM'de bulundu: {os.path.basename(found_path)}", "#0ea5e9")
-                        return self.map_vault_path(vault, found_path)
-                
-                if result.stderr:
-                    self.log(f"  ⚠ C# Hatası: {result.stderr.strip()}", "#f59e0b")
-                
-                # If C# returned nothing but ran successfully, maybe it didn't find it.
-                # We can choose to fallback or stop here. 
-                # Let's fallback to Python search just in case C# logic missed something 
-                # or if the user wants robust search.
-                # But if C# is the "master", maybe we should trust it.
-                # For now, I will let it fall through to Python logic if C# returns empty.
-            else:
-                self.log("  ⚠ PdmSearcher.exe bulunamadı, Python araması kullanılıyor.", "#f59e0b")
-
-        except Exception as e:
-            self.log(f"  ⚠ C# araması sırasında hata: {e}", "#f59e0b")
-
-        # Fallback search removed to ensure only exact matches from C# are used.
-        # If C# searcher doesn't find it, it means no exact match exists.
+            # If we get here, there was an error - wait 1 minute and retry
+            if self.is_running:
+                self.log("  1 dakika bekleniyor ve tekrar denenecek...", "#f59e0b")
+                # Wait 60 seconds, but check is_running every second
+                for _ in range(60):
+                    if not self.is_running:
+                        return None
+                    time.sleep(1)
         
         return None
 
@@ -603,6 +628,13 @@ class LogicHandler:
                 add_to_existing = False
 
         if not add_to_existing:
+            # Disable "Fix first component" setting before creating assembly
+            try:
+                # swUserPreferenceToggle_e.swFixFirstComponentAdded = 95
+                sw_app.SetUserPreferenceToggle(95, False)
+            except Exception:
+                pass
+            
             template = self.get_assembly_template(sw_app)
             new_doc = sw_app.NewDocument(template, SW_DOC_ASSEMBLY, 0, 0)
             if not new_doc:
@@ -655,6 +687,7 @@ class LogicHandler:
         Adds a component to the assembly. Returns (success, new_z_offset).
         Extracted common code from batch and immediate modes to follow DRY principle.
         """
+        
         # Ensure path is long-path safe
         file_path = to_long_path(file_path)
 
@@ -754,11 +787,83 @@ class LogicHandler:
         success = False
         new_z_offset = z_offset
         if comp:
+            # Wait for component to be fully added
+            time.sleep(0.3)
+            
+            # Set component to float (not fixed) using multiple methods
+            try:
+                # Method 1: Select2 and FloatComponent (most reliable)
+                try:
+                    assembly_doc.ClearSelection2(True)
+                    comp.Select2(False, 0)
+                    time.sleep(0.1)
+                    assembly_doc.FloatComponent()
+                except Exception:
+                    pass
+                
+                # Method 2: SetFixedState2
+                try:
+                    comp.SetFixedState2(False)
+                except Exception:
+                    pass
+                
+                # Method 3: RunCommand for FloatComponent (swCommands_FloatComponent = 1145)
+                try:
+                    comp.Select2(False, 0)
+                    sw_app.RunCommand(1145, "")
+                except Exception:
+                    pass
+                
+                # Method 4: IsFixed property
+                try:
+                    comp.IsFixed = False
+                except Exception:
+                    pass
+                
+                # Method 5: SelectByID2 + FloatComponent using @ notation
+                try:
+                    comp_name = ""
+                    try:
+                        comp_name = comp.Name2 or comp.Name or ""
+                    except Exception:
+                        pass
+                    
+                    if comp_name:
+                        # Try with @assembly notation
+                        full_name = comp_name
+                        if "@" not in comp_name:
+                            try:
+                                asm_name = assembly_doc.GetTitle() or ""
+                                if asm_name:
+                                    full_name = f"{comp_name}@{asm_name}"
+                            except Exception:
+                                pass
+                        
+                        assembly_doc.ClearSelection2(True)
+                        assembly_doc.Extension.SelectByID2(full_name, "COMPONENT", 0, 0, 0, False, 0, None, 0)
+                        assembly_doc.FloatComponent()
+                except Exception:
+                    pass
+                
+            except Exception:
+                pass
+            
             self.log(f"Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#10b981")
             new_z_offset = z_offset - 0.3  # offset_step
             success = True
         else:
-            self.log(f"Eklenemedi: {os.path.basename(file_path)} -> {' | '.join(errors) if errors else 'bilinmeyen'}", "#f59e0b")
+            # Check if this is a COM disconnection error (needs restart)
+            error_str = ' '.join(errors) if errors else ''
+            is_connection_error = ('istemcilerinden ayrılmış' in error_str or 
+                                   '-2147417848' in error_str or 
+                                   '<unknown>' in error_str)
+            
+            if is_connection_error:
+                self.log(f"Eklenemedi: {os.path.basename(file_path)} (bağlantı hatası)", "#ef4444")
+                # Signal that SW needs restart by returning special value
+                return False, z_offset, True  # Third value = needs_restart
+            else:
+                self.log(f"Eklenemedi: {os.path.basename(file_path)}", "#f59e0b")
 
         # Close component document
         try:
@@ -796,7 +901,7 @@ class LogicHandler:
         except Exception:
             pass
 
-        return success, new_z_offset
+        return success, new_z_offset, False  # Third value = needs_restart
 
     def open_component_doc(self, sw_app, file_path, doc_type):
         """Open component and let PDM add-in retrieve it if needed"""
@@ -869,11 +974,31 @@ class LogicHandler:
         try:
             self.set_progress(0.1)
             self.set_status("PDM'e bağlanılıyor...")
-            vault = self.get_pdm_vault()
+            
+            # Retry PDM connection every 1 minute until successful
+            retry_count = 0
+            vault = None
+            while self.is_running:
+                vault = self.get_pdm_vault()
+                if vault:
+                    break
+                
+                retry_count += 1
+                self.log(f"PDM bağlantısı sağlanamadı. 1 dakika bekleniyor... (deneme #{retry_count})", "#f59e0b")
+                
+                # Wait 60 seconds, but check is_running every second
+                for _ in range(60):
+                    if not self.is_running:
+                        return
+                    time.sleep(1)
+            
             if not vault:
                 self.set_status("Hata")
                 self.log("PDM bağlantısı sağlanamadı. İşlem durduruldu.", "#ef4444")
                 return
+            
+            if retry_count > 0:
+                self.log("PDM bağlantısı sağlandı! Devam ediliyor...", "#10b981")
 
             # Checkbox durumuna göre farklı iş akışları
             stop_on_not_found = self.get_stop_on_not_found()
@@ -977,7 +1102,10 @@ class LogicHandler:
         self.set_status("Parçalar ekleniyor...")
 
         total_files = len(found_files)
-        for i, file_path in enumerate(found_files):
+        i = 0
+        while i < total_files:
+            file_path = found_files[i]
+            
             if not self.is_running:
                 self.log("İşlem durduruldu.", "#f97316")
                 return
@@ -987,6 +1115,30 @@ class LogicHandler:
             while self.is_paused and self.is_running:
                 time.sleep(0.5)
 
+            # Check if SolidWorks is still running
+            sw_alive = True
+            try:
+                _ = sw_app.Visible
+            except Exception:
+                sw_alive = False
+            
+            if not sw_alive:
+                self.log("SolidWorks kapandı! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                sw_app = self.get_sw_app()
+                if not sw_app:
+                    self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                if not assembly_doc:
+                    self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                # Restart from beginning
+                i = 0
+                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                continue
+
             if locked_title:
                 try:
                     sw_app.ActivateDoc3(locked_title, False, 0, None)
@@ -995,11 +1147,58 @@ class LogicHandler:
 
             assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
             if not assembly_doc:
-                self.log("Montaj oturumu kaybedildi.", "#ef4444")
-                return
+                self.log("Montaj bağlantısı koptu! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                sw_app = self.get_sw_app()
+                if not sw_app:
+                    self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                if not assembly_doc:
+                    self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                # Restart from beginning
+                i = 0
+                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                continue
 
-            success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
+            result = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
+            success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
+            
+            # If COM connection was lost, restart and add all parts from beginning
+            if needs_restart:
+                self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                sw_app = self.get_sw_app()
+                if sw_app:
+                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                    if assembly_doc:
+                        # Restart from beginning
+                        i = 0
+                        self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                        continue
+            
+            # If failed but not due to COM error, check if SW is still alive
+            if not success and not needs_restart:
+                sw_alive = True
+                try:
+                    _ = sw_app.Visible
+                except Exception:
+                    sw_alive = False
+                
+                if not sw_alive:
+                    self.log("SolidWorks bağlantısı koptu! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                    sw_app = self.get_sw_app()
+                    if sw_app:
+                        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                        if assembly_doc:
+                            # Restart from beginning
+                            i = 0
+                            self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                            continue
+            
             self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
+            i += 1
 
         self.set_status("Tamamlandı")
         self.set_progress(1.0)
@@ -1024,11 +1223,15 @@ class LogicHandler:
         added_count = 0
         error_count = 0
         not_found_codes = []
+        found_paths = {}  # Cache found paths to avoid re-searching
         
         # Initial stats
         self.update_stats(total=total_codes, success=0, error=0)
 
-        for i, code in enumerate(codes):
+        i = 0
+        while i < total_codes:
+            code = codes[i]
+            
             if not self.is_running:
                 self.log("İşlem durduruldu.", "#f97316")
                 return
@@ -1038,32 +1241,67 @@ class LogicHandler:
             while self.is_paused and self.is_running:
                 time.sleep(0.5)
             
-            # PDM'de ara
-            path = self.search_file_in_pdm(vault, code)
+            # PDM'de ara (use cache if available)
+            if code in found_paths:
+                path = found_paths[code]
+            else:
+                path = self.search_file_in_pdm(vault, code)
+                if path:
+                    found_paths[code] = path
             
             if not self.is_running:
                 self.log("İşlem durduruldu.", "#f97316")
                 return
             
             if not path:
-                not_found_codes.append(code)
-                self.log(f"Bulunamadı: {code}", "#ef4444")
-                error_count += 1
-                self.update_stats(error=error_count)
+                if code not in not_found_codes:
+                    not_found_codes.append(code)
+                    self.log(f"Bulunamadı: {code}", "#ef4444")
+                    error_count += 1
+                    self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
+                i += 1
                 continue
             
             # Dosya bulundu, yerelde olduğundan emin ol
             if not self.ensure_local_file(vault, path):
                 self.log(f"Bulunamadı: {code}", "#ef4444")
-                not_found_codes.append(code)
-                error_count += 1
-                self.update_stats(error=error_count)
+                if code not in not_found_codes:
+                    not_found_codes.append(code)
+                    error_count += 1
+                    self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
+                i += 1
                 continue
             
             # Bulundu log'u
             self.log(f"Bulundu: {code}", "#10b981")
+
+            # Check if SolidWorks is still running
+            sw_alive = True
+            try:
+                _ = sw_app.Visible
+            except Exception:
+                sw_alive = False
+            
+            if not sw_alive:
+                self.log("SolidWorks kapandı! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                sw_app = self.get_sw_app()
+                if not sw_app:
+                    self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                if not assembly_doc:
+                    self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                # Restart from beginning, reset counters
+                i = 0
+                added_count = 0
+                self.update_stats(total=total_codes, success=0, error=error_count)
+                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                continue
 
             # HEMEN MONTAJA EKLE
             if locked_title:
@@ -1074,10 +1312,62 @@ class LogicHandler:
 
             assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
             if not assembly_doc:
-                self.log("Montaj oturumu kaybedildi.", "#ef4444")
-                return
+                self.log("Montaj bağlantısı koptu! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                sw_app = self.get_sw_app()
+                if not sw_app:
+                    self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                if not assembly_doc:
+                    self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                # Restart from beginning, reset counters
+                i = 0
+                added_count = 0
+                self.update_stats(total=total_codes, success=0, error=error_count)
+                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                continue
 
-            success, z_offset = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+            result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+            success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
+            
+            # If COM connection was lost, restart and add all parts from beginning
+            if needs_restart:
+                self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                sw_app = self.get_sw_app()
+                if sw_app:
+                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                    if assembly_doc:
+                        # Restart from beginning, reset counters
+                        i = 0
+                        added_count = 0
+                        self.update_stats(total=total_codes, success=0, error=error_count)
+                        self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                        continue
+            
+            # If failed but not due to COM error, check if SW is still alive
+            if not success and not needs_restart:
+                sw_alive = True
+                try:
+                    _ = sw_app.Visible
+                except Exception:
+                    sw_alive = False
+                
+                if not sw_alive:
+                    self.log("SolidWorks bağlantısı koptu! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                    sw_app = self.get_sw_app()
+                    if sw_app:
+                        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                        if assembly_doc:
+                            # Restart from beginning, reset counters
+                            i = 0
+                            added_count = 0
+                            self.update_stats(total=total_codes, success=0, error=error_count)
+                            self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                            continue
+            
             if success:
                 added_count += 1
                 self.update_stats(success=added_count)
@@ -1086,6 +1376,7 @@ class LogicHandler:
                 self.update_stats(error=error_count)
 
             self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
+            i += 1
 
         # Özet bilgi
         if not_found_codes:

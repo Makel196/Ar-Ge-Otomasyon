@@ -19,7 +19,7 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, onConfirm, showC
         switch (type) {
             case 'success': return '#10b981';
             case 'error': return '#ef4444';
-            case 'warning': return '#f59e0b';
+            case 'warning': return '#ef4444';  // Red for warning
             default: return '#3b82f6';
         }
     };
