@@ -7,6 +7,8 @@ import ctypes
 import threading
 import socket
 import win32com.client
+import win32gui
+import win32con
 import pythoncom
 import winreg
 from queue import Queue
@@ -36,6 +38,143 @@ SW_DOC_ASSEMBLY = 2
 SW_OPEN_SILENT = 64
 SW_MATE_COINCIDENT = 0
 TEMPLATE_OVERRIDE = ""
+
+# --- PDM Dialog İzleyici (Checkout dialoglarını otomatik iptal eder) ---
+
+class PDMDialogWatcher:
+    """
+    PDM "Kasadan Al" (Check Out) dialoglarını izler ve otomatik olarak İptal eder.
+    Arka planda thread olarak çalışır.
+    """
+    def __init__(self):
+        self._running = False
+        self._thread = None
+        # Dialog başlıkları (Türkçe ve İngilizce)
+        self._dialog_titles = [
+            "SOLIDWORKS PDM",  # Ana PDM dialog başlığı
+            "Kasadan Al",  # Turkish
+            "Check Out",   # English
+            "Kullanıma Al",  # Alternative Turkish
+            "Get Latest Version",  # English alternative
+            "Son Sürümü Al",  # Turkish alternative
+        ]
+        # İptal/Hayır button metinleri (Hayır'ı tercih et)
+        self._cancel_texts = ["Hayır", "İptal", "No", "Cancel", "Vazgeç"]
+    
+    def _find_button_by_text(self, parent_hwnd, texts):
+        """Verilen metinlerden birine sahip butonu bul"""
+        result = [None]
+        
+        def enum_child(hwnd, param):
+            try:
+                class_name = win32gui.GetClassName(hwnd)
+                if class_name == "Button":
+                    text = win32gui.GetWindowText(hwnd)
+                    for t in texts:
+                        if t.lower() in text.lower():
+                            result[0] = hwnd
+                            return False  # Aramayı durdur
+            except Exception:
+                pass
+            return True
+        
+        try:
+            win32gui.EnumChildWindows(parent_hwnd, enum_child, None)
+        except Exception:
+            pass
+        
+        return result[0]
+    
+    def _click_button(self, btn_hwnd):
+        """Butona tıkla - birden fazla yöntem dene"""
+        try:
+            # Yöntem 1: BM_CLICK mesajı
+            win32gui.SendMessage(btn_hwnd, win32con.BM_CLICK, 0, 0)
+        except Exception:
+            pass
+        
+        try:
+            # Yöntem 2: Mouse tıklaması simülasyonu
+            win32gui.SendMessage(btn_hwnd, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, 0)
+            time.sleep(0.05)
+            win32gui.SendMessage(btn_hwnd, win32con.WM_LBUTTONUP, 0, 0)
+        except Exception:
+            pass
+    
+    def _check_and_close_dialogs(self):
+        """PDM dialoglarını kontrol et ve varsa iptal et"""
+        def enum_windows(hwnd, param):
+            try:
+                if not win32gui.IsWindowVisible(hwnd):
+                    return True
+                
+                title = win32gui.GetWindowText(hwnd)
+                if not title:
+                    return True
+                
+                # PDM dialog başlığı mı kontrol et
+                for dialog_title in self._dialog_titles:
+                    if dialog_title.lower() in title.lower():
+                        # Kasadan almak istiyor musunuz? sorusu içeren dialog
+                        # İptal/Hayır butonunu bul
+                        cancel_btn = self._find_button_by_text(hwnd, self._cancel_texts)
+                        if cancel_btn:
+                            # Butona tıkla
+                            self._click_button(cancel_btn)
+                            print(f"PDM Dialog kapatıldı (Hayır/İptal): {title}", flush=True)
+                        else:
+                            # Buton bulunamazsa ESC tuşu gönder
+                            win32gui.PostMessage(hwnd, win32con.WM_KEYDOWN, win32con.VK_ESCAPE, 0)
+                            win32gui.PostMessage(hwnd, win32con.WM_KEYUP, win32con.VK_ESCAPE, 0)
+                            print(f"PDM Dialog ESC ile kapatılmaya çalışıldı: {title}", flush=True)
+                        break
+            except Exception:
+                pass
+            return True
+        
+        try:
+            win32gui.EnumWindows(enum_windows, None)
+        except Exception:
+            pass
+    
+    def _watch_loop(self):
+        """Ana izleme döngüsü"""
+        while self._running:
+            self._check_and_close_dialogs()
+            time.sleep(0.5)  # Her 500ms'de bir kontrol et
+    
+    def start(self):
+        """İzleyiciyi başlat"""
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._watch_loop, daemon=True)
+        self._thread.start()
+        print("PDM Dialog izleyici başlatıldı", flush=True)
+    
+    def stop(self):
+        """İzleyiciyi durdur"""
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=2)
+            self._thread = None
+        print("PDM Dialog izleyici durduruldu", flush=True)
+
+# Global PDM dialog izleyici instance
+_pdm_dialog_watcher = None
+
+def start_pdm_dialog_watcher():
+    """PDM dialog izleyicisini başlat"""
+    global _pdm_dialog_watcher
+    if _pdm_dialog_watcher is None:
+        _pdm_dialog_watcher = PDMDialogWatcher()
+    _pdm_dialog_watcher.start()
+
+def stop_pdm_dialog_watcher():
+    """PDM dialog izleyicisini durdur"""
+    global _pdm_dialog_watcher
+    if _pdm_dialog_watcher:
+        _pdm_dialog_watcher.stop()
 
 # --- Yardımcı Fonksiyonlar ---
 
@@ -950,6 +1089,9 @@ class LogicHandler:
     def run_process(self, codes):
         pythoncom.CoInitialize()
         self.is_running = True
+        
+        # PDM dialog izleyicisini başlat (Kasadan Al dialoglarını otomatik iptal eder)
+        start_pdm_dialog_watcher()
 
         # Clean and validate codes
         cleaned_codes = []
@@ -968,6 +1110,7 @@ class LogicHandler:
             self.log("İşlenecek geçerli kod bulunamadı.", "#ef4444")
             self.set_status("Durduruldu")
             self.is_running = False
+            stop_pdm_dialog_watcher()
             pythoncom.CoUninitialize()
             return
 
@@ -1018,6 +1161,9 @@ class LogicHandler:
                  self.log("İşlem sonlandırılıyor...", "#64748b")
             
             self.is_running = False
+            
+            # PDM dialog izleyicisini durdur
+            stop_pdm_dialog_watcher()
             
             # Eğer işlem bittiğinde statü hala aktif bir durumdaysa, Durduruldu olarak işaretle
             final_statuses = ["Tamamlandı", "Hata", "İptal", "Durduruldu"]
