@@ -75,6 +75,7 @@ export const useAssemblyLogic = () => {
   const [alertState, setAlertState] = useState({ isOpen: false, message: '', type: 'info' });
   const [showSettings, setShowSettings] = useState(false);
   const [highlightVaultSettings, setHighlightVaultSettings] = useState(false);
+  const [invalidCodes, setInvalidCodes] = useState([]);
 
   const logsEndRef = useRef(null);
   const lastLogIndexRef = useRef(0);
@@ -263,6 +264,20 @@ export const useAssemblyLogic = () => {
 
     let codeList = codes.split('\n').map((c) => c.trim()).filter((c) => c);
     const originalCount = codeList.length;
+
+    // Check for codes with less than 5 characters
+    const shortCodes = codeList.filter(code => code.length < 5);
+    if (shortCodes.length > 0) {
+      setInvalidCodes(shortCodes);
+      const codesList = shortCodes.map(code => `<strong><u style="color: #ef4444; font-weight: 700;">${code}</u></strong>`).join(', ');
+      setAlertState({
+        isOpen: true,
+        message: `SAP Kodu 5 karakterden az olamaz ${codesList} kodlarını düzeltiniz.`,
+        type: 'error'
+      });
+      startInFlightRef.current = false;
+      return;
+    }
     if (dedupe) {
       codeList = [...new Set(codeList)];
       const duplicateCount = originalCount - codeList.length;
@@ -502,6 +517,7 @@ export const useAssemblyLogic = () => {
     alertState, setAlertState,
     showSettings, setShowSettings,
     highlightVaultSettings, setHighlightVaultSettings,
+    invalidCodes, setInvalidCodes,
     logsEndRef,
     handleStart,
     handleStop,

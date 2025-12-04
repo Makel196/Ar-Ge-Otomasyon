@@ -78,6 +78,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         alertState, setAlertState,
         showSettings, setShowSettings,
         highlightVaultSettings, setHighlightVaultSettings,
+        invalidCodes,
         logsEndRef,
         handleStart,
         handleStop,
@@ -301,21 +302,78 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         <span style={{ fontWeight: '700', fontSize: '15px' }}>SAP Kodları</span>
                     </div>
 
-                    <textarea
-                        className="modern-input"
-                        value={codes}
-                        onChange={e => setCodes(e.target.value)}
-                        placeholder="SAP Kodlarını buraya yapıştırın..."
-                        style={{
-                            flex: 1,
-                            resize: 'none',
-                            fontSize: '13px',
-                            lineHeight: '1.6',
-                            border: '2px solid var(--border)',
-                            marginBottom: '15px',
-                            minHeight: '0'
-                        }}
-                    />
+                    <div style={{ position: 'relative', flex: 1, marginBottom: '15px', minHeight: '0', display: 'flex' }}>
+                        <textarea
+                            className="modern-input"
+                            value={codes}
+                            onChange={e => setCodes(e.target.value)}
+                            placeholder="SAP Kodlarını buraya yapıştırın..."
+                            style={{
+                                flex: 1,
+                                resize: 'none',
+                                fontSize: '13px',
+                                lineHeight: '1.6',
+                                border: '2px solid var(--border)',
+                                minHeight: '0',
+                                color: 'transparent',
+                                caretColor: 'var(--text)',
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                zIndex: 2,
+                                background: 'transparent',
+                                fontFamily: "'JetBrains Mono', 'Consolas', monospace",
+                                padding: '12px 16px',
+                                letterSpacing: 'normal',
+                                wordSpacing: 'normal'
+                            }}
+                        />
+                        <div
+                            style={{
+                                flex: 1,
+                                fontSize: '13px',
+                                lineHeight: '1.6',
+                                padding: '12px 16px',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                overflowY: 'auto',
+                                pointerEvents: 'none',
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                zIndex: 1,
+                                fontFamily: "'JetBrains Mono', 'Consolas', monospace",
+                                letterSpacing: 'normal',
+                                wordSpacing: 'normal',
+                                border: '2px solid transparent'
+                            }}
+                        >
+                            {codes.split('\n').map((line, idx) => {
+                                const trimmed = line.trim();
+                                const isInvalid = invalidCodes.includes(trimmed);
+                                if (trimmed && trimmed.length < 5) {
+                                    // Less than 5 characters: red, and if invalid (after error) also bold+underline
+                                    const first4 = trimmed.substring(0, 4);
+                                    const rest = trimmed.substring(4);
+                                    return (
+                                        <div key={idx}>
+                                            <span style={{
+                                                color: '#ef4444',
+                                                fontWeight: isInvalid ? '700' : '600',
+                                                textDecoration: isInvalid ? 'underline' : 'none'
+                                            }}>{first4}</span>
+                                            <span style={{ color: 'var(--text)' }}>{rest}</span>
+                                        </div>
+                                    );
+                                }
+                                return <div key={idx} style={{ color: 'var(--text)' }}>{line || '\u00A0'}</div>;
+                            })}
+                        </div>
+                    </div>
 
                     {/* Duplicate Count Indicator */}
                     {dedupe && duplicateCount > 0 && (

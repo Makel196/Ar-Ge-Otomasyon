@@ -91,20 +91,31 @@ def to_short_path(path):
 def to_long_path(path):
     """
     Return a long-path-safe version of the path.
-    Adds \\\\?\\ prefix when needed and handles UNC paths so Windows APIs can read very long paths.
+    Only adds \\\\?\\ prefix when path is actually long (>240 chars) to avoid breaking COM compatibility.
     """
     if not path:
         return path
     try:
-        norm = os.path.abspath(path)
+        # First normalize the path
+        norm = os.path.normpath(os.path.abspath(path))
+        
+        # If already has prefix, return as-is
         if norm.startswith("\\\\?\\"):
             return norm
-        if norm.startswith("\\\\"):
-            return "\\\\?\\UNC\\" + norm[2:]
+        
+        # Only add prefix if path is actually long enough to need it
+        # We use a conservative threshold to avoid unnecessary prefixing
         if len(norm) >= 240:
-            return "\\\\?\\" + norm
+            # Handle UNC paths
+            if norm.startswith("\\\\"):
+                return "\\\\?\\UNC\\" + norm[2:]
+            else:
+                return "\\\\?\\" + norm
+        
+        # For shorter paths, return normalized path without prefix
         return norm
     except Exception:
+        # If anything fails, return original path
         return path
 
 def normalize_path_for_compare(path):
@@ -122,6 +133,8 @@ def normalize_path_for_compare(path):
 def get_last_version(file_path, vault_name=VAULT_NAME):
     """Return latest version number of a PDM file; None if unavailable."""
     try:
+        # Ensure path is long-path safe
+        file_path = to_long_path(file_path)
         try:
             vault = win32com.client.Dispatch("ConisioLib.EdmVault5")
         except Exception:
@@ -377,6 +390,8 @@ class LogicHandler:
             # Use the directory of the current script (backend/) to find PdmSearcher
             current_dir = os.path.dirname(os.path.abspath(__file__))
             exe_path = os.path.join(current_dir, "PdmSearcher", "PdmSearcher.exe")
+            # Ensure exe path is safe for long paths
+            exe_path = to_long_path(exe_path)
             
             if os.path.exists(exe_path):
                 # Run C# executable
@@ -423,6 +438,8 @@ class LogicHandler:
         fetch_pdm_latest.py mantığını kullanarak dosyanın son revizyonunu çeker.
         Dosya yerelde yoksa veya eski sürümse günceller.
         """
+        # Ensure path is long-path safe
+        file_path = to_long_path(file_path)
         file_name = os.path.basename(file_path)
         
         try:
@@ -511,6 +528,8 @@ class LogicHandler:
         Dosyanın yerelde olduğundan ve güncel olduğundan emin ol.
         Yoksa veya eskiyse PDM'den son sürümü çek.
         """
+        # Ensure path is long-path safe
+        file_path = to_long_path(file_path)
         file_name = os.path.basename(file_path)
         
         # Önce dosyanın durumunu kontrol et
@@ -636,6 +655,9 @@ class LogicHandler:
         Adds a component to the assembly. Returns (success, new_z_offset).
         Extracted common code from batch and immediate modes to follow DRY principle.
         """
+        # Ensure path is long-path safe
+        file_path = to_long_path(file_path)
+
         if not os.path.exists(file_path):
             if not self.ensure_local_file(self.get_pdm_vault(), file_path) or not os.path.exists(file_path):
                 self.log(f"Yerel kopya eksik: {file_path}", "#ef4444")

@@ -87,9 +87,10 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' 
                             <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>
                                 {type === 'error' ? 'Hata' : (type === 'success' ? 'Başarılı' : (type === 'warning' ? 'Uyarı' : 'Bilgi'))}
                             </h3>
-                            <p style={{ margin: 0, fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                                {message}
-                            </p>
+                            <p
+                                style={{ margin: 0, fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.5' }}
+                                dangerouslySetInnerHTML={{ __html: message }}
+                            />
                         </div>
 
                         <button
