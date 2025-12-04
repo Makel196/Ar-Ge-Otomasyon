@@ -176,8 +176,8 @@ class AutomationServer:
                 self.progress_queue.queue.clear()
                 
             with self.state_lock:
-                # Reset state
-                self.state["logs"] = []
+                # Reset state but keep logs
+                # self.state["logs"] = []  # Don't clear logs - keep history
                 self.state["progress"] = 0.0
                 self.state["status"] = "Başlatılıyor..."
                 self.state["is_running"] = True

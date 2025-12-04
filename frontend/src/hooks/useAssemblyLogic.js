@@ -73,6 +73,7 @@ export const useAssemblyLogic = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [stats, setStats] = useState({ total: 0, success: 0, error: 0 });
   const [alertState, setAlertState] = useState({ isOpen: false, message: '', type: 'info' });
+  const [confirmState, setConfirmState] = useState({ isOpen: false, message: '', type: 'warning', onConfirm: null });
   const [showSettings, setShowSettings] = useState(false);
   const [highlightVaultSettings, setHighlightVaultSettings] = useState(false);
   const [invalidCodes, setInvalidCodes] = useState([]);
@@ -307,15 +308,7 @@ export const useAssemblyLogic = () => {
 
     setIsRunning(true);
     setStatus(STATUS.STARTING);
-    lastLogIndexRef.current = 0; // ensure next poll reads all fresh logs for this run
-    setStatus(STATUS.STARTING);
-    lastLogIndexRef.current = 0; // ensure next poll reads all fresh logs for this run
-
-    // Clear old logs on new run if that's the desired behavior, OR append. 
-    // Usually a new run implies new context. But user might want history.
-    // Given the backend clears its logs, we should probably clear frontend logs too to stay in sync?
-    // Or we keep them. If we keep them, we just append.
-    // Let's append for now as per previous logic.
+    // Don't reset lastLogIndexRef - keep reading from where we left off to preserve log history
 
     setLogs((prev) => {
       const newLog = { message: 'İşlem başlatılıyor...', timestamp: Date.now() / 1000, color: 'var(--text-secondary)' };
@@ -374,17 +367,25 @@ export const useAssemblyLogic = () => {
   }, []);
 
   const handleClear = useCallback(() => {
-    setCodes('');
-    const clearLog = { message: 'Kayıtlar temizlendi.', timestamp: Date.now() / 1000, color: 'var(--text-secondary)' };
-    setLogs([clearLog]);
-    if (rememberSession) {
-      localStorage.setItem('savedLogs', JSON.stringify([clearLog]));
-    }
-    setStats({ total: 0, success: 0, error: 0 });
-    lastLogIndexRef.current = 0;
-    setProgress(0);
-    setStatus(STATUS.READY);
-    axios.post(`${API_URL}/clear`);
+    setConfirmState({
+      isOpen: true,
+      message: "Lütfen Excel'e çıkarttığınızdan emin olun!<br/><br/>Temizlemek istediğinize emin misiniz?",
+      type: 'warning',
+      onConfirm: () => {
+        setCodes('');
+        const clearLog = { message: 'Kayıtlar temizlendi.', timestamp: Date.now() / 1000, color: 'var(--text-secondary)' };
+        setLogs([clearLog]);
+        if (rememberSession) {
+          localStorage.setItem('savedLogs', JSON.stringify([clearLog]));
+        }
+        setStats({ total: 0, success: 0, error: 0 });
+        lastLogIndexRef.current = 0;
+        setProgress(0);
+        setStatus(STATUS.READY);
+        axios.post(`${API_URL}/clear`);
+        setConfirmState({ isOpen: false, message: '', type: 'warning', onConfirm: null });
+      }
+    });
   }, [rememberSession]);
 
   const handleSelectFolder = useCallback(async () => {
@@ -515,6 +516,7 @@ export const useAssemblyLogic = () => {
     batchSettingsUnlocked, setBatchSettingsUnlocked,
     status, progress, logs, isRunning, isPaused, stats,
     alertState, setAlertState,
+    confirmState, setConfirmState,
     showSettings, setShowSettings,
     highlightVaultSettings, setHighlightVaultSettings,
     invalidCodes, setInvalidCodes,

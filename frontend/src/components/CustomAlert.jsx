@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheckCircle, faExclamationTriangle, faInfoCircle, faTimes } from '@fortawesome/free-solid-svg-icons';
 
-const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' }) => {
+const CustomAlert = ({ isOpen, message, type = 'info', onClose, onConfirm, showConfirmButtons = false, theme = 'light' }) => {
     if (!isOpen) return null;
 
     const getIcon = () => {
@@ -19,7 +19,7 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' 
         switch (type) {
             case 'success': return '#10b981';
             case 'error': return '#ef4444';
-            case 'warning': return '#ef4444';
+            case 'warning': return '#f59e0b';
             default: return '#3b82f6';
         }
     };
@@ -93,25 +93,74 @@ const CustomAlert = ({ isOpen, message, type = 'info', onClose, theme = 'light' 
                             />
                         </div>
 
-                        <button
-                            className="modern-btn primary"
-                            onClick={onClose}
-                            style={{
-                                width: '100%',
-                                height: '45px',
-                                borderRadius: '14px',
-                                fontSize: '15px',
-                                marginTop: '10px',
-                                background: getColor(),
-                                border: 'none',
-                                color: 'white',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                boxShadow: `0 10px 20px -5px ${getColor()}40`
-                            }}
-                        >
-                            Tamam
-                        </button>
+                        {showConfirmButtons ? (
+                            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '10px' }}>
+                                <button
+                                    onClick={onConfirm}
+                                    style={{
+                                        flex: 1,
+                                        height: '45px',
+                                        borderRadius: '14px',
+                                        fontSize: '15px',
+                                        background: getColor(),
+                                        border: 'none',
+                                        color: 'white',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        boxShadow: `0 10px 20px -5px ${getColor()}40`
+                                    }}
+                                >
+                                    Tamam
+                                </button>
+                                <button
+                                    onClick={onClose}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.background = '#ef4444';
+                                        e.target.style.color = 'white';
+                                        e.target.style.border = 'none';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.background = 'var(--bg-secondary)';
+                                        e.target.style.color = 'var(--text)';
+                                        e.target.style.border = '1px solid var(--border)';
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        height: '45px',
+                                        borderRadius: '14px',
+                                        fontSize: '15px',
+                                        background: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border)',
+                                        color: 'var(--text)',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    İptal
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                className="modern-btn primary"
+                                onClick={onClose}
+                                style={{
+                                    width: '100%',
+                                    height: '45px',
+                                    borderRadius: '14px',
+                                    fontSize: '15px',
+                                    marginTop: '10px',
+                                    background: getColor(),
+                                    border: 'none',
+                                    color: 'white',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    boxShadow: `0 10px 20px -5px ${getColor()}40`
+                                }}
+                            >
+                                Tamam
+                            </button>
+                        )}
                     </motion.div>
                 </motion.div>
             )}

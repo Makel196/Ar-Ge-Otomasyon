@@ -76,6 +76,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         batchSettingsUnlocked, setBatchSettingsUnlocked,
         status, progress, logs, isRunning, isPaused, stats,
         alertState, setAlertState,
+        confirmState, setConfirmState,
         showSettings, setShowSettings,
         highlightVaultSettings, setHighlightVaultSettings,
         invalidCodes,
@@ -104,9 +105,9 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     };
 
     const handleExportExcel = () => {
-        // Filter ONLY for "not found" (bulunamayan)
+        // Filter only for bulk "Bulunamayan SAP kodları" logs
         const notFoundLogs = logs.filter(log =>
-            log.message && log.message.toLowerCase().includes('bulunamadı')
+            log.message && log.message.includes('Bulunamayan SAP kodları')
         );
 
         if (notFoundLogs.length === 0) {
@@ -114,13 +115,29 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
             return;
         }
 
+        // Extract SAP codes from messages
+        const extractedData = [];
+        notFoundLogs.forEach(log => {
+            const time = new Date(log.timestamp * 1000).toLocaleTimeString();
+            const message = log.message;
+
+            // Extract everything after ": " (removes "Bulunamayan SAP kodları (x adet): ")
+            const colonIndex = message.indexOf(':');
+            if (colonIndex !== -1) {
+                const codesText = message.substring(colonIndex + 1).trim();
+                extractedData.push([time, codesText]);
+            }
+        });
+
+        if (extractedData.length === 0) {
+            setAlertState({ isOpen: true, message: "SAP kodu çıkarılamadı.", type: 'info' });
+            return;
+        }
+
         // Create worksheet data
         const worksheetData = [
-            ["Zaman", "Bulunamayan SAP Kodu Mesajı"],
-            ...notFoundLogs.map(log => {
-                const time = new Date(log.timestamp * 1000).toLocaleTimeString();
-                return [time, log.message];
-            })
+            ["Zaman", "Bulunamayan SAP Kodları"],
+            ...extractedData
         ];
 
         // Create workbook and worksheet
@@ -130,7 +147,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
         // Set column widths
         ws['!cols'] = [
             { wch: 12 },  // Zaman column
-            { wch: 60 }   // Message column
+            { wch: 50 }   // SAP Kodları column
         ];
 
         // Add worksheet to workbook
@@ -469,7 +486,8 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                 gap: '8px',
                                 padding: '8px',
                                 borderRadius: '8px',
-                                overflow: 'hidden'
+                                overflow: 'hidden',
+                                outline: 'none'
                             }}
                         >
                             <FontAwesomeIcon icon={faFileExcel} style={{ fontSize: '20px', color: '#10b981' }} />
@@ -925,6 +943,15 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 message={alertState.message}
                 type={alertState.type}
                 onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
+                theme={theme}
+            />
+            <CustomAlert
+                isOpen={confirmState.isOpen}
+                message={confirmState.message}
+                type={confirmState.type}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                showConfirmButtons={true}
                 theme={theme}
             />
         </PageLayout>
