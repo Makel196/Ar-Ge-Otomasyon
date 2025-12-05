@@ -2,10 +2,8 @@
 import os
 import sys
 import time
-import subprocess
 import ctypes
 import threading
-import socket
 import win32com.client
 import win32gui
 import win32con
@@ -299,19 +297,7 @@ def get_last_version(file_path, vault_name=VAULT_NAME):
 
 
 
-def run_macro(sw_app, macro_path, module_name="Macro1", procedure_name="main"):
-    """Run a SolidWorks macro (.swp)."""
-    try:
-        if not os.path.exists(macro_path):
-            return False
-        
-        # RunMacro2 args: PathName, ModuleName, ProcedureName, Options, Error
-        # Options: 1 = Unload after run, 0 = Leave loaded
-        res = sw_app.RunMacro2(macro_path, module_name, procedure_name, 1, 0)
-        return True
-    except Exception as e:
-        print(f"Macro run error: {e}", flush=True)
-        return False
+
 
 # --- Ana Uygulama Mantığı (SolidWorks & PDM) ---
 
@@ -555,62 +541,80 @@ class LogicHandler:
     def search_file_in_pdm(self, vault, sap_code):
         if not self.is_running: return None
         
-        # 1. Try C# Searcher - retry indefinitely until success or user stops
-        retry_count = 0
-        while self.is_running:
-            retry_count += 1
-            try:
-                # Use the directory of the current script (backend/) to find PdmSearcher
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                exe_path = os.path.join(current_dir, "PdmSearcher", "PdmSearcher.exe")
-                # Ensure exe path is safe for long paths
-                exe_path = to_long_path(exe_path)
-                
-                if os.path.exists(exe_path):
-                    # Run C# executable
-                    # CREATE_NO_WINDOW = 0x08000000
-                    creation_flags = 0x08000000
-                    result = subprocess.run(
-                        [exe_path, sap_code], 
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True, 
-                        encoding='utf-8',
-                        errors='replace',
-                        creationflags=creation_flags,
-                        timeout=30  # 30 second timeout
-                    )
-                    
-                    if result.stdout:
-                        found_path = result.stdout.strip()
-                        if found_path:
-                            self.log(f"  PDM'de bulundu: {os.path.basename(found_path)}", "#0ea5e9")
-                            return self.map_vault_path(vault, found_path)
-                    
-                    if result.stderr:
-                        self.log(f"  C# Hatası: {result.stderr.strip()}", "#f59e0b")
-                    
-                    # C# ran but found nothing - this is not an error, just not found
-                    return None
-                else:
-                    self.log("  PdmSearcher.exe bulunamadı.", "#f59e0b")
-                    return None
-
-            except subprocess.TimeoutExpired:
-                self.log(f"  PDM araması zaman aşımına uğradı (deneme #{retry_count})", "#f59e0b")
-            except Exception as e:
-                self.log(f"  PDM araması sırasında hata: {e} (deneme #{retry_count})", "#f59e0b")
-            
-            # If we get here, there was an error - wait 1 minute and retry
-            if self.is_running:
-                self.log("  1 dakika bekleniyor ve tekrar denenecek...", "#f59e0b")
-                # Wait 60 seconds, but check is_running every second
-                for _ in range(60):
-                    if not self.is_running:
-                        return None
-                    time.sleep(1)
+        sap_code = str(sap_code).strip()
         
+        # 1. Variable Search
+        for var_name in PDM_VAR_NAMES:
+            try:
+                search = vault.CreateSearch()
+                search.AddVariable(var_name, sap_code)
+                result = search.GetFirstResult()
+                while result:
+                    if not self.is_running: return None
+                    if self.check_file_match(vault, result.ID, sap_code):
+                        self.log(f"  PDM'de bulundu ({var_name}): {result.Name}", "#0ea5e9")
+                        return self.map_vault_path(vault, result.Path)
+                    result = search.GetNextResult()
+            except Exception:
+                pass
+                
+        # 2. Filename Search (Fallback)
+        try:
+            search = vault.CreateSearch()
+            search.FileName = f"%{sap_code}%"
+            result = search.GetFirstResult()
+            while result:
+                if not self.is_running: return None
+                if self.check_file_match(vault, result.ID, sap_code):
+                    self.log(f"  PDM'de bulundu (Dosya Adı): {result.Name}", "#0ea5e9")
+                    return self.map_vault_path(vault, result.Path)
+                result = search.GetNextResult()
+        except Exception:
+            pass
+            
         return None
+
+    def check_file_match(self, vault, file_id, target_code):
+        """Verifies if the file actually matches the target SAP code."""
+        try:
+            # EdmObjectType.EdmObject_File = 1
+            file_obj = vault.GetObject(1, file_id)
+            if not file_obj: return False
+            
+            ext = os.path.splitext(file_obj.Name)[1].lower()
+            if ext not in PREFERRED_EXTS: return False
+            
+            enum_var = file_obj.GetEnumeratorVariable()
+            if not enum_var: return False
+            
+            target_str = str(target_code).strip()
+            
+            for var_name in PDM_VAR_NAMES:
+                # Check "@" configuration
+                try:
+                    # win32com handles 'out' parameters by returning them
+                    # GetVar returns (boolean_success, value) or just value depending on wrapper
+                    # But usually with Dispatch, we just call it and catch exceptions if it fails
+                    # Let's try to get the value. 
+                    # Note: In Python win32com, some methods return the value directly, others return tuple.
+                    # PDM API GetVar signature: GetVar(VarName, ConfigName, out Value)
+                    val = enum_var.GetVar(var_name, "@")
+                    
+                    # Ensure val is the value, sometimes it returns (True, Value)
+                    if isinstance(val, tuple) and len(val) > 0:
+                         # Usually (True, 'Value')
+                         real_val = val[1] if len(val) > 1 else val[0]
+                    else:
+                        real_val = val
+
+                    if real_val is not None and str(real_val).strip() == target_str:
+                        return True
+                except Exception:
+                    pass
+                    
+            return False
+        except Exception:
+            return False
 
     def fetch_latest_revision(self, vault, file_path):
         """
