@@ -1020,6 +1020,8 @@ class LogicHandler:
             if not assembly_doc:
                 return
 
+            self.log("Temizlik işlemi başlatılıyor (Fix kaldır & Esnek yap)...", "#3b82f6")
+
             # 1. Montaj İsmini Al
             full_title = assembly_doc.GetTitle()
             # Split by last dot to remove extension if present
@@ -1040,10 +1042,21 @@ class LogicHandler:
                         if boolstatus:
                             try:
                                 assembly_doc.UnFixComponent()
+                                self.log(f"  Fix kaldırıldı: {parca_ismi}", "#10b981")
                             except:
                                 pass
                             assembly_doc.ClearSelection2(True)
-                        
+                        else:
+                             # Try to select without @montaj_ismi
+                             boolstatus = assembly_doc.Extension.SelectByID2(parca_ismi, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
+                             if boolstatus:
+                                try:
+                                    assembly_doc.UnFixComponent()
+                                    self.log(f"  Fix kaldırıldı (Alternatif seçim): {parca_ismi}", "#10b981")
+                                except:
+                                    pass
+                                assembly_doc.ClearSelection2(True)
+
                         # --- ADIM 2: ESNEK YAPMA ---
                         boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
                         
@@ -1054,17 +1067,20 @@ class LogicHandler:
                             if myComponent:
                                 try:
                                     myComponent.Solving = 1
+                                    self.log(f"  Esnek yapıldı: {parca_ismi}", "#10b981")
                                 except:
                                     pass
                                 
                             assembly_doc.ClearSelection2(True)
-                    except:
-                        pass
+                    except Exception as e:
+                        self.log(f"  Hata ({comp.Name2}): {e}", "#f59e0b")
                 
                 try:
                     assembly_doc.GraphicsRedraw2()
                 except:
                     pass
+            
+            self.log("Temizlik işlemi tamamlandı.", "#3b82f6")
         except:
             pass
 
