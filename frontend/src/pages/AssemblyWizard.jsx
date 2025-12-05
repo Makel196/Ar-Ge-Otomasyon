@@ -537,14 +537,13 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                             alignItems: 'flex-start'
                                         }}
                                     >
-
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                                             <FontAwesomeIcon icon={getLogIcon(log.color)} style={{ fontSize: '14px', marginTop: '2px', opacity: 0.8 }} />
                                             <span style={{
                                                 whiteSpace: 'pre-wrap',
                                                 display: 'block',
                                                 width: '100%',
-                                                fontSize: (log.message && log.message.includes('|')) ? '10px' : 'inherit',
+                                                fontSize: (log.message && log.message.includes('|')) ? '12px' : 'inherit',
                                                 fontFamily: (log.message && log.message.includes('|')) ? "'JetBrains Mono', monospace" : 'inherit'
                                             }}>{log.message}</span>
                                         </div>
