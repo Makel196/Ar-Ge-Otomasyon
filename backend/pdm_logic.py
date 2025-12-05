@@ -55,9 +55,11 @@ class PDMDialogWatcher:
             "Kullanıma Al",  # Alternative Turkish
             "Get Latest Version",  # English alternative
             "Son Sürümü Al",  # Turkish alternative
+            "Sorun Ne", # SolidWorks Error Dialog
+            "What's Wrong", # SolidWorks Error Dialog English
         ]
         # İptal/Hayır button metinleri (Hayır'ı tercih et)
-        self._cancel_texts = ["Hayır", "İptal", "No", "Cancel", "Vazgeç"]
+        self._cancel_texts = ["Hayır", "İptal", "No", "Cancel", "Vazgeç", "Kapat", "Close"]
     
     def _find_button_by_text(self, parent_hwnd, texts):
         """Verilen metinlerden birine sahip butonu bul"""
