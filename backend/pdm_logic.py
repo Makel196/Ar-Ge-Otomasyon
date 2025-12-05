@@ -555,7 +555,7 @@ class LogicHandler:
                 while result:
                     if not self.is_running: return None
                     if self.check_file_match(vault, result.ID, sap_code):
-                        self.log(f"  PDM'de bulundu ({var_name}): {result.Name}", "#0ea5e9")
+                        self.log(f"  PDM'de bulundu ({result.Name}): {sap_code}", "#0ea5e9")
                         return self.map_vault_path(vault, result.Path)
                     result = search.GetNextResult()
             except Exception:
@@ -569,7 +569,7 @@ class LogicHandler:
             while result:
                 if not self.is_running: return None
                 if self.check_file_match(vault, result.ID, sap_code):
-                    self.log(f"  PDM'de bulundu (Dosya Adı): {result.Name}", "#0ea5e9")
+                    self.log(f"  PDM'de bulundu ({result.Name}): {sap_code}", "#0ea5e9")
                     return self.map_vault_path(vault, result.Path)
                 result = search.GetNextResult()
         except Exception:
@@ -735,7 +735,7 @@ class LogicHandler:
         # Ensure path is long-path safe
         file_path = to_long_path(file_path)
         file_name = os.path.basename(file_path)
-        log_name = display_name if display_name else file_name
+        log_name = f"{file_name} : {display_name}" if display_name else file_name
         
         # Önce dosyanın durumunu kontrol et
         file_exists = os.path.exists(file_path)
@@ -758,11 +758,7 @@ class LogicHandler:
                         folder_obj = None
                 
                 if file_obj and folder_obj:
-                    # Dosya PDM'de var. İsmini logdan güncelle
-                    if not display_name:
-                         # PDM'den alınan isim ile güncellemek mümkün ama şimdilik gerek yok
-                         pass
-                    
+                    # Dosya PDM'de var.
                     local_version = file_obj.GetLocalVersionNo(folder_obj.ID)
                     latest_version = file_obj.CurrentVersion
                     
@@ -1031,6 +1027,52 @@ class LogicHandler:
             pass
 
         return success, new_z_offset, False, comp  # Third value = needs_restart
+
+    def create_linear_pattern(self, sw_app, assembly_doc, seed_comp, count, spacing=0.3):
+        """X ekseninde doğrusal çoğaltma yapar (Right Plane referanslı)."""
+        try:
+            mod_doc = assembly_doc
+            fm = mod_doc.FeatureManager
+            
+            assembly_doc.ClearSelection2(True)
+            if not seed_comp.Select2(True, 1): # Mark 1 for seed
+                 return None
+            
+            # Yön seçimi (Mark 2) - Sağ Düzlem (Right Plane) normali X eksenidir
+            planes = ["Right Plane", "Sağ Düzlem", "Plan de droite", "Ebene rechts"]
+            dir_selected = False
+            for p in planes:
+                if mod_doc.Extension.SelectByID2(p, "PLANE", 0, 0, 0, True, 2, None, 0):
+                    dir_selected = True
+                    break
+            
+            if not dir_selected:
+                return None
+                
+            # Create Feature
+            feat = fm.FeatureLinearPattern4(
+                count, spacing, 1, 0,
+                False, False, "NULL", "NULL", "Pattern_Auto",
+                False, False, False, True, True, False
+            )
+            return feat
+        except Exception:
+            return None
+
+    def run_process_sap_multikit(self, codes, config):
+        # ... logic ...
+        # Since I can't easily jump inside the function, I'll rely on the fact that I'm replacing the loop block which I know is after line 1475 in current file (due to previous messy insert).
+        # Wait, the previous insert put create_linear_pattern in line 1420.
+        # I need to be careful. I will replace the PREVIOUS create_linear_pattern (1420) and the rest of the loop block.
+        pass
+        
+    # I will construct the ReplacementContent to cover both create_linear_pattern definition location AND the loop.
+    # But wait, create_linear_pattern is now at 1034 (I added it there in Step 1162).
+    # But I also accidentally added it at 1420 in Step 1155?
+    # No, Step 1155 failed/was weird. Step 1162 added to 1034.
+    # Ah, in Step 1155 I replaced lines 1420-1470 with loop logic, so the accidentally added function at 1420 should be gone.
+    # Let's verify with view_file.
+
 
     def apply_cleanup_logic(self, sw_app, assembly_doc):
         """
@@ -1417,20 +1459,37 @@ class LogicHandler:
                                             # İlk bileşeni eklemeden önce varsa seçimi temizle
                                             assembly_doc.ClearSelection2(True)
                                             
-                                            for k in range(count):
-                                                # X ekseninde 300mm (0.3m) öteleme
-                                                x_pos = k * 0.3
+                                            if count > 4:
+                                                # Pattern Denemesi (> 4 adet)
+                                                res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=0)
+                                                first_comp = res[3] if len(res) > 3 else None
                                                 
-                                                try:
-                                                    # add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, x_offset=0, y_offset=0)
-                                                    res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=x_pos)
-                                                    # res: (success, new_z, restart, comp)
-                                                    new_comp = res[3] if len(res) > 3 else None
+                                                pattern_success = False
+                                                if first_comp:
+                                                    added_components.append(first_comp)
                                                     
-                                                    if new_comp:
-                                                        added_components.append(new_comp)
-                                                except Exception as err:
-                                                    self.log(f"  Hata (Ekleme): {str(err)}", "#ef4444")
+                                                    feat = self.create_linear_pattern(sw_app, assembly_doc, first_comp, count)
+                                                    if feat:
+                                                        pattern_success = True
+                                                        added_components.append(feat) 
+                                                        self.log(f"  ✔ {comp_code} ({count} adet) - Doğrusal Çoğaltma ({count}x)", "#10b981")
+                                                
+                                                if not pattern_success:
+                                                    # Fallback: Manuel (X Ekseni)
+                                                    start_k = 1 if first_comp else 0
+                                                    for k in range(start_k, count):
+                                                        x_pos = k * 0.3
+                                                        res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=x_pos)
+                                                        nc = res[3] if len(res) > 3 else None
+                                                        if nc: added_components.append(nc)
+                                            else:
+                                                # Az sayıda (<=4), Manuel ekle (X Ekseni)
+                                                for k in range(count):
+                                                    x_pos = k * 0.3
+                                                    res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=x_pos)
+                                                    nc = res[3] if len(res) > 3 else None
+                                                    if nc: added_components.append(nc)
+
 
                                             # Gizleme İşlemi (- miktar varsa)
                                             if should_hide and added_components:
@@ -1442,12 +1501,12 @@ class LogicHandler:
                                                     for c in added_components:
                                                         c.SetSuppression2(2) 
                                                         
-                                                    self.log(f"  ✔ {comp_code} ({count} adet) eklendi ve GİZLENDİ.", "#6b7280")
+                                                    self.log(f"{comp_code} ({count} adet) eklendi ve GİZLENDİ.", "#6b7280")
                                                 except Exception as err:
                                                     self.log(f"  Gizleme hatası: {str(err)}", "#f59e0b")
                                             else:
                                                  if added_components:
-                                                     self.log(f"  ✔ {comp_code} ({count} adet) eklendi.", "#10b981")
+                                                     self.log(f"{comp_code} ({count} adet) eklendi.", "#10b981")
                                         else:
                                             self.log(f"  Dosya yerel diske alınamadı: {comp_code}", "#ef4444")
                                     else:
