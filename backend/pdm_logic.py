@@ -298,6 +298,21 @@ def get_last_version(file_path, vault_name=VAULT_NAME):
         return None
 
 
+
+def run_macro(sw_app, macro_path, module_name="Macro1", procedure_name="main"):
+    """Run a SolidWorks macro (.swp)."""
+    try:
+        if not os.path.exists(macro_path):
+            return False
+        
+        # RunMacro2 args: PathName, ModuleName, ProcedureName, Options, Error
+        # Options: 1 = Unload after run, 0 = Leave loaded
+        res = sw_app.RunMacro2(macro_path, module_name, procedure_name, 1, 0)
+        return True
+    except Exception as e:
+        print(f"Macro run error: {e}", flush=True)
+        return False
+
 # --- Ana Uygulama Mantığı (SolidWorks & PDM) ---
 
 class LogicHandler:
@@ -987,6 +1002,14 @@ class LogicHandler:
             except Exception:
                 pass
             
+            except Exception:
+                pass
+            
+            # --- INTERNAL FLOAT LOGIC (Mimics Macro) ---
+            # Kullanıcı dosya oluşturmak istemediği için makro mantığını Python içine gömüyoruz.
+            self.apply_float_fix(assembly_doc)
+            # -------------------------------------------
+
             self.log(f"Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#10b981")
             new_z_offset = z_offset - 0.3  # offset_step
             success = True
@@ -1041,6 +1064,44 @@ class LogicHandler:
             pass
 
         return success, new_z_offset, False  # Third value = needs_restart
+
+    def apply_float_fix(self, assembly_doc):
+        """
+        Applies 'Float' to all fixed components, mimicking the VBA macro.
+        This runs automatically after adding a component.
+        """
+        try:
+            # GetComponents(True) -> Top level only
+            comps = assembly_doc.GetComponents(True)
+            if not comps: return
+
+            fixed_count = 0
+            for comp in comps:
+                # Check if fixed
+                is_fixed = False
+                try:
+                    is_fixed = comp.IsFixed
+                except:
+                    pass
+                
+                if is_fixed:
+                    # Attempt to unfix using multiple methods
+                    try:
+                        comp.IsFixed = False
+                        fixed_count += 1
+                    except:
+                        try:
+                            comp.SetFixedState2(False)
+                            fixed_count += 1
+                        except:
+                            pass
+            
+            if fixed_count > 0:
+                assembly_doc.EditRebuild3()
+                self.log(f"  {fixed_count} bileşen otomatik olarak Float yapıldı.", "#3b82f6")
+                
+        except Exception as e:
+            self.log(f"  Float işlemi hatası: {e}", "#f59e0b")
 
     def open_component_doc(self, sw_app, file_path, doc_type):
         """Open component and let PDM add-in retrieve it if needed"""
