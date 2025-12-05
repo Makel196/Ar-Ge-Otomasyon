@@ -782,12 +782,7 @@ class LogicHandler:
                 add_to_existing = False
 
         if not add_to_existing:
-            # Disable "Fix first component" setting before creating assembly
-            try:
-                # swUserPreferenceToggle_e.swFixFirstComponentAdded = 95
-                sw_app.SetUserPreferenceToggle(95, False)
-            except Exception:
-                pass
+
             
             template = self.get_assembly_template(sw_app)
             new_doc = sw_app.NewDocument(template, SW_DOC_ASSEMBLY, 0, 0)
@@ -944,71 +939,11 @@ class LogicHandler:
             # Wait for component to be fully added
             time.sleep(0.3)
             
-            # Set component to float (not fixed) using multiple methods
-            try:
-                # Method 1: Select2 and FloatComponent (most reliable)
-                try:
-                    assembly_doc.ClearSelection2(True)
-                    comp.Select2(False, 0)
-                    time.sleep(0.1)
-                    assembly_doc.FloatComponent()
-                except Exception:
-                    pass
-                
-                # Method 2: SetFixedState2
-                try:
-                    comp.SetFixedState2(False)
-                except Exception:
-                    pass
-                
-                # Method 3: RunCommand for FloatComponent (swCommands_FloatComponent = 1145)
-                try:
-                    comp.Select2(False, 0)
-                    sw_app.RunCommand(1145, "")
-                except Exception:
-                    pass
-                
-                # Method 4: IsFixed property
-                try:
-                    comp.IsFixed = False
-                except Exception:
-                    pass
-                
-                # Method 5: SelectByID2 + FloatComponent using @ notation
-                try:
-                    comp_name = ""
-                    try:
-                        comp_name = comp.Name2 or comp.Name or ""
-                    except Exception:
-                        pass
-                    
-                    if comp_name:
-                        # Try with @assembly notation
-                        full_name = comp_name
-                        if "@" not in comp_name:
-                            try:
-                                asm_name = assembly_doc.GetTitle() or ""
-                                if asm_name:
-                                    full_name = f"{comp_name}@{asm_name}"
-                            except Exception:
-                                pass
-                        
-                        assembly_doc.ClearSelection2(True)
-                        assembly_doc.Extension.SelectByID2(full_name, "COMPONENT", 0, 0, 0, False, 0, None, 0)
-                        assembly_doc.FloatComponent()
-                except Exception:
-                    pass
-                
-            except Exception:
-                pass
+            # Float logic removed as per request
+
             
-            except Exception:
-                pass
-            
-            # --- INTERNAL FLOAT LOGIC (Mimics Macro) ---
-            # Kullanıcı dosya oluşturmak istemediği için makro mantığını Python içine gömüyoruz.
-            self.apply_float_fix(assembly_doc)
-            # -------------------------------------------
+            # Float logic removed as per request
+
 
             self.log(f"Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#10b981")
             new_z_offset = z_offset - 0.3  # offset_step
@@ -1065,43 +1000,62 @@ class LogicHandler:
 
         return success, new_z_offset, False  # Third value = needs_restart
 
-    def apply_float_fix(self, assembly_doc):
+    def apply_cleanup_logic(self, sw_app, assembly_doc):
         """
-        Applies 'Float' to all fixed components, mimicking the VBA macro.
-        This runs automatically after adding a component.
+        Applies UnFix and Solving=1 logic to all components.
+        Silent operation (no logs) as requested.
         """
         try:
-            # GetComponents(True) -> Top level only
-            comps = assembly_doc.GetComponents(True)
-            if not comps: return
+            # 1. Montaj İsmini Al
+            full_title = assembly_doc.GetTitle()
+            # Split by last dot to remove extension if present
+            montaj_ismi = full_title.split('.')[0]
 
-            fixed_count = 0
-            for comp in comps:
-                # Check if fixed
-                is_fixed = False
+            # 2. Bileşen Listesini Al
+            vComponents = assembly_doc.GetComponents(True) 
+
+            if vComponents:
+                for comp in vComponents:
+                    try:
+                        parca_ismi = comp.Name2
+                        tam_isim = f"{parca_ismi}@{montaj_ismi}"
+
+                        # --- ADIM 1: FIX KALDIRMA ---
+                        boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
+                        
+                        if boolstatus:
+                            try:
+                                assembly_doc.UnFixComponent()
+                            except:
+                                pass
+                            assembly_doc.ClearSelection2(True)
+                        
+                        # --- ADIM 2: ESNEK YAPMA ---
+                        boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
+                        
+                        if boolstatus:
+                            selMgr = assembly_doc.SelectionManager
+                            myComponent = selMgr.GetSelectedObjectsComponent3(1, 0)
+                            
+                            if myComponent:
+                                try:
+                                    myComponent.Solving = 1
+                                except:
+                                    pass
+                                
+                            assembly_doc.ClearSelection2(True)
+                    except:
+                        pass
+                
                 try:
-                    is_fixed = comp.IsFixed
+                    assembly_doc.GraphicsRedraw2()
                 except:
                     pass
-                
-                if is_fixed:
-                    # Attempt to unfix using multiple methods
-                    try:
-                        comp.IsFixed = False
-                        fixed_count += 1
-                    except:
-                        try:
-                            comp.SetFixedState2(False)
-                            fixed_count += 1
-                        except:
-                            pass
-            
-            if fixed_count > 0:
-                assembly_doc.EditRebuild3()
-                self.log(f"  {fixed_count} bileşen otomatik olarak Float yapıldı.", "#3b82f6")
-                
-        except Exception as e:
-            self.log(f"  Float işlemi hatası: {e}", "#f59e0b")
+        except:
+            pass
+
+
+
 
     def open_component_doc(self, sw_app, file_path, doc_type):
         """Open component and let PDM add-in retrieve it if needed"""
@@ -1408,8 +1362,10 @@ class LogicHandler:
             i += 1
 
         self.set_status("Tamamlandı")
+        self.apply_cleanup_logic(sw_app, assembly_doc)
         self.set_progress(1.0)
         self.log("İşlem başarıyla tamamlandı.", "#10b981")
+
     
     def run_process_immediate_mode(self, codes, vault):
         """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
@@ -1593,8 +1549,10 @@ class LogicHandler:
         if added_count > 0:
             self.log(f"Toplam {added_count} parça montaja eklendi.", "#10b981")
             self.set_status("Tamamlandı")
+            self.apply_cleanup_logic(sw_app, assembly_doc)
             self.set_progress(1.0)
             self.log("İşlem başarıyla tamamlandı.", "#10b981")
+
         else:
             self.log("Hiçbir parça eklenemedi.", "#f59e0b")
             self.set_status("Tamamlandı")
