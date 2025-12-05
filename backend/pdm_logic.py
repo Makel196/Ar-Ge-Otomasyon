@@ -1029,8 +1029,7 @@ class LogicHandler:
                     full_title = assembly_doc.GetTitle() # Fallback
 
                 montaj_ismi = full_title.split('.')[0]
-                self.log(f"Temizlik işlemi başlatılıyor: {montaj_ismi}", "#3b82f6")
-
+                
                 # 2. Bileşen Listesini Al
                 configMgr = assembly_doc.ConfigurationManager
                 config = configMgr.ActiveConfiguration
@@ -1038,8 +1037,6 @@ class LogicHandler:
                 v_components = root_comp.GetChildren
 
                 if v_components:
-                    self.log(f"{len(v_components)} adet bileşen bulundu. İşlem başlıyor...", "#3b82f6")
-                    
                     for comp in v_components:
                         try:
                             parca_ismi = comp.Name2
@@ -1051,7 +1048,6 @@ class LogicHandler:
                             if boolstatus:
                                 try:
                                     assembly_doc.UnFixComponent()
-                                    self.log(f"  Fix kaldırıldı: {parca_ismi}", "#10b981")
                                 except:
                                     pass
                                 assembly_doc.ClearSelection2(True)
@@ -1066,25 +1062,31 @@ class LogicHandler:
                                 if myComponent:
                                     try:
                                         myComponent.Solving = 1
-                                        self.log(f"  Esnek yapıldı: {parca_ismi}", "#10b981")
                                     except:
                                         pass
                                     
                                 assembly_doc.ClearSelection2(True)
 
-                        except Exception as e:
-                            self.log(f"  Hata ({parca_ismi}): {e}", "#f59e0b")
+                        except:
+                            pass
 
                     try:
                         assembly_doc.GraphicsRedraw2()
                     except:
                         pass
-                    self.log("Tüm temizlik işlemleri tamamlandı.", "#10b981")
-                else:
-                    self.log("Montajda hiç bileşen bulunamadı.", "#f59e0b")
-
-            except Exception as e:
-                self.log(f"Temizlik işlemi hatası: {e}", "#ef4444")
+                    
+                    # Kullanıcı isteği: İzometrik Görünüm + Zoom to Fit
+                    try:
+                        # "*Isometric" (English) - Standart ID 7
+                        assembly_doc.ShowNamedView2("*Isometric", 7)
+                        # "*İzometrik" (Turkish) - eğer dil farklıysa garanti olsun diye
+                        assembly_doc.ShowNamedView2("*İzometrik", 7)
+                        
+                        assembly_doc.ViewZoomtofit2()
+                    except:
+                        pass
+            except:
+                pass
                 
         except Exception:
             pass
