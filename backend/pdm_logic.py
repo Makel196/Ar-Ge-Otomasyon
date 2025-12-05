@@ -653,28 +653,46 @@ class LogicHandler:
                 self.log(f"  Dosya klasör bilgisi alınamadı: {file_name}", "#ef4444")
                 return False
             
-            # Yerel ve sunucu sürümlerini karşılaştır
+            # Montaj dosyası ise referanslarıyla birlikte çek (BatchGet)
+            is_assembly = file_path.lower().endswith(".sldasm")
+            
+            # Sürüm kontrolü ve loglama
             try:
                 local_version = file_obj.GetLocalVersionNo(folder_obj.ID)
                 latest_version = file_obj.CurrentVersion
                 
-                if os.path.exists(file_path) and local_version >= latest_version:
+                # Montaj değilse ve sürüm güncelse atla
+                if not is_assembly and os.path.exists(file_path) and local_version >= latest_version:
                     self.log(f"  Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
                     return True
                 
-                self.log(f"  Sürüm güncelleniyor (v{local_version} v{latest_version}): {file_name}", "#3b82f6")
+                # Montaj ise her durumda kontrol et/güncelle (referanslar için)
+                if is_assembly:
+                     self.log(f"  Montaj referansları kontrol ediliyor...: {file_name}", "#3b82f6")
+                else:
+                    self.log(f"  Sürüm güncelleniyor (v{local_version} -> v{latest_version}): {file_name}", "#3b82f6")
             except Exception as ver_err:
                 self.log(f"  Sürüm bilgisi alınamadı, son sürüm çekiliyor: {file_name}", "#f59e0b")
             
-            # GetFileCopy ile son revizyonu çek (fetch_pdm_latest.py mantığı)
+            # GetFileCopy veya BatchGet (Montajlar için)
             try:
-                file_obj.GetFileCopy(
-                    0,                          # parent window handle (none)
-                    0,                          # version number (0 = latest)
-                    folder_obj.ID,              # folder reference
-                    EGCF_GET_LATEST_REVISION,   # flag: en son revizyonu çek
-                    "",                         # destination path (boş = varsayılan)
-                )
+                if is_assembly:
+                    # Montajlar için BatchGet kullan (Referansları da çeker)
+                    batch_getter = vault.CreateUtility(12) # EdmUtil_BatchGet
+                    batch_getter.AddSelection(file_obj, 0)
+                    # CreateTree flags: Egcf_GetLatestRevision | Egcf_GetReferences (Default implied usually but let's be sure)
+                    # 65536 = Egcf_GetLatestRevision
+                    batch_getter.CreateTree(0, 65536) 
+                    batch_getter.GetFiles(0, None)
+                else:
+                    # Parçalar için hızlı GetFileCopy
+                    file_obj.GetFileCopy(
+                        0,                          # parent window handle (none)
+                        0,                          # version number (0 = latest)
+                        folder_obj.ID,              # folder reference
+                        EGCF_GET_LATEST_REVISION,   # flag: en son revizyonu çek
+                        "",                         # destination path (boş = varsayılan)
+                    )
             except Exception as copy_err:
                 # Alternatif yöntem dene
                 try:
@@ -1212,6 +1230,9 @@ class LogicHandler:
                  self.log("İşlem sonlandırılıyor...", "#64748b")
             
             self.is_running = False
+            
+            # Son bir temizlik ve olası hata pencerelerini yakalamak için kısa bir bekleme
+            time.sleep(3)
             
             # PDM dialog izleyicisini durdur
             stop_pdm_dialog_watcher()
