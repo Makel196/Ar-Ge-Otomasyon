@@ -68,7 +68,7 @@ def auto_close_popups_thread():
     """Arka planda sürekli çalışan popup kapatıcı thread"""
     while True:
         close_sap_popups()
-        time.sleep(1)
+        time.sleep(0.5)
 
 # ==============================================================================
 # SAP BAĞLANTI SINIFI
@@ -151,7 +151,7 @@ class SapGui():
                     # Yoksa yeni bağlantı aç
                     try:
                         self.connection = self.application.OpenConnection("1 - POLAT S/4 HANA CANLI (PMP)", True)
-                        time.sleep(1)
+                        time.sleep(0.5)
                         self.session = self.connection.Children(0)
                     except Exception as e:
                         print(f"Bağlantı açma hatası: {e}")
@@ -225,7 +225,7 @@ class SapGui():
             # CS03'e git (/nCS03 yeni işlem başlatır)
             self.session.findById("wnd[0]/tbar[0]/okcd").text = "/nCS03"
             self.session.findById("wnd[0]").sendVKey(0)
-            time.sleep(1)
+            time.sleep(0.5)
 
             # Malzeme parametrelerini gir
             try:
@@ -237,7 +237,7 @@ class SapGui():
                 print(f"CS03 parametre girme hatası: {e}")
                 return []
             
-            time.sleep(1.5)
+            time.sleep(0.5)
             
             # Hata kontrolü (sol alt köşe)
             try:
@@ -282,32 +282,127 @@ class SapGui():
                         pass
 
                 if table:
-                    # Tablo bulundu, satırları oku
-                    # Bileşen (IDNRK), Miktar (MENGE), Tanım (POTX1)
-                    # Not: Sütun isimleri (Column Name) teknik adı IDNRK olmayabilir, bazen pozisyona göre almak gerekir ama
-                    # GetCell(row, col_name) genelde çalışır.
+                    # --- Sütun Ayarları (Kullanıcının kodundan) ---
+                    col_idx_comp = 2            # Bileşen No Varsayılan
+                    col_idx_desc = -1           # Tanım
+                    col_idx_menge = -1          # Miktar
                     
-                    print(f"Tablo bulundu: {table.Id}, Satır Sayısı: {table.RowCount}")
-                    
-                    for i in range(table.RowCount):
-                        try:
-                            # Hücreleri oku
-                            comp_code = table.GetCell(i, "IDNRK").text.strip()
-                            comp_qty = table.GetCell(i, "MENGE").text.strip()
-                            comp_desc = table.GetCell(i, "POTX1").text.strip()
+                    col_name_desc_target = "KTEXT"
+                    col_name_menge_target = "MENGE"
 
-                            if comp_code:
-                                # İstenen LOG: Bileşen numarasını yazdır
-                                print(f"  -> Okunan Bileşen: {comp_code} (Miktar: {comp_qty})")
+                    # Sütun indekslerini bul
+                    try:
+                        for i in range(table.Columns.Count):
+                            col_name = table.Columns.ElementAt(i).Name
+                            if col_name_desc_target in col_name:
+                                col_idx_desc = i
+                            if col_name_menge_target in col_name:
+                                col_idx_menge = i
+                    except:
+                        pass
+
+                    if col_idx_desc == -1: col_idx_desc = 3
+                    if col_idx_menge == -1: col_idx_menge = 4
+
+                    # --- Hız ve Scroll Parametreleri ---
+                    delay_scroll = 0.15 
+                    delay_retry = 0.05
+                    
+                    total_rows = table.RowCount 
+                    visible_rows = table.VisibleRowCount 
+                    
+                    # Tablo Başlığı
+                    print(f"{'NO':<2} | {'BİLEŞEN NO':<10} | {'BİLEŞEN TANIMI':<40} | {'MİKTAR'}")
+                    print("-" * 68)
+
+                    # Scroll başa al
+                    try:
+                        table.verticalScrollbar.position = 0
+                    except:
+                        pass
+                    
+                    current_row = 0
+                    stop_execution = False
+                    
+                    # --- ANA DÖNGÜ (Scrolling) ---
+                    while current_row < total_rows:
+                        if stop_execution:
+                            break
+                        
+                        # 1. Scroll İşlemi
+                        try:
+                            table.verticalScrollbar.position = current_row
+                        except:
+                            # Tablo referansı kaybolmuş olabilir, tekrar bul
+                            try:
+                                usr_area = self.session.findById("wnd[0]/usr")
+                                table = find_table(usr_area)
+                                if table:
+                                    table.verticalScrollbar.position = current_row
+                                else:
+                                    break
+                            except:
+                                break
+                        
+                        time.sleep(delay_scroll)
+                        
+                        # Tabloyu güncelle (emin olmak için)
+                        # table nesnesi COM objesi olduğu için bazen refresh gerekebilir ama referans genelde kalır.
+                        # Referans kaybı olursa yukarıdaki except bloğu yakalar.
+                        
+                        rows_to_read_now = min(visible_rows, total_rows - current_row)
+                        
+                        for i in range(rows_to_read_now):
+                            val_comp = ""
+                            val_desc = ""
+                            val_menge = ""
+                            
+                            # 1. Bileşen No
+                            try:
+                                val_comp = table.GetCell(i, col_idx_comp).Text
+                            except:
+                                time.sleep(delay_retry)
+                                try:
+                                    # Refresh reference logic if needed
+                                    val_comp = table.GetCell(i, col_idx_comp).Text
+                                except:
+                                    val_comp = ""
+                            
+                            # Hızlı çıkış kontrolü (Boş satıra geldik mi?)
+                            if not val_comp or not val_comp.strip():
+                                # Bazen arada boş satır olur ama BOM listesinde genelde ardışıktır.
+                                # Kullanıcının kodunda break var, biz de uyalım.
+                                stop_execution = True
+                                break
                                 
-                                components.append({
-                                    "code": comp_code,
-                                    "quantity": comp_qty,
-                                    "description": comp_desc
-                                })
-                        except Exception as row_err:
-                            # Boş satırlar veya erişim hatası olabilir, sessizce geç
-                            pass
+                            val_comp = val_comp.lstrip("0")
+                            
+                            # 2. Bileşen Tanımı
+                            try:
+                                val_desc = table.GetCell(i, col_idx_desc).Text
+                            except:
+                                val_desc = ""
+                                
+                            # 3. Miktar
+                            try:
+                                val_menge = table.GetCell(i, col_idx_menge).Text
+                            except:
+                                val_menge = ""
+                            
+                            # Log Formatı (Kullanıcı İsteği)
+                            row_num = current_row + i + 1
+                            # İşlem kayıtlarında düzgün görünmesi için f-string
+                            print(f"{row_num:<2} | {val_comp:<10} | {val_desc:<40} | {val_menge}")
+                            
+                            # Listeye ekle (PDM mantığı için)
+                            components.append({
+                                "code": val_comp,
+                                "quantity": val_menge,
+                                "description": val_desc
+                            })
+                        
+                        current_row += rows_to_read_now
+
                 else:
                     print("BOM Tablosu (GuiTableControl) ekranda bulunamadı!")
 
