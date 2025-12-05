@@ -646,7 +646,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Yeni montaj oluşturmak yerine açık olan montaja parça ekler"
-                                                disabled={multiKitMode || isAnyBatchModeActive}
+                                                disabled={isAnyBatchModeActive}
                                             />
                                             <SettingsToggle
                                                 label="Bulunamayan Varsa Durdur"

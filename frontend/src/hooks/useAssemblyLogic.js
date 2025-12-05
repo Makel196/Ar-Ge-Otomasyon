@@ -323,7 +323,10 @@ export const useAssemblyLogic = () => {
       await axios.post(`${API_URL}/start`, {
         codes: codeList,
         addToExisting,
-        stopOnNotFound
+        stopOnNotFound,
+        multiKitMode,
+        sapUsername,
+        sapPassword
       });
     } catch (err) {
       setIsRunning(false);
@@ -348,7 +351,7 @@ export const useAssemblyLogic = () => {
     } finally {
       startInFlightRef.current = false;
     }
-  }, [isRunning, isPaused, vaultPath, codes, dedupe, addToExisting, stopOnNotFound, rememberSession]);
+  }, [isRunning, isPaused, vaultPath, codes, dedupe, addToExisting, stopOnNotFound, rememberSession, multiKitMode, sapUsername, sapPassword]);
 
   const handleStop = useCallback(async () => {
     try {
