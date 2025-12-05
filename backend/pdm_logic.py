@@ -1010,6 +1010,16 @@ class LogicHandler:
         Silent operation (no logs) as requested.
         """
         try:
+            # Kullanıcının isteği üzerine bağlantıyı tazeliyoruz
+            try:
+                sw_app = win32com.client.GetActiveObject("SldWorks.Application")
+                assembly_doc = sw_app.ActiveDoc
+            except:
+                pass
+
+            if not assembly_doc:
+                return
+
             # 1. Montaj İsmini Al
             full_title = assembly_doc.GetTitle()
             # Split by last dot to remove extension if present
