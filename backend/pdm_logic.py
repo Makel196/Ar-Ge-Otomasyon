@@ -10,7 +10,7 @@ import win32con
 import pythoncom
 import winreg
 from queue import Queue
-from sap_logic import SapHandler
+from sap_logic import SapGui
 
 # --- Konfigürasyon ve Sabitler ---
 VAULT_NAME = "PGR2024"
@@ -1258,7 +1258,7 @@ class LogicHandler:
     def run_process_sap_multikit(self, codes, config):
         """SAP üzerinden Çoklu Kit Montajı akışını yönetir."""
         self.set_status("SAP Başlatılıyor...")
-        sap = SapHandler()
+        sap = SapGui()
         
         # SAP Bağlantısı
         if not sap.connect_to_sap():
@@ -1275,7 +1275,7 @@ class LogicHandler:
         if username and password:
             self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
             # Login metodu session kontrolü de yapar
-            sap.login(username, password)
+            sap.sapLogin(username, password)
         else:
             self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
 
