@@ -1012,80 +1012,82 @@ class LogicHandler:
         try:
             # Kullanıcının isteği üzerine bağlantıyı tazeliyoruz
             try:
-                sw_app = win32com.client.GetActiveObject("SldWorks.Application")
-                assembly_doc = sw_app.ActiveDoc
+                swApp = win32com.client.GetActiveObject("SldWorks.Application")
+                assembly_doc = swApp.ActiveDoc
             except:
                 pass
 
             if not assembly_doc:
                 return
+            
+            # --- Kullanıcının çalışan kodunun entegrasyonu ---
+            try:
+                # 1. Montaj İsmini Al
+                try:
+                    full_title = assembly_doc.GetTitle 
+                except:
+                    full_title = assembly_doc.GetTitle() # Fallback
 
-            self.log("Temizlik işlemi başlatılıyor (Fix kaldır & Esnek yap)...", "#3b82f6")
+                montaj_ismi = full_title.split('.')[0]
+                self.log(f"Temizlik işlemi başlatılıyor: {montaj_ismi}", "#3b82f6")
 
-            # 1. Montaj İsmini Al
-            full_title = assembly_doc.GetTitle()
-            # Split by last dot to remove extension if present
-            montaj_ismi = full_title.split('.')[0]
+                # 2. Bileşen Listesini Al
+                configMgr = assembly_doc.ConfigurationManager
+                config = configMgr.ActiveConfiguration
+                root_comp = config.GetRootComponent3(True)
+                v_components = root_comp.GetChildren
 
-            # 2. Bileşen Listesini Al
-            vComponents = assembly_doc.GetComponents(True) 
-
-            if vComponents:
-                for comp in vComponents:
-                    try:
-                        parca_ismi = comp.Name2
-                        tam_isim = f"{parca_ismi}@{montaj_ismi}"
-
-                        # --- ADIM 1: FIX KALDIRMA ---
-                        boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
-                        
-                        if boolstatus:
-                            try:
-                                assembly_doc.UnFixComponent()
-                                self.log(f"  Fix kaldırıldı: {parca_ismi}", "#10b981")
-                            except:
-                                pass
-                            assembly_doc.ClearSelection2(True)
-                        else:
-                             # Try to select without @montaj_ismi
-                             boolstatus = assembly_doc.Extension.SelectByID2(parca_ismi, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
-                             if boolstatus:
+                if v_components:
+                    self.log(f"{len(v_components)} adet bileşen bulundu. İşlem başlıyor...", "#3b82f6")
+                    
+                    for comp in v_components:
+                        try:
+                            parca_ismi = comp.Name2
+                            tam_isim = f"{parca_ismi}@{montaj_ismi}"
+                            
+                            # --- ADIM 1: FIX KALDIRMA ---
+                            boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
+                            
+                            if boolstatus:
                                 try:
                                     assembly_doc.UnFixComponent()
-                                    self.log(f"  Fix kaldırıldı (Alternatif seçim): {parca_ismi}", "#10b981")
+                                    self.log(f"  Fix kaldırıldı: {parca_ismi}", "#10b981")
                                 except:
                                     pass
                                 assembly_doc.ClearSelection2(True)
-
-                        # --- ADIM 2: ESNEK YAPMA ---
-                        boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
-                        
-                        if boolstatus:
-                            selMgr = assembly_doc.SelectionManager
-                            myComponent = selMgr.GetSelectedObjectsComponent3(1, 0)
                             
-                            if myComponent:
-                                try:
-                                    myComponent.Solving = 1
-                                    self.log(f"  Esnek yapıldı: {parca_ismi}", "#10b981")
-                                except:
-                                    pass
+                            # --- ADIM 2: ESNEK YAPMA ---
+                            boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
+                            
+                            if boolstatus:
+                                selMgr = assembly_doc.SelectionManager
+                                myComponent = selMgr.GetSelectedObjectsComponent3(1, 0)
                                 
-                            assembly_doc.ClearSelection2(True)
-                    except Exception as e:
-                        self.log(f"  Hata ({comp.Name2}): {e}", "#f59e0b")
+                                if myComponent:
+                                    try:
+                                        myComponent.Solving = 1
+                                        self.log(f"  Esnek yapıldı: {parca_ismi}", "#10b981")
+                                    except:
+                                        pass
+                                    
+                                assembly_doc.ClearSelection2(True)
+
+                        except Exception as e:
+                            self.log(f"  Hata ({parca_ismi}): {e}", "#f59e0b")
+
+                    try:
+                        assembly_doc.GraphicsRedraw2()
+                    except:
+                        pass
+                    self.log("Tüm temizlik işlemleri tamamlandı.", "#10b981")
+                else:
+                    self.log("Montajda hiç bileşen bulunamadı.", "#f59e0b")
+
+            except Exception as e:
+                self.log(f"Temizlik işlemi hatası: {e}", "#ef4444")
                 
-                try:
-                    assembly_doc.GraphicsRedraw2()
-                except:
-                    pass
-            
-            self.log("Temizlik işlemi tamamlandı.", "#3b82f6")
-        except:
+        except Exception:
             pass
-
-
-
 
     def open_component_doc(self, sw_app, file_path, doc_type):
         """Open component and let PDM add-in retrieve it if needed"""
