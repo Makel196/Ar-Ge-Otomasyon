@@ -1106,10 +1106,24 @@ class LogicHandler:
                         assembly_doc.ViewZoomtofit2()
                     except:
                         pass
+                
+                # Kütle Özellikleri Ayarı (Her zaman en son)
+                self.configure_mass_properties(assembly_doc)
+
             except:
                 pass
                 
         except Exception:
+            pass
+
+    def configure_mass_properties(self, assembly_doc):
+        """Gizli bileşenlerin kütle hesabına dahil edilmemesini sağlar."""
+        try:
+            ext = assembly_doc.Extension
+            mass_prop = ext.CreateMassProperty()
+            if mass_prop:
+                mass_prop.IncludeHiddenBodiesOrComponents = False
+        except:
             pass
 
     def open_component_doc(self, sw_app, file_path, doc_type):
@@ -1294,23 +1308,156 @@ class LogicHandler:
             self.log(f"[{i+1}/{total}] BOM Okunuyor: {code}", "#3b82f6")
             
             # CS03'ten verileri çek
-            components = sap.get_bom_components(code)
+            result = sap.get_bom_components(code)
             
+            header_info = None
+            components = []
+
+            if isinstance(result, dict):
+                components = result.get('components', [])
+                header_info = result.get('header')
+            else:
+                components = result
+
             if components:
                 self.log(f"{len(components)} bileşen bulundu.", "#10b981")
-                # Tablo Logu (Mavi) - Kompakt Format
-                log_buffer = [f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}", "-" * 66]
+                
+                # Tablo Logu (Mavi) - Başlıklı Format
+                log_buffer = []
+                
+                if header_info and header_info.get('material'):
+                    log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
+                    log_buffer.append("=" * 75)
+
+                log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
+                log_buffer.append("-" * 75)
+                
                 for idx, comp in enumerate(components):
                     row_num = idx + 1
                     desc = comp['description']
                     if len(desc) > 40:
-                        desc = desc[:40] + "..."
+                        desc = desc[:37] + "..."
                     line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
                     log_buffer.append(line)
                 
                 full_log = "\n".join(log_buffer)
                 self.log(full_log, "#3b82f6")
                 
+                # --- SOLIDWORKS ve PDM Entegrasyonu ---
+                try:
+                    # PDM Vault Bağlantısı (İlk seferde)
+                    if not hasattr(self, 'vault_conn') or not self.vault_conn:
+                        self.log("PDM'e bağlanılıyor...", "#f59e0b")
+                        self.vault_conn = self.get_pdm_vault()
+                        if not self.vault_conn:
+                            self.log("PDM Bağlantısı kurulamadı!", "#ef4444")
+                    
+                    if self.vault_conn:
+                        # SolidWorks Bağlantısı (İlk seferde)
+                        if not hasattr(self, 'sw_app_conn') or not self.sw_app_conn:
+                            self.log("SolidWorks'e bağlanılıyor...", "#f59e0b")
+                            self.sw_app_conn = self.get_sw_app()
+                            if not self.sw_app_conn:
+                                self.log("SolidWorks başlatılamadı!", "#ef4444")
+
+                        if self.sw_app_conn:
+                            sw_app = self.sw_app_conn
+                            
+                            # Yeni Montaj Oluştur
+                            self.log(f"SolidWorks'te montaj oluşturuluyor: {code}", "#3b82f6")
+                            assembly_doc, _, _, _, _ = self.init_assembly_doc(sw_app)
+                            
+                            if assembly_doc:
+                                # Bileşenleri Ekle
+                                for comp in components:
+                                    if not self.is_running: break
+                                    
+                                    # Miktar Analizi
+                                    raw_qty = comp['quantity'].replace(',', '.')
+                                    qty_val = 1.0
+                                    try:
+                                        # "1.000" veya "1" gibi gelebilir
+                                        # Eğer nokta sayısı birden fazlaysa sıkıntı olabilir (örn 1.000.000) ama CS03 genelde 13.000 şeklinde verir.
+                                        # Basit float çevrimi çoğu zaman çalışır.
+                                        qty_val = float(raw_qty)
+                                    except:
+                                        pass
+                                    
+                                    # Negatif ve Adet Kontrolü
+                                    should_hide = False
+                                    if qty_val < 0:
+                                        should_hide = True
+                                    
+                                    count = int(abs(qty_val))
+                                    if count == 0: count = 1 # En az 1 tane getir
+                                    
+                                    comp_code = comp['code']
+                                    
+                                    # PDM'den Dosya Bul
+                                    file_path = self.search_file_in_pdm(self.vault_conn, comp_code)
+                                    if file_path:
+                                        if self.ensure_local_file(self.vault_conn, file_path):
+                                            # Bileşeni Ekle (count kadar)
+                                            added_components = []
+                                            
+                                            # İlk bileşeni eklemeden önce varsa seçimi temizle
+                                            assembly_doc.ClearSelection2(True)
+                                            
+                                            for k in range(count):
+                                                # X ekseninde 300mm (0.3m) öteleme
+                                                x_pos = k * 0.3
+                                                
+                                                # AddComponent5(Name, Config, X, Y, Z)
+                                                # Dosya uzantısını kontrol et, gerekiyorsa ekle (SW bazen ister)
+                                                # self.add_component_to_assembly kullanmak yerine direkt AddComponent5 kullanıyoruz
+                                                # çünkü position kontrolü bizde olmalı.
+                                                
+                                                # Not: AddComponent5 hata verirse AddComponent4 veya diğerlerini denemek gerekebilir.
+                                                # Güvenlik için try-catch
+                                                try:
+                                                    new_comp = assembly_doc.AddComponent5(file_path, "", "", False, "", x_pos, 0, 0)
+                                                    if new_comp:
+                                                        added_components.append(new_comp)
+                                                except Exception as err:
+                                                    self.log(f"  Hata (Ekleme): {str(err)}", "#ef4444")
+
+                                            # Gizleme İşlemi (- miktar varsa)
+                                            if should_hide and added_components:
+                                                try:
+                                                    assembly_doc.ClearSelection2(True)
+                                                    for c in added_components:
+                                                        c.Select(True) # True = Append
+                                                    
+                                                    # 2 = Suppressed (Gizli/Pasif)
+                                                    # 0 = Fully Resolved
+                                                    # SW API: EditSuppress2() seçili olanları toggle eder veya duruma sokar.
+                                                    # Daha güvenli yol: Comp.SetSuppression2(2)
+                                                    for c in added_components:
+                                                        c.SetSuppression2(2) 
+                                                        
+                                                    self.log(f"  ✔ {comp_code} ({count} adet) eklendi ve GİZLENDİ.", "#6b7280")
+                                                except Exception as err:
+                                                    self.log(f"  Gizleme hatası: {str(err)}", "#f59e0b")
+                                            else:
+                                                 if added_components:
+                                                     self.log(f"  ✔ {comp_code} ({count} adet) eklendi.", "#10b981")
+                                        else:
+                                            self.log(f"  Dosya yerel diske alınamadı: {comp_code}", "#ef4444")
+                                    else:
+                                        self.log(f"  PDM'de bulunamadı: {comp_code}", "#ef4444")
+                                        
+                                # Tüm parçalar eklendikten sonra Zoom Fit
+                                try:
+                                    assembly_doc.ViewZoomtofit2()
+                                except:
+                                    pass
+                                
+                                # Kütle Özellikleri Ayarı
+                                self.configure_mass_properties(assembly_doc)
+
+                except Exception as ex_sw:
+                    self.log(f"SolidWorks/PDM Hatası: {str(ex_sw)}", "#ef4444")
+
                 # Başarılı sayısını artır
                 stats = self.state['stats']
                 self.update_stats(success=stats['success'] + 1)

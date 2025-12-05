@@ -216,10 +216,36 @@ class SapGui():
 
             return False
 
+    def _smart_find_field(self, field_name, field_type_guess="GuiCTextField"):
+        """Ekran üzerindeki bir alanı ismiyle (örn: RC29K-MATNR) akıllıca arar."""
+        try:
+            user_area = self.session.findById("wnd[0]/usr")
+            # 1. Doğrudan ismi ve tipi ile ara
+            try:
+                found_item = user_area.FindByName(field_name, field_type_guess)
+                if found_item:
+                    return found_item.Text
+            except:
+                pass
+            
+            # 2. Tip tutmazsa diğer tipleri dene
+            alt_types = ["GuiTextField", "GuiCTextField", "GuiLabel", "GuiStatusPane"]
+            for f_type in alt_types:
+                if f_type == field_type_guess: continue
+                try:
+                    found_item = user_area.FindByName(field_name, f_type)
+                    if found_item:
+                        return found_item.Text
+                except:
+                    pass
+        except:
+            pass
+        return None
+
     def get_bom_components(self, material_code):
         """CS03 işlem koduna gidip BOM bileşenlerini çeker."""
         if not self.session:
-            return []
+            return {'header': None, 'components': []}
 
         try:
             # CS03'e git (/nCS03 yeni işlem başlatır)
@@ -235,7 +261,7 @@ class SapGui():
                 self.session.findById("wnd[0]").sendVKey(0)
             except Exception as e:
                 print(f"CS03 parametre girme hatası: {e}")
-                return []
+                return {'header': None, 'components': []}
             
             time.sleep(0.5)
             
@@ -244,9 +270,48 @@ class SapGui():
                 sbar = self.session.findById("wnd[0]/sbar")
                 if sbar.messageType == "E":
                     print(f"SAP Mesajı (Hata): {sbar.text}")
-                    return []
+                    return {'header': None, 'components': []}
             except:
                 pass
+            
+            # --- BAŞLIK BİLGİLERİNİ OKU (AKILLI MOD) ---
+            target_matnr_name = "RC29K-MATNR"
+            target_desc_name  = "RC29K-OBKTX"
+
+            # 1. Akıllı Arama ile Bul
+            header_matnr = self._smart_find_field(target_matnr_name, "GuiCTextField")
+            header_desc = self._smart_find_field(target_desc_name, "GuiTextField")
+
+            # 2. Bulunamazsa Yedekler (Fallback)
+            if not header_matnr:
+                header_matnr = self._smart_find_field("RC29N-MATNR", "GuiCTextField") 
+
+            if not header_matnr:
+                # Pencere başlığından yakalama
+                try:
+                    title = self.session.findById("wnd[0]").Text
+                    if ":" in title:
+                        parts = title.split(":")
+                        if len(parts) > 1:
+                            potential_mat = parts[1].strip().split(" ")[0]
+                            if len(potential_mat) > 3:
+                                header_matnr = potential_mat
+                except:
+                    pass
+            
+            if not header_matnr or not header_matnr.strip():
+                header_matnr = "BULUNAMADI"
+
+            if not header_desc:
+                header_desc = self._smart_find_field("RC29N-MATTX", "GuiTextField")
+
+            if not header_desc:
+                header_desc = ""
+
+            header_info = {
+                "material": header_matnr,
+                "description": header_desc
+            }
 
             # Tabloyu Oku ve Logla
             components = []
@@ -408,8 +473,8 @@ class SapGui():
             except Exception as e:
                 print(f"Tablo okuma hatası: {e}")
             
-            return components
+            return {'header': header_info, 'components': components}
 
         except Exception as e:
             print(f"BOM okuma geneli hatası: {e}")
-            return []
+            return {'header': None, 'components': []}
