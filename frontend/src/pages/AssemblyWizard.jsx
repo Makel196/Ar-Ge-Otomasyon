@@ -694,7 +694,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                             }}
                                         >
                                             <FontAwesomeIcon icon={faFolder} style={{ fontSize: '20px', color: '#6366f1', marginRight: '12px' }} />
-                                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '14px', fontWeight: '500' }}>
+                                            <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '14px', fontWeight: '500' }}>
                                                 {vaultPath || "Klasör Seç..."}
                                             </span>
                                         </div>
@@ -768,7 +768,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                             }}
                                                         >
                                                             <FontAwesomeIcon icon={faFolderOpen} style={{ color: '#ef4444', fontSize: '16px' }} />
-                                                            <span style={{ fontSize: '14px', color: assemblySavePath ? 'var(--text)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            <span style={{ flex: 1, minWidth: 0, fontSize: '14px', color: assemblySavePath ? 'var(--text)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                                 {assemblySavePath || "Montaj Kayıt Yolu Seç..."}
                                                             </span>
                                                         </div>
@@ -877,6 +877,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                         theme={theme}
                                                         activeColor="#3b82f6"
                                                         tooltip="Dosya isimlendir yapılmayan dosyaların hepsine dosya isimlendir yapılması"
+                                                        disabled={multiKitMode}
                                                     />
                                                     <SettingsToggle
                                                         label="Toplu Veri Kartı Düzeltme"
@@ -885,6 +886,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                         theme={theme}
                                                         activeColor="#3b82f6"
                                                         tooltip="Bütün parçalarda arama yaptır, kütle veya malzeme yazmayan parçaların şablonlarını değiştir"
+                                                        disabled={multiKitMode}
                                                     />
                                                     <SettingsToggle
                                                         label="Toplu Dosya Düzeni"
@@ -893,6 +895,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                         theme={theme}
                                                         activeColor="#3b82f6"
                                                         tooltip="Bütün parçaların ve motajların arka planının beyaz olması ağaç görünümünün düzeltilmesi"
+                                                        disabled={multiKitMode}
                                                     />
                                                     <SettingsToggle
                                                         label="Toplu Montaj Kilosu Düzeltme"
@@ -901,6 +904,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                         theme={theme}
                                                         activeColor="#3b82f6"
                                                         tooltip="Montajlarda görünmez bileşenleride kiloya dahil ettiği için kütle özelliklerinden düzenlenmesi"
+                                                        disabled={multiKitMode}
                                                     />
                                                     <SettingsToggle
                                                         label="Toplu Tekrarlı Kodların Belirlenmesi"
@@ -909,6 +913,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                         theme={theme}
                                                         activeColor="#3b82f6"
                                                         tooltip="Bütün mükerrer kodların belirlenip excel olarak çekilmesi"
+                                                        disabled={multiKitMode}
                                                     />
                                                 </div>
                                             )}
