@@ -1308,7 +1308,7 @@ class LogicHandler:
                 stats = self.state['stats']
                 self.update_stats(success=stats['success'] + 1)
             else:
-                self.log(f"  ⚠ Bileşen bulunamadı veya SAP hatası.", "#ef4444")
+                self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
                 stats = self.state['stats']
                 self.update_stats(error=stats['error'] + 1)
             

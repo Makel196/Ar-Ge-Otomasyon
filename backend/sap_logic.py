@@ -80,6 +80,7 @@ class SapGui():
         self.application = None
         self.connection = None
         self.session = None
+        self.retry_mode = True # Kullanıcı isteği: Kesinti olmamalı, internet yoksa sonsuza kadar denemeli
         
         # Popup kapatıcı thread'i başlat
         if not any(t.name == "PopupCloser" for t in threading.enumerate()):
@@ -100,78 +101,82 @@ class SapGui():
         return None
 
     def connect_to_sap(self):
-        """SAP GUI'ye bağlanır veya başlatır."""
-        try:
-            # 1. Mevcut SAP nesnesini almayı dene
+        """SAP GUI'ye bağlanır veya başlatır. Hata durumunda sonsuz dener."""
+        while True:
             try:
-                self.sap_gui_auto = win32com.client.GetObject("SAPGUI")
-            except:
-                # Çalışmıyorsa başlat
-                sap_path = self.find_sap_path()
-                if sap_path:
-                    try:
-                        subprocess.Popen([sap_path])
-                        # print("SAP Logon başlatılıyor...")
-                    except Exception as e:
-                        print(f"SAP Logon başlatılamadı: {e}")
-                else:
-                    print("SAP yolu bulunamadı.")
-
-             # Nesnenin gelmesini bekle
-            max_wait = 30
-            for i in range(max_wait):
+                # 1. Mevcut SAP nesnesini almayı dene
                 try:
                     self.sap_gui_auto = win32com.client.GetObject("SAPGUI")
-                    if type(self.sap_gui_auto) == win32com.client.CDispatch:
-                        break
                 except:
-                    pass
-                time.sleep(0.5)
+                    # Çalışmıyorsa başlat
+                    sap_path = self.find_sap_path()
+                    if sap_path:
+                        try:
+                            subprocess.Popen([sap_path])
+                            # print("SAP Logon başlatılıyor...")
+                        except Exception as e:
+                            print(f"SAP Logon başlatılamadı: {e}")
+                    else:
+                        print("SAP yolu bulunamadı.")
 
-            if not self.sap_gui_auto:
-                return False
+                 # Nesnenin gelmesini bekle
+                max_wait = 30
+                for i in range(max_wait):
+                    try:
+                        self.sap_gui_auto = win32com.client.GetObject("SAPGUI")
+                        if type(self.sap_gui_auto) == win32com.client.CDispatch:
+                            break
+                    except:
+                        pass
+                    time.sleep(0.5)
 
-            self.application = self.sap_gui_auto.GetScriptingEngine
-            
-            # Ayarlar (Scripting izni vb.)
-            try: self.application.AllowSystemCalls = True
-            except: pass
-            try: self.application.HistoryEnabled = False
-            except: pass
+                if not self.sap_gui_auto:
+                    raise Exception("SAPGUI nesnesi gelmedi")
 
-            # 2. Bağlantı Yönetimi
-            if self.application.Connections.Count > 0:
-                # Halihazırda açık bir bağlantı varsa
-                self.connection = self.application.Connections.Item(0)
-                if self.connection.Sessions.Count > 0:
-                    self.session = self.connection.Sessions.Item(0)
-            else:
-                # Yoksa yeni bağlantı aç
-                try:
-                    self.connection = self.application.OpenConnection("1 - POLAT S/4 HANA CANLI (PMP)", True)
-                    time.sleep(1)
-                    self.session = self.connection.Children(0)
-                except Exception as e:
-                    print(f"Bağlantı açma hatası: {e}")
+                self.application = self.sap_gui_auto.GetScriptingEngine
+                
+                # Ayarlar (Scripting izni vb.)
+                try: self.application.AllowSystemCalls = True
+                except: pass
+                try: self.application.HistoryEnabled = False
+                except: pass
 
+                # 2. Bağlantı Yönetimi
+                if self.application.Connections.Count > 0:
+                    # Halihazırda açık bir bağlantı varsa
+                    self.connection = self.application.Connections.Item(0)
+                    if self.connection.Sessions.Count > 0:
+                        self.session = self.connection.Sessions.Item(0)
+                else:
+                    # Yoksa yeni bağlantı aç
+                    try:
+                        self.connection = self.application.OpenConnection("1 - POLAT S/4 HANA CANLI (PMP)", True)
+                        time.sleep(1)
+                        self.session = self.connection.Children(0)
+                    except Exception as e:
+                        print(f"Bağlantı açma hatası: {e}")
+                        raise e
+
+                if self.session:
+                    try: self.session.AllowSystemCalls = True
+                    except: pass
+                    # Pencereyi öne getir
+                    try: self.session.findById("wnd[0]").maximize()
+                    except: pass
+                    return True
+                
+                raise Exception("Session oluşturulamadı")
+
+            except Exception as e:
+                print(f"SAP Bağlantı Hatası: {e}")
+                if self.retry_mode:
+                    print("Bağlantı sağlanamadı. 60 saniye sonra tekrar denenecek...")
+                    time.sleep(60)
+                else:
                     return False
 
-            if self.session:
-                try: self.session.AllowSystemCalls = True
-                except: pass
-                # Pencereyi öne getir
-                try: self.session.findById("wnd[0]").maximize()
-                except: pass
-                return True
-            
-            return False
-
-        except Exception as e:
-            print(f"SAP Genel Bağlantı Hatası: {e}")
-            return False
-
     def sapLogin(self, username, password):
-        """Verilen bilgilerle SAP'ye giriş yapar."""
+        """Verilen bilgilerle SAP'ye giriş yapar ve çoklu oturum uyarısını yönetir."""
         if not self.session:
             return False
             
@@ -183,6 +188,23 @@ class SapGui():
                 self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = password
                 self.session.findById("wnd[0]/usr/txtRSYST-LANGU").text = "TR"
                 self.session.findById("wnd[0]").sendVKey(0) # Enter
+                
+                # ÇOKLU OTURUM KONTROLÜ (Multiple Logon)
+                # wnd[1] genelde popup penceresidir
+                try:
+                    # Eğer birden çok oturum penceresi çıkarsa
+                    # Metin: "Bu oturum ile devam et ve tüm açık oturumları kapat" (Option 1)
+                    # Genellikle radyo butonu ID'si: wnd[1]/usr/radMULTI_LOGON_OPT1
+                    if self.session.findById("wnd[1]"):
+                        # Radyo butonunu seç
+                        try:
+                            self.session.findById("wnd[1]/usr/radMULTI_LOGON_OPT1").select()
+                            self.session.findById("wnd[1]").sendVKey(0) # Enter
+                            print("Çoklu oturum uyarısı: Diğer oturumlar kapatılarak devam edildi.")
+                        except:
+                            pass
+                except:
+                    pass
 
                 return True
             except:
@@ -226,25 +248,69 @@ class SapGui():
             except:
                 pass
 
-            # Tabloyu Oku
+            # Tabloyu Oku ve Logla
             components = []
             try:
-                # Tablo ID'si
-                table = self.session.findById("wnd[0]/usr/subSUB_ALL:SAPLCSDI:3211/tblSAPLCSDITCTRL_3211")
-                for i in range(table.RowCount):
+                table = None
+                # Dinamik Tablo Bulma (Recursive)
+                def find_table(container):
                     try:
-                        comp_code = table.GetCell(i, "IDNRK").text.strip()
-                        comp_qty = table.GetCell(i, "MENGE").text.strip()
-                        comp_desc = table.GetCell(i, "POTX1").text.strip()
-
-                        if comp_code:
-                            components.append({
-                                "code": comp_code,
-                                "quantity": comp_qty,
-                                "description": comp_desc
-                            })
+                        if container.Children.Count > 0:
+                            for i in range(container.Children.Count):
+                                child = container.Children.Item(i)
+                                if child.Type == "GuiTableControl":
+                                    return child
+                                # Recursive arama (Tabstrip, Subscreen vb. içini tara)
+                                found = find_table(child)
+                                if found: return found
                     except:
                         pass
+                    return None
+
+                # Ana ekran (usr) içinde tabloyu ara
+                try:
+                    usr_area = self.session.findById("wnd[0]/usr")
+                    table = find_table(usr_area)
+                except:
+                    pass
+                
+                # Bulunamadıysa eski sabit ID'yi dene (fallback)
+                if not table:
+                    try:
+                        table = self.session.findById("wnd[0]/usr/subSUB_ALL:SAPLCSDI:3211/tblSAPLCSDITCTRL_3211")
+                    except:
+                        pass
+
+                if table:
+                    # Tablo bulundu, satırları oku
+                    # Bileşen (IDNRK), Miktar (MENGE), Tanım (POTX1)
+                    # Not: Sütun isimleri (Column Name) teknik adı IDNRK olmayabilir, bazen pozisyona göre almak gerekir ama
+                    # GetCell(row, col_name) genelde çalışır.
+                    
+                    print(f"Tablo bulundu: {table.Id}, Satır Sayısı: {table.RowCount}")
+                    
+                    for i in range(table.RowCount):
+                        try:
+                            # Hücreleri oku
+                            comp_code = table.GetCell(i, "IDNRK").text.strip()
+                            comp_qty = table.GetCell(i, "MENGE").text.strip()
+                            comp_desc = table.GetCell(i, "POTX1").text.strip()
+
+                            if comp_code:
+                                # İstenen LOG: Bileşen numarasını yazdır
+                                print(f"  -> Okunan Bileşen: {comp_code} (Miktar: {comp_qty})")
+                                
+                                components.append({
+                                    "code": comp_code,
+                                    "quantity": comp_qty,
+                                    "description": comp_desc
+                                })
+                        except Exception as row_err:
+                            # Boş satırlar veya erişim hatası olabilir, sessizce geç
+                            pass
+                else:
+                    print("BOM Tablosu (GuiTableControl) ekranda bulunamadı!")
+
             except Exception as e:
                 print(f"Tablo okuma hatası: {e}")
             
