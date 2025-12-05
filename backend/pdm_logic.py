@@ -1174,6 +1174,10 @@ class LogicHandler:
         pythoncom.CoInitialize()
         self.is_running = True
         
+        # Reset COM connections for new run
+        self.vault_conn = None
+        self.sw_app_conn = None
+        
         # Check for Multi-Kit SAP Mode
         if config and config.get('multiKitMode'):
              self.run_process_sap_multikit(codes, config)
@@ -1369,16 +1373,19 @@ class LogicHandler:
                             
                             if assembly_doc:
                                 # Bileşenleri Ekle
-                                for comp in components:
+                                total_comps = len(components)
+                                for idx, comp in enumerate(components):
                                     if not self.is_running: break
+                                    
+                                    # Kalan Bilgisi Logla
+                                    remaining = total_comps - (idx + 1)
+                                    if remaining < 10 or remaining % 10 == 0:
+                                        self.log(f"  ... İlerleme: {idx+1}/{total_comps} (Kalan: {remaining})", "#94a3b8")
                                     
                                     # Miktar Analizi
                                     raw_qty = comp['quantity'].replace(',', '.')
                                     qty_val = 1.0
                                     try:
-                                        # "1.000" veya "1" gibi gelebilir
-                                        # Eğer nokta sayısı birden fazlaysa sıkıntı olabilir (örn 1.000.000) ama CS03 genelde 13.000 şeklinde verir.
-                                        # Basit float çevrimi çoğu zaman çalışır.
                                         qty_val = float(raw_qty)
                                     except:
                                         pass
@@ -1407,13 +1414,6 @@ class LogicHandler:
                                                 # X ekseninde 300mm (0.3m) öteleme
                                                 x_pos = k * 0.3
                                                 
-                                                # AddComponent5(Name, Config, X, Y, Z)
-                                                # Dosya uzantısını kontrol et, gerekiyorsa ekle (SW bazen ister)
-                                                # self.add_component_to_assembly kullanmak yerine direkt AddComponent5 kullanıyoruz
-                                                # çünkü position kontrolü bizde olmalı.
-                                                
-                                                # Not: AddComponent5 hata verirse AddComponent4 veya diğerlerini denemek gerekebilir.
-                                                # Güvenlik için try-catch
                                                 try:
                                                     new_comp = assembly_doc.AddComponent5(file_path, "", "", False, "", x_pos, 0, 0)
                                                     if new_comp:
@@ -1428,10 +1428,6 @@ class LogicHandler:
                                                     for c in added_components:
                                                         c.Select(True) # True = Append
                                                     
-                                                    # 2 = Suppressed (Gizli/Pasif)
-                                                    # 0 = Fully Resolved
-                                                    # SW API: EditSuppress2() seçili olanları toggle eder veya duruma sokar.
-                                                    # Daha güvenli yol: Comp.SetSuppression2(2)
                                                     for c in added_components:
                                                         c.SetSuppression2(2) 
                                                         
@@ -1446,14 +1442,9 @@ class LogicHandler:
                                     else:
                                         self.log(f"  PDM'de bulunamadı: {comp_code}", "#ef4444")
                                         
-                                # Tüm parçalar eklendikten sonra Zoom Fit
-                                try:
-                                    assembly_doc.ViewZoomtofit2()
-                                except:
-                                    pass
-                                
-                                # Kütle Özellikleri Ayarı
-                                self.configure_mass_properties(assembly_doc)
+                                # Tüm parçalar eklendikten sonra Standart Temizlik ve Ayarlar
+                                # (Unfix, Flexible, Zoom Fit, Mass Properties hepsi burada)
+                                self.apply_cleanup_logic(sw_app, assembly_doc)
 
                 except Exception as ex_sw:
                     self.log(f"SolidWorks/PDM Hatası: {str(ex_sw)}", "#ef4444")
