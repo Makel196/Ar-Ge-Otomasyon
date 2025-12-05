@@ -445,14 +445,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         <button
                             className={`modern-btn ${isRunning ? (isPaused ? 'success' : 'secondary') : 'primary'}`}
                             onClick={handleStart}
-                            style={{
-                                flex: 2,
-                                height: '45px',
-                                fontSize: '15px',
-                                background: !isRunning ? '#f59e0b' : undefined, // Yellow when "BAŞLAT"
-                                borderColor: !isRunning ? '#f59e0b' : undefined,
-                                color: !isRunning ? '#ffffff' : undefined
-                            }}
+                            style={{ flex: 2, height: '45px', fontSize: '15px' }}
                         >
                             <FontAwesomeIcon
                                 icon={isRunning ? (isPaused ? faPlay : faPause) : faPlay}
