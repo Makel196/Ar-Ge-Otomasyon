@@ -727,7 +727,7 @@ class LogicHandler:
             self.log(f"  Son sürüm çekilirken hata oluştu: {e}", "#ef4444")
             return False
 
-    def ensure_local_file(self, vault, file_path):
+    def ensure_local_file(self, vault, file_path, display_name=None):
         """
         Dosyanın yerelde olduğundan ve güncel olduğundan emin ol.
         Yoksa veya eskiyse PDM'den son sürümü çek.
@@ -735,6 +735,7 @@ class LogicHandler:
         # Ensure path is long-path safe
         file_path = to_long_path(file_path)
         file_name = os.path.basename(file_path)
+        log_name = display_name if display_name else file_name
         
         # Önce dosyanın durumunu kontrol et
         file_exists = os.path.exists(file_path)
@@ -757,17 +758,22 @@ class LogicHandler:
                         folder_obj = None
                 
                 if file_obj and folder_obj:
+                    # Dosya PDM'de var. İsmini logdan güncelle
+                    if not display_name:
+                         # PDM'den alınan isim ile güncellemek mümkün ama şimdilik gerek yok
+                         pass
+                    
                     local_version = file_obj.GetLocalVersionNo(folder_obj.ID)
                     latest_version = file_obj.CurrentVersion
                     
                     if local_version >= latest_version:
-                        self.log(f"  Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
+                        self.log(f"  Dosya güncel (v{local_version}): {log_name}", "#0ea5e9")
                         return True
                     else:
-                        self.log(f"  Güncelleme gerekli (v{local_version} v{latest_version}): {file_name}", "#f59e0b")
+                        self.log(f"  Güncelleme gerekli (v{local_version} -> v{latest_version}): {log_name}", "#f59e0b")
             except Exception as ver_check_err:
                 # Sürüm kontrolü başarısız, yine de güncellemeyi dene
-                self.log(f"  Sürüm kontrolü yapılamadı, güncelleniyor: {file_name}", "#f59e0b")
+                self.log(f"  Sürüm kontrolü yapılamadı, güncelleniyor: {log_name}", "#f59e0b")
         else:
             self.log(f"  Dosya yerelde yok, indiriliyor: {file_name}", "#f59e0b")
         
@@ -856,7 +862,7 @@ class LogicHandler:
 
         return assembly_doc, locked_title, asm_title, pre_open_docs, z_offset
 
-    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs):
+    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, x_offset=0, y_offset=0):
         """
         Adds a component to the assembly. Returns (success, new_z_offset).
         Extracted common code from batch and immediate modes to follow DRY principle.
@@ -868,7 +874,7 @@ class LogicHandler:
         if not os.path.exists(file_path):
             if not self.ensure_local_file(self.get_pdm_vault(), file_path) or not os.path.exists(file_path):
                 self.log(f"Yerel kopya eksik: {file_path}", "#ef4444")
-                return False, z_offset
+                return False, z_offset, False, None
 
         path_candidates, target_paths = self.build_path_candidates(file_path)
 
@@ -876,7 +882,8 @@ class LogicHandler:
         errors = []
         comp_doc = None
         try:
-            existing_names = {getattr(c, "Name2", "") for c in (assembly_doc.GetComponents(True) or []) if c}
+            comps = assembly_doc.GetComponents(True)
+            existing_names = {getattr(c, "Name2", "") for c in comps if c}
         except Exception:
             existing_names = set()
 
@@ -908,7 +915,7 @@ class LogicHandler:
                 t = (1.0, 0.0, 0.0,
                      0.0, 1.0, 0.0,
                      0.0, 0.0, 1.0,
-                     0.0, 0.0, z_offset)
+                     x_offset, y_offset, z_offset)
                 transform = math_util.CreateTransform(t)
             except Exception as ex:
                 errors.append(f"Transform: {ex}")
@@ -929,12 +936,12 @@ class LogicHandler:
 
         attempt("InsertExistingComponent3", lambda p: assembly_doc.InsertExistingComponent3(p, transform, False) if transform else None)
         attempt("AddComponent6", lambda p: assembly_doc.AddComponent6(p, 1, config_name or "", transform, False, 0) if transform else None)
-        attempt("AddComponent5-0", lambda p: assembly_doc.AddComponent5(p, 0, config_name or "", 0, 0, z_offset))
-        attempt("AddComponent5-1", lambda p: assembly_doc.AddComponent5(p, 1, config_name or "", 0, 0, z_offset))
-        attempt("AddComponent5-2", lambda p: assembly_doc.AddComponent5(p, 2, config_name or "", 0, 0, z_offset))
-        attempt("InsertExistingComponent2", lambda p: assembly_doc.InsertExistingComponent2(p, 0, 0, z_offset))
-        attempt("AddComponent4", lambda p: assembly_doc.AddComponent4(p, 0, 0, z_offset))
-        attempt("AddComponent", lambda p: assembly_doc.AddComponent(p, 0, 0, z_offset))
+        attempt("AddComponent5-0", lambda p: assembly_doc.AddComponent5(p, 0, config_name or "", x_offset, y_offset, z_offset))
+        attempt("AddComponent5-1", lambda p: assembly_doc.AddComponent5(p, 1, config_name or "", x_offset, y_offset, z_offset))
+        attempt("AddComponent5-2", lambda p: assembly_doc.AddComponent5(p, 2, config_name or "", x_offset, y_offset, z_offset))
+        attempt("InsertExistingComponent2", lambda p: assembly_doc.InsertExistingComponent2(p, x_offset, y_offset, z_offset))
+        attempt("AddComponent4", lambda p: assembly_doc.AddComponent4(p, x_offset, y_offset, z_offset))
+        attempt("AddComponent", lambda p: assembly_doc.AddComponent(p, x_offset, y_offset, z_offset))
 
         if not comp:
             try:
@@ -983,7 +990,7 @@ class LogicHandler:
             if is_connection_error:
                 self.log(f"Eklenemedi: {os.path.basename(file_path)} (bağlantı hatası)", "#ef4444")
                 # Signal that SW needs restart by returning special value
-                return False, z_offset, True  # Third value = needs_restart
+                return False, z_offset, True, None  # Third value = needs_restart, Fourth = component
             else:
                 self.log(f"Eklenemedi: {os.path.basename(file_path)}", "#f59e0b")
 
@@ -1023,7 +1030,7 @@ class LogicHandler:
         except Exception:
             pass
 
-        return success, new_z_offset, False  # Third value = needs_restart
+        return success, new_z_offset, False, comp  # Third value = needs_restart
 
     def apply_cleanup_logic(self, sw_app, assembly_doc):
         """
@@ -1331,16 +1338,16 @@ class LogicHandler:
                 
                 if header_info and header_info.get('material'):
                     log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
-                    log_buffer.append("=" * 75)
+                    log_buffer.append("=" * 68)
 
                 log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
-                log_buffer.append("-" * 75)
+                log_buffer.append("-" * 68)
                 
                 for idx, comp in enumerate(components):
                     row_num = idx + 1
                     desc = comp['description']
                     if len(desc) > 40:
-                        desc = desc[:37] + "..."
+                        desc = desc[:40] + "..."
                     line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
                     log_buffer.append(line)
                 
@@ -1403,7 +1410,7 @@ class LogicHandler:
                                     # PDM'den Dosya Bul
                                     file_path = self.search_file_in_pdm(self.vault_conn, comp_code)
                                     if file_path:
-                                        if self.ensure_local_file(self.vault_conn, file_path):
+                                        if self.ensure_local_file(self.vault_conn, file_path, display_name=comp_code):
                                             # Bileşeni Ekle (count kadar)
                                             added_components = []
                                             
@@ -1415,7 +1422,11 @@ class LogicHandler:
                                                 x_pos = k * 0.3
                                                 
                                                 try:
-                                                    new_comp = assembly_doc.AddComponent5(file_path, "", "", False, "", x_pos, 0, 0)
+                                                    # add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, x_offset=0, y_offset=0)
+                                                    res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=x_pos)
+                                                    # res: (success, new_z, restart, comp)
+                                                    new_comp = res[3] if len(res) > 3 else None
+                                                    
                                                     if new_comp:
                                                         added_components.append(new_comp)
                                                 except Exception as err:
