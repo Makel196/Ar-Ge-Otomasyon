@@ -1298,11 +1298,14 @@ class LogicHandler:
             
             if components:
                 self.log(f"{len(components)} bileşen bulundu.", "#10b981")
-                # Tablo Logu (Mavi)
-                log_buffer = [f"{'NO':<2} | {'BİLEŞEN NO':<10} | {'BİLEŞEN TANIMI':<40} | {'MİKTAR'}", "-" * 68]
+                # Tablo Logu (Mavi) - Kompakt Format
+                log_buffer = [f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<30} | {'MİK.'}", "-" * 53]
                 for idx, comp in enumerate(components):
                     row_num = idx + 1
-                    line = f"{row_num:<2} | {comp['code']:<10} | {comp['description']:<40} | {comp['quantity']}"
+                    desc = comp['description']
+                    if len(desc) > 30:
+                        desc = desc[:27] + "..."
+                    line = f"{row_num:<2} | {comp['code']:<9} | {desc:<30} | {comp['quantity']}"
                     log_buffer.append(line)
                 
                 full_log = "\n".join(log_buffer)

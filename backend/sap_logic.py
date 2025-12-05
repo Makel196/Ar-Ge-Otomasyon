@@ -267,19 +267,31 @@ class SapGui():
                         pass
                     return None
 
-                # Ana ekran (usr) içinde tabloyu ara
-                try:
-                    usr_area = self.session.findById("wnd[0]/usr")
-                    table = find_table(usr_area)
-                except:
-                    pass
+                # Tablo Bulma Stratejisi
+                user_table_id = r"wnd[0]/usr/tabsTS_ITOV/tabpTCMA/ssubSUBPAGE:SAPLCSDI:0152/tblSAPLCSDITCMAT"
                 
-                # Bulunamadıysa eski sabit ID'yi dene (fallback)
-                if not table:
+                def get_table_object():
+                    # 1. Öncelik: Kullanıcının verdiği sabit ID
                     try:
-                        table = self.session.findById("wnd[0]/usr/subSUB_ALL:SAPLCSDI:3211/tblSAPLCSDITCTRL_3211")
+                        return self.session.findById(user_table_id)
                     except:
                         pass
+                    
+                    # 2. Öncelik: Dinamik Arama
+                    try:
+                        usr_area = self.session.findById("wnd[0]/usr")
+                        t = find_table(usr_area)
+                        if t: return t
+                    except:
+                        pass
+                        
+                    # 3. Öncelik: Eski fallback ID (Gerekirse)
+                    try:
+                        return self.session.findById("wnd[0]/usr/subSUB_ALL:SAPLCSDI:3211/tblSAPLCSDITCTRL_3211")
+                    except:
+                        return None
+
+                table = get_table_object()
 
                 if table:
                     # --- Sütun Ayarları (Kullanıcının kodundan) ---
@@ -327,34 +339,25 @@ class SapGui():
                         
                         # 1. Scroll İşlemi
                         try:
-                            # Scroll pozisyonunu güncelle
                             table.verticalScrollbar.position = current_row
                         except:
-                            # Tablo referansı kaybolmuş olabilir, tekrar bul
-                            try:
-                                usr_area = self.session.findById("wnd[0]/usr")
-                                table = find_table(usr_area)
-                                if table:
+                            table = get_table_object()
+                            if table:
+                                try:
                                     table.verticalScrollbar.position = current_row
-                                else:
+                                except:
                                     break
-                            except:
+                            else:
                                 break
                         
                         time.sleep(delay_scroll)
                         
-                        # Tabloyu güncelle ve kalan satırları hesapla
-                        try: 
-                            visible_rows = table.VisibleRowCount
-                        except: 
-                            pass # Eski değeri kullan
-
+                        table = get_table_object()
+                        if not table: break
+                        
                         rows_remaining = total_rows - current_row
                         rows_to_read_now = min(visible_rows, rows_remaining)
                         
-                        if rows_to_read_now <= 0:
-                            break
-
                         for i in range(rows_to_read_now):
                             val_comp = ""
                             val_desc = ""
@@ -366,6 +369,7 @@ class SapGui():
                             except:
                                 time.sleep(delay_retry)
                                 try:
+                                    table = get_table_object()
                                     val_comp = table.GetCell(i, col_idx_comp).Text
                                 except:
                                     val_comp = ""
@@ -389,7 +393,7 @@ class SapGui():
                             except:
                                 val_menge = ""
                             
-                            # Listeye ekle (PDM mantığı için)
+                            # Listeye ekle
                             components.append({
                                 "code": val_comp,
                                 "quantity": val_menge,
