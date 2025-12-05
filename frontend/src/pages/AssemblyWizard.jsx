@@ -537,7 +537,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                             alignItems: 'flex-start'
                                         }}
                                     >
-                                        <span style={{ opacity: 0.5, minWidth: '60px', fontSize: '11px', paddingTop: '2px', flexShrink: 0 }}>{new Date(log.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                                             <FontAwesomeIcon icon={getLogIcon(log.color)} style={{ fontSize: '14px', marginTop: '2px', opacity: 0.8 }} />
                                             <span>{log.message}</span>

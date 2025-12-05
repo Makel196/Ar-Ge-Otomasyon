@@ -311,10 +311,6 @@ class SapGui():
                     total_rows = table.RowCount 
                     visible_rows = table.VisibleRowCount 
                     
-                    # Tablo Başlığı
-                    print(f"{'NO':<2} | {'BİLEŞEN NO':<10} | {'BİLEŞEN TANIMI':<40} | {'MİKTAR'}")
-                    print("-" * 68)
-
                     # Scroll başa al
                     try:
                         table.verticalScrollbar.position = 0
@@ -331,6 +327,7 @@ class SapGui():
                         
                         # 1. Scroll İşlemi
                         try:
+                            # Scroll pozisyonunu güncelle
                             table.verticalScrollbar.position = current_row
                         except:
                             # Tablo referansı kaybolmuş olabilir, tekrar bul
@@ -346,12 +343,18 @@ class SapGui():
                         
                         time.sleep(delay_scroll)
                         
-                        # Tabloyu güncelle (emin olmak için)
-                        # table nesnesi COM objesi olduğu için bazen refresh gerekebilir ama referans genelde kalır.
-                        # Referans kaybı olursa yukarıdaki except bloğu yakalar.
+                        # Tabloyu güncelle ve kalan satırları hesapla
+                        try: 
+                            visible_rows = table.VisibleRowCount
+                        except: 
+                            pass # Eski değeri kullan
+
+                        rows_remaining = total_rows - current_row
+                        rows_to_read_now = min(visible_rows, rows_remaining)
                         
-                        rows_to_read_now = min(visible_rows, total_rows - current_row)
-                        
+                        if rows_to_read_now <= 0:
+                            break
+
                         for i in range(rows_to_read_now):
                             val_comp = ""
                             val_desc = ""
@@ -363,15 +366,12 @@ class SapGui():
                             except:
                                 time.sleep(delay_retry)
                                 try:
-                                    # Refresh reference logic if needed
                                     val_comp = table.GetCell(i, col_idx_comp).Text
                                 except:
                                     val_comp = ""
                             
-                            # Hızlı çıkış kontrolü (Boş satıra geldik mi?)
+                            # Hızlı çıkış kontrolü
                             if not val_comp or not val_comp.strip():
-                                # Bazen arada boş satır olur ama BOM listesinde genelde ardışıktır.
-                                # Kullanıcının kodunda break var, biz de uyalım.
                                 stop_execution = True
                                 break
                                 
@@ -388,11 +388,6 @@ class SapGui():
                                 val_menge = table.GetCell(i, col_idx_menge).Text
                             except:
                                 val_menge = ""
-                            
-                            # Log Formatı (Kullanıcı İsteği)
-                            row_num = current_row + i + 1
-                            # İşlem kayıtlarında düzgün görünmesi için f-string
-                            print(f"{row_num:<2} | {val_comp:<10} | {val_desc:<40} | {val_menge}")
                             
                             # Listeye ekle (PDM mantığı için)
                             components.append({

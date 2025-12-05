@@ -1297,12 +1297,16 @@ class LogicHandler:
             components = sap.get_bom_components(code)
             
             if components:
-                self.log(f"  ✔ {len(components)} bileşen bulundu.", "#10b981")
-                # İlk 5 bileşeni loga yaz
-                for comp in components[:5]:
-                     self.log(f"    • {comp['code']} - {comp['quantity']} Adet | {comp['description']}", "#475569")
-                if len(components) > 5:
-                     self.log(f"    ... ve {len(components)-5} diğer bileşen.", "#475569")
+                self.log(f"{len(components)} bileşen bulundu.", "#10b981")
+                # Tablo Logu (Mavi)
+                log_buffer = [f"{'NO':<2} | {'BİLEŞEN NO':<10} | {'BİLEŞEN TANIMI':<40} | {'MİKTAR'}", "-" * 68]
+                for idx, comp in enumerate(components):
+                    row_num = idx + 1
+                    line = f"{row_num:<2} | {comp['code']:<10} | {comp['description']:<40} | {comp['quantity']}"
+                    log_buffer.append(line)
+                
+                full_log = "\n".join(log_buffer)
+                self.log(full_log, "#3b82f6")
                 
                 # Başarılı sayısını artır
                 stats = self.state['stats']
