@@ -10,6 +10,7 @@ import win32con
 import pythoncom
 import winreg
 from queue import Queue
+from sap_logic import SapHandler
 
 # --- Konfigürasyon ve Sabitler ---
 VAULT_NAME = "PGR2024"
@@ -1155,9 +1156,15 @@ class LogicHandler:
             return None, False
 
 
-    def run_process(self, codes):
+    def run_process(self, codes, config=None):
         pythoncom.CoInitialize()
         self.is_running = True
+        
+        # Check for Multi-Kit SAP Mode
+        if config and config.get('multiKitMode'):
+             self.run_process_sap_multikit(codes, config)
+             pythoncom.CoUninitialize()
+             return
         
         # PDM dialog izleyicisini başlat (Kasadan Al dialoglarını otomatik iptal eder)
         start_pdm_dialog_watcher()
@@ -1248,6 +1255,70 @@ class LogicHandler:
             except Exception:
                 pass
     
+    def run_process_sap_multikit(self, codes, config):
+        """SAP üzerinden Çoklu Kit Montajı akışını yönetir."""
+        self.set_status("SAP Başlatılıyor...")
+        sap = SapHandler()
+        
+        # SAP Bağlantısı
+        if not sap.connect_to_sap():
+            self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
+            self.set_status("Hata")
+            self.is_running = False
+            return
+
+        self.set_status("SAP Girişi Yapılıyor...")
+        username = config.get('sapUsername', '')
+        password = config.get('sapPassword', '')
+        
+        # Sadece kullanıcı adı ve şifre varsa giriş yapmayı dene
+        if username and password:
+            self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
+            # Login metodu session kontrolü de yapar
+            sap.login(username, password)
+        else:
+            self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
+
+        self.set_status("BOM Listeleri Çekiliyor...")
+        total = len(codes)
+        self.update_stats(total=total, success=0, error=0)
+        
+        for i, code in enumerate(codes):
+            if not self.is_running:
+                self.log("İşlem kullanıcı tarafından durduruldu.", "#ef4444")
+                break
+            
+            code = code.strip()
+            if not code: continue
+            
+            self.log(f"[{i+1}/{total}] BOM Okunuyor: {code}", "#3b82f6")
+            
+            # CS03'ten verileri çek
+            components = sap.get_bom_components(code)
+            
+            if components:
+                self.log(f"  ✔ {len(components)} bileşen bulundu.", "#10b981")
+                # İlk 5 bileşeni loga yaz
+                for comp in components[:5]:
+                     self.log(f"    • {comp['code']} - {comp['quantity']} Adet | {comp['description']}", "#475569")
+                if len(components) > 5:
+                     self.log(f"    ... ve {len(components)-5} diğer bileşen.", "#475569")
+                
+                # Başarılı sayısını artır
+                stats = self.state['stats']
+                self.update_stats(success=stats['success'] + 1)
+            else:
+                self.log(f"  ⚠ Bileşen bulunamadı veya SAP hatası.", "#ef4444")
+                stats = self.state['stats']
+                self.update_stats(error=stats['error'] + 1)
+            
+            self.set_progress((i + 1) / total)
+            time.sleep(0.5) # SAP'yi boğmamak için kısa bekleme
+            
+        self.set_status("Tamamlandı")
+        self.is_running = False
+        self.log("SAP İşlemleri tamamlandı.", "#10b981")
+
     def run_process_batch_mode(self, codes, vault):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
         found_files = []

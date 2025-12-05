@@ -624,7 +624,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                 </button>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '32px' }}>
                                 {/* Left Column */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                                     {/* General Settings */}
@@ -655,7 +655,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Parça bulunamadığında işlemi durdurur"
-                                                disabled={multiKitMode || isAnyBatchModeActive}
+                                                disabled={isAnyBatchModeActive}
                                             />
                                             <SettingsToggle
                                                 label="Tekrarlı Kodları Sil"
@@ -664,7 +664,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                                 theme={theme}
                                                 activeColor="#6366f1"
                                                 tooltip="Listeye eklenen mükerrer (aynı) kodları otomatik temizler"
-                                                disabled={multiKitMode || isAnyBatchModeActive}
+                                                disabled={isAnyBatchModeActive}
                                             />
                                         </div>
                                     </div>

@@ -196,7 +196,7 @@ class AutomationServer:
             if self.state["vault_path"]:
                 self.logic_handler.vault_path = self.state["vault_path"]
                 
-            thread = threading.Thread(target=self.logic_handler.run_process, args=(codes,), daemon=True)
+            thread = threading.Thread(target=self.logic_handler.run_process, args=(codes, data), daemon=True)
             thread.start()
             
             return jsonify({"message": "Started"})
