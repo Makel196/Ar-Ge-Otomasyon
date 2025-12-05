@@ -555,7 +555,7 @@ class LogicHandler:
                 while result:
                     if not self.is_running: return None
                     if self.check_file_match(vault, result.ID, sap_code):
-                        self.log(f"  PDM'de bulundu ({result.Name}): {sap_code}", "#0ea5e9")
+                        self.log(f"  PDM'de bulundu ({var_name}): {result.Name}", "#0ea5e9")
                         return self.map_vault_path(vault, result.Path)
                     result = search.GetNextResult()
             except Exception:
@@ -569,7 +569,7 @@ class LogicHandler:
             while result:
                 if not self.is_running: return None
                 if self.check_file_match(vault, result.ID, sap_code):
-                    self.log(f"  PDM'de bulundu ({result.Name}): {sap_code}", "#0ea5e9")
+                    self.log(f"  PDM'de bulundu (Dosya Adı): {result.Name}", "#0ea5e9")
                     return self.map_vault_path(vault, result.Path)
                 result = search.GetNextResult()
         except Exception:
@@ -651,7 +651,7 @@ class LogicHandler:
                     pass
             
             if not folder_obj:
-                self.log(f"Dosya klasör bilgisi alınamadı: {file_name}", "#ef4444")
+                self.log(f"  Dosya klasör bilgisi alınamadı: {file_name}", "#ef4444")
                 return False
             
             # Montaj dosyası ise referanslarıyla birlikte çek (BatchGet)
@@ -664,16 +664,16 @@ class LogicHandler:
                 
                 # Montaj değilse ve sürüm güncelse atla
                 if not is_assembly and os.path.exists(file_path) and local_version >= latest_version:
-                    self.log(f"Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
+                    self.log(f"  Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
                     return True
                 
                 # Montaj ise her durumda kontrol et/güncelle (referanslar için)
                 if is_assembly:
-                     self.log(f"Montaj referansları kontrol ediliyor...: {file_name}", "#3b82f6")
+                     self.log(f"  Montaj referansları kontrol ediliyor...: {file_name}", "#3b82f6")
                 else:
-                    self.log(f"Sürüm güncelleniyor (v{local_version} -> v{latest_version}): {file_name}", "#3b82f6")
+                    self.log(f"  Sürüm güncelleniyor (v{local_version} -> v{latest_version}): {file_name}", "#3b82f6")
             except Exception as ver_err:
-                self.log(f"Sürüm bilgisi alınamadı, son sürüm çekiliyor: {file_name}", "#f59e0b")
+                self.log(f"  Sürüm bilgisi alınamadı, son sürüm çekiliyor: {file_name}", "#f59e0b")
             
             # GetFileCopy veya BatchGet (Montajlar için)
             try:
@@ -699,7 +699,7 @@ class LogicHandler:
                 try:
                     file_obj.GetFileCopy(0, 0, folder_obj.ID, 0, "")
                 except Exception as alt_err:
-                    self.log(f"Dosya kopyalama hatası: {alt_err}", "#ef4444")
+                    self.log(f"  Dosya kopyalama hatası: {alt_err}", "#ef4444")
                     return False
             
             # Dosyanın indirilmesini bekle
@@ -727,7 +727,7 @@ class LogicHandler:
             self.log(f"  Son sürüm çekilirken hata oluştu: {e}", "#ef4444")
             return False
 
-    def ensure_local_file(self, vault, file_path, display_name=None):
+    def ensure_local_file(self, vault, file_path):
         """
         Dosyanın yerelde olduğundan ve güncel olduğundan emin ol.
         Yoksa veya eskiyse PDM'den son sürümü çek.
@@ -735,7 +735,6 @@ class LogicHandler:
         # Ensure path is long-path safe
         file_path = to_long_path(file_path)
         file_name = os.path.basename(file_path)
-        log_name = f"{file_name} : {display_name}" if display_name else file_name
         
         # Önce dosyanın durumunu kontrol et
         file_exists = os.path.exists(file_path)
@@ -758,20 +757,19 @@ class LogicHandler:
                         folder_obj = None
                 
                 if file_obj and folder_obj:
-                    # Dosya PDM'de var.
                     local_version = file_obj.GetLocalVersionNo(folder_obj.ID)
                     latest_version = file_obj.CurrentVersion
                     
                     if local_version >= latest_version:
-                        self.log(f"Dosya güncel (v{local_version}): {log_name}", "#0ea5e9")
+                        self.log(f"  Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
                         return True
                     else:
-                        self.log(f"Güncelleme gerekli (v{local_version} -> v{latest_version}): {log_name}", "#f59e0b")
+                        self.log(f"  Güncelleme gerekli (v{local_version} v{latest_version}): {file_name}", "#f59e0b")
             except Exception as ver_check_err:
                 # Sürüm kontrolü başarısız, yine de güncellemeyi dene
-                self.log(f"Sürüm kontrolü yapılamadı, güncelleniyor: {log_name}", "#f59e0b")
+                self.log(f"  Sürüm kontrolü yapılamadı, güncelleniyor: {file_name}", "#f59e0b")
         else:
-            self.log(f"Dosya yerelde yok, indiriliyor: {file_name}", "#f59e0b")
+            self.log(f"  Dosya yerelde yok, indiriliyor: {file_name}", "#f59e0b")
         
         # fetch_pdm_latest.py mantığını kullanarak son sürümü çek
         return self.fetch_latest_revision(vault, file_path)
@@ -858,7 +856,7 @@ class LogicHandler:
 
         return assembly_doc, locked_title, asm_title, pre_open_docs, z_offset
 
-    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, x_offset=0, y_offset=0):
+    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs):
         """
         Adds a component to the assembly. Returns (success, new_z_offset).
         Extracted common code from batch and immediate modes to follow DRY principle.
@@ -870,7 +868,7 @@ class LogicHandler:
         if not os.path.exists(file_path):
             if not self.ensure_local_file(self.get_pdm_vault(), file_path) or not os.path.exists(file_path):
                 self.log(f"Yerel kopya eksik: {file_path}", "#ef4444")
-                return False, z_offset, False, None
+                return False, z_offset
 
         path_candidates, target_paths = self.build_path_candidates(file_path)
 
@@ -878,8 +876,7 @@ class LogicHandler:
         errors = []
         comp_doc = None
         try:
-            comps = assembly_doc.GetComponents(True)
-            existing_names = {getattr(c, "Name2", "") for c in comps if c}
+            existing_names = {getattr(c, "Name2", "") for c in (assembly_doc.GetComponents(True) or []) if c}
         except Exception:
             existing_names = set()
 
@@ -911,7 +908,7 @@ class LogicHandler:
                 t = (1.0, 0.0, 0.0,
                      0.0, 1.0, 0.0,
                      0.0, 0.0, 1.0,
-                     x_offset, y_offset, z_offset)
+                     0.0, 0.0, z_offset)
                 transform = math_util.CreateTransform(t)
             except Exception as ex:
                 errors.append(f"Transform: {ex}")
@@ -932,12 +929,12 @@ class LogicHandler:
 
         attempt("InsertExistingComponent3", lambda p: assembly_doc.InsertExistingComponent3(p, transform, False) if transform else None)
         attempt("AddComponent6", lambda p: assembly_doc.AddComponent6(p, 1, config_name or "", transform, False, 0) if transform else None)
-        attempt("AddComponent5-0", lambda p: assembly_doc.AddComponent5(p, 0, config_name or "", x_offset, y_offset, z_offset))
-        attempt("AddComponent5-1", lambda p: assembly_doc.AddComponent5(p, 1, config_name or "", x_offset, y_offset, z_offset))
-        attempt("AddComponent5-2", lambda p: assembly_doc.AddComponent5(p, 2, config_name or "", x_offset, y_offset, z_offset))
-        attempt("InsertExistingComponent2", lambda p: assembly_doc.InsertExistingComponent2(p, x_offset, y_offset, z_offset))
-        attempt("AddComponent4", lambda p: assembly_doc.AddComponent4(p, x_offset, y_offset, z_offset))
-        attempt("AddComponent", lambda p: assembly_doc.AddComponent(p, x_offset, y_offset, z_offset))
+        attempt("AddComponent5-0", lambda p: assembly_doc.AddComponent5(p, 0, config_name or "", 0, 0, z_offset))
+        attempt("AddComponent5-1", lambda p: assembly_doc.AddComponent5(p, 1, config_name or "", 0, 0, z_offset))
+        attempt("AddComponent5-2", lambda p: assembly_doc.AddComponent5(p, 2, config_name or "", 0, 0, z_offset))
+        attempt("InsertExistingComponent2", lambda p: assembly_doc.InsertExistingComponent2(p, 0, 0, z_offset))
+        attempt("AddComponent4", lambda p: assembly_doc.AddComponent4(p, 0, 0, z_offset))
+        attempt("AddComponent", lambda p: assembly_doc.AddComponent(p, 0, 0, z_offset))
 
         if not comp:
             try:
@@ -986,7 +983,7 @@ class LogicHandler:
             if is_connection_error:
                 self.log(f"Eklenemedi: {os.path.basename(file_path)} (bağlantı hatası)", "#ef4444")
                 # Signal that SW needs restart by returning special value
-                return False, z_offset, True, None  # Third value = needs_restart, Fourth = component
+                return False, z_offset, True  # Third value = needs_restart
             else:
                 self.log(f"Eklenemedi: {os.path.basename(file_path)}", "#f59e0b")
 
@@ -1026,161 +1023,7 @@ class LogicHandler:
         except Exception:
             pass
 
-        return success, new_z_offset, False, comp  # Third value = needs_restart
-
-    def create_linear_pattern(self, sw_app, assembly_doc, seed_comp, count, spacing=0.3):
-        """X ekseninde doğrusal çoğaltma yapar (Right Plane referanslı)."""
-        try:
-            mod_doc = assembly_doc
-            fm = mod_doc.FeatureManager
-            
-            assembly_doc.ClearSelection2(True)
-            if not seed_comp.Select2(True, 1): # Mark 1 for seed
-                 return None
-            
-            # Yön seçimi (Mark 2) - Sağ Düzlem (Right Plane) normali X eksenidir
-            planes = ["Right Plane", "Sağ Düzlem", "Plan de droite", "Ebene rechts"]
-            dir_selected = False
-            for p in planes:
-                if mod_doc.Extension.SelectByID2(p, "PLANE", 0, 0, 0, True, 2, None, 0):
-                    dir_selected = True
-                    break
-            
-            if not dir_selected:
-                return None
-                
-            # Create Feature
-            feat = fm.FeatureLinearPattern4(
-                count, spacing, 1, 0,
-                False, False, "NULL", "NULL", "Pattern_Auto",
-                False, False, False, True, True, False
-            )
-            return feat
-        except Exception:
-            return None
-
-    def process_sap_kit_assembly(self, sw_app, kit_code, components):
-        """Processes a single SAP Kit: Initialize Assembly, Add Components (Pattern/Manual), Cleanup."""
-        
-        # PDM Vault Hazırlık
-        if not hasattr(self, 'vault_conn') or not self.vault_conn:
-            self.vault_conn = self.get_pdm_vault()
-
-        vault = self.vault_conn
-        if not vault:
-             self.log("PDM Vault bağlantısı yok, işlem yapılamaz.", "#ef4444")
-             return
-
-        # Yeni Montaj
-        self.log(f"SolidWorks'te montaj oluşturuluyor: {kit_code}", "#3b82f6")
-        assembly_doc, _, _, _, _ = self.init_assembly_doc(sw_app)
-        
-        if not assembly_doc:
-            self.log("Montaj belgesi oluşturulamadı.", "#ef4444")
-            return
-
-        total_comps = len(components)
-        
-        for idx, comp in enumerate(components):
-            if not self.is_running: break
-            
-            # Progress Log
-            remaining = total_comps - (idx + 1)
-            if remaining < 10 or remaining % 10 == 0:
-                self.log(f"  ... İlerleme: {idx+1}/{total_comps} (Kalan: {remaining})", "#94a3b8")
-            
-            # Miktar Analizi
-            try:
-                raw_qty = comp['quantity'].replace(',', '.')
-                qty_val = float(raw_qty)
-            except:
-                qty_val = 1.0
-
-            should_hide = (qty_val < 0)
-            count = int(abs(qty_val))
-            if count == 0: count = 1
-            
-            comp_code = comp['code']
-
-            # PDM İşlemleri
-            file_path = self.search_file_in_pdm(vault, comp_code)
-            
-            if not file_path:
-                self.log(f"PDM'de bulunamadı: {comp_code}", "#ef4444")
-                continue
-
-            if not self.ensure_local_file(vault, file_path, display_name=comp_code):
-                self.log(f"Dosya yerel diske alınamadı: {comp_code}", "#ef4444")
-                continue
-
-            # Ekleme İşlemi
-            added_components = []
-            assembly_doc.ClearSelection2(True)
-
-            # Pattern Logic check
-            use_pattern = (count > 4)
-            pattern_success = False
-
-            if use_pattern:
-                # X-Axis Layout for Pattern
-                res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=0)
-                first_comp = res[3] if len(res) > 3 else None
-                
-                if first_comp:
-                    added_components.append(first_comp)
-                    # Create Pattern (+300mm X-Axis)
-                    feat = self.create_linear_pattern(sw_app, assembly_doc, first_comp, count, spacing=0.3)
-                    if feat:
-                        pattern_success = True
-                        added_components.append(feat) 
-                        self.log(f"  ✔ {comp_code} ({count} adet) - Doğrusal Çoğaltma ({count}x)", "#10b981")
-            
-            if not use_pattern or (use_pattern and not pattern_success):
-                # Manual Loop (X-Axis +300mm)
-                # If pattern failed but first comp added, skip it.
-                start_k = 1 if (use_pattern and added_components) else 0
-                for k in range(start_k, count):
-                    x_pos = k * 0.3
-                    res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=x_pos)
-                    nc = res[3] if len(res) > 3 else None
-                    if nc: added_components.append(nc)
-
-            # Suppress Logic
-            if should_hide and added_components:
-                try:
-                    assembly_doc.ClearSelection2(True)
-                    for c in added_components:
-                        try: c.Select(True)
-                        except: pass
-                    
-                    for c in added_components:
-                        try: c.SetSuppression2(2) 
-                        except: pass
-                    
-                    self.log(f"{comp_code} ({count} adet) eklendi ve GİZLENDİ.", "#6b7280")
-                except Exception as err:
-                     self.log(f"Gizleme hatası: {str(err)}", "#f59e0b")
-            elif not should_hide and added_components:
-                 if not pattern_success:
-                      self.log(f"{comp_code} ({count} adet) eklendi.", "#10b981")
-
-        # Cleanup
-        self.apply_cleanup_logic(sw_app, assembly_doc)
-
-    def run_process_sap_multikit(self, codes, config):
-        # ... logic ...
-        # Since I can't easily jump inside the function, I'll rely on the fact that I'm replacing the loop block which I know is after line 1475 in current file (due to previous messy insert).
-        # Wait, the previous insert put create_linear_pattern in line 1420.
-        # I need to be careful. I will replace the PREVIOUS create_linear_pattern (1420) and the rest of the loop block.
-        pass
-        
-    # I will construct the ReplacementContent to cover both create_linear_pattern definition location AND the loop.
-    # But wait, create_linear_pattern is now at 1034 (I added it there in Step 1162).
-    # But I also accidentally added it at 1420 in Step 1155?
-    # No, Step 1155 failed/was weird. Step 1162 added to 1034.
-    # Ah, in Step 1155 I replaced lines 1420-1470 with loop logic, so the accidentally added function at 1420 should be gone.
-    # Let's verify with view_file.
-
+        return success, new_z_offset, False  # Third value = needs_restart
 
     def apply_cleanup_logic(self, sw_app, assembly_doc):
         """
@@ -1263,24 +1106,10 @@ class LogicHandler:
                         assembly_doc.ViewZoomtofit2()
                     except:
                         pass
-                
-                # Kütle Özellikleri Ayarı (Her zaman en son)
-                self.configure_mass_properties(assembly_doc)
-
             except:
                 pass
                 
         except Exception:
-            pass
-
-    def configure_mass_properties(self, assembly_doc):
-        """Gizli bileşenlerin kütle hesabına dahil edilmemesini sağlar."""
-        try:
-            ext = assembly_doc.Extension
-            mass_prop = ext.CreateMassProperty()
-            if mass_prop:
-                mass_prop.IncludeHiddenBodiesOrComponents = False
-        except:
             pass
 
     def open_component_doc(self, sw_app, file_path, doc_type):
@@ -1308,9 +1137,9 @@ class LogicHandler:
                     
                     # Verify file is now local
                     if not os.path.exists(file_path):
-                        self.log(f"Dosya açıldı ancak yerel diskte bulunamadı: {os.path.basename(file_path)}", "#f59e0b")
+                        self.log(f"  ⚠ Dosya açıldı ancak yerel diskte bulunamadı: {os.path.basename(file_path)}", "#f59e0b")
                     else:
-                        self.log(f"Dosya başarıyla yerel diske çekildi: {os.path.basename(file_path)}", "#6b7280")
+                        self.log(f"  ✔ Dosya başarıyla yerel diske çekildi: {os.path.basename(file_path)}", "#6b7280")
             except Exception:
                 doc = sw_app.OpenDoc(file_path, doc_type)
                 time.sleep(1.5)
@@ -1331,13 +1160,9 @@ class LogicHandler:
         pythoncom.CoInitialize()
         self.is_running = True
         
-        # Reset COM connections for new run
-        self.vault_conn = None
-        self.sw_app_conn = None
-        
         # Check for Multi-Kit SAP Mode
         if config and config.get('multiKitMode'):
-             self.run_process_sap_multikit_v2(codes, config)
+             self.run_process_sap_multikit(codes, config)
              pythoncom.CoUninitialize()
              return
         
@@ -1435,6 +1260,25 @@ class LogicHandler:
         self.set_status("SAP Başlatılıyor...")
         sap = SapGui()
         
+        # PDM Bağlantısı Kur (Ön Hazırlık)
+        self.set_status("PDM'e bağlanılıyor...")
+        vault = None
+        retry_count = 0
+        
+        while self.is_running:
+            vault = self.get_pdm_vault()
+            if vault: break
+            retry_count += 1
+            if retry_count > 3: # SAP modunda çok beklemeyelim, 3 deneme yeterli
+                self.log("PDM bağlantısı sağlanamadı. SAP işlemi iptal edildi.", "#ef4444")
+                self.set_status("Hata")
+                return
+            time.sleep(1)
+            
+        if not vault:
+            self.set_status("Hata")
+            return
+
         # SAP Bağlantısı
         if not sap.connect_to_sap():
             self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
@@ -1446,17 +1290,15 @@ class LogicHandler:
         username = config.get('sapUsername', '')
         password = config.get('sapPassword', '')
         
-        # Sadece kullanıcı adı ve şifre varsa giriş yapmayı dene
         if username and password:
             self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
-            # Login metodu session kontrolü de yapar
             sap.sapLogin(username, password)
         else:
             self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
 
-        self.set_status("BOM Listeleri Çekiliyor...")
+        self.set_status("Kitler İşleniyor...")
         total = len(codes)
-        self.update_stats(total=total, success=0, error=0)
+        stop_on_not_found = self.get_stop_on_not_found()
         
         for i, code in enumerate(codes):
             if not self.is_running:
@@ -1466,7 +1308,8 @@ class LogicHandler:
             code = code.strip()
             if not code: continue
             
-            self.log(f"[{i+1}/{total}] BOM Okunuyor: {code}", "#3b82f6")
+            self.log(f"[{i+1}/{total}] Kit İşleniyor: {code}", "#3b82f6")
+            self.set_status(f"SAP Okunuyor: {code}")
             
             # CS03'ten verileri çek
             result = sap.get_bom_components(code)
@@ -1483,15 +1326,15 @@ class LogicHandler:
             if components:
                 self.log(f"{len(components)} bileşen bulundu.", "#10b981")
                 
-                # Tablo Logu (Mavi) - Başlıklı Format
+                 # Tablo Logu (Mavi) - Başlıklı Format
                 log_buffer = []
                 
                 if header_info and header_info.get('material'):
                     log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
-                    log_buffer.append("=" * 68)
+                    log_buffer.append("=" * 75)
 
                 log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
-                log_buffer.append("-" * 68)
+                log_buffer.append("-" * 75)
                 
                 for idx, comp in enumerate(components):
                     row_num = idx + 1
@@ -1504,145 +1347,26 @@ class LogicHandler:
                 full_log = "\n".join(log_buffer)
                 self.log(full_log, "#3b82f6")
                 
-                # --- SOLIDWORKS ve PDM Entegrasyonu ---
-                try:
-                    # PDM Vault Bağlantısı (İlk seferde)
-                    if not hasattr(self, 'vault_conn') or not self.vault_conn:
-                        self.log("PDM'e bağlanılıyor...", "#f59e0b")
-                        self.vault_conn = self.get_pdm_vault()
-                        if not self.vault_conn:
-                            self.log("PDM Bağlantısı kurulamadı!", "#ef4444")
-                    
-                    if self.vault_conn:
-                        # SolidWorks Bağlantısı (İlk seferde)
-                        if not hasattr(self, 'sw_app_conn') or not self.sw_app_conn:
-                            self.log("SolidWorks'e bağlanılıyor...", "#f59e0b")
-                            self.sw_app_conn = self.get_sw_app()
-                            if not self.sw_app_conn:
-                                self.log("SolidWorks başlatılamadı!", "#ef4444")
+                # MONTAJ İŞLEMİNİ BAŞLAT
+                self.log(f"Montaj başlatılıyor: {code}", "#6366f1")
+                child_codes = [c['code'] for c in components]
+                
+                if stop_on_not_found:
+                    self.run_process_batch_mode(child_codes, vault, is_subprocess=True)
+                else:
+                    self.run_process_immediate_mode(child_codes, vault, is_subprocess=True)
 
-                        if self.sw_app_conn:
-                            sw_app = self.sw_app_conn
-                            
-                            # Yeni Montaj Oluştur
-                            self.log(f"SolidWorks'te montaj oluşturuluyor: {code}", "#3b82f6")
-                            assembly_doc, _, _, _, _ = self.init_assembly_doc(sw_app)
-                            
-                            if assembly_doc:
-                                # Bileşenleri Ekle
-                                total_comps = len(components)
-                                for idx, comp in enumerate(components):
-                                    if not self.is_running: break
-                                    
-                                    # Kalan Bilgisi Logla
-                                    remaining = total_comps - (idx + 1)
-                                    if remaining < 10 or remaining % 10 == 0:
-                                        self.log(f"  ... İlerleme: {idx+1}/{total_comps} (Kalan: {remaining})", "#94a3b8")
-                                    
-                                    # Miktar Analizi
-                                    raw_qty = comp['quantity'].replace(',', '.')
-                                    qty_val = 1.0
-                                    try:
-                                        qty_val = float(raw_qty)
-                                    except:
-                                        pass
-                                    
-                                    # Negatif ve Adet Kontrolü
-                                    should_hide = False
-                                    if qty_val < 0:
-                                        should_hide = True
-                                    
-                                    count = int(abs(qty_val))
-                                    if count == 0: count = 1 # En az 1 tane getir
-                                    
-                                    comp_code = comp['code']
-                                    
-                                    # PDM'den Dosya Bul
-                                    file_path = self.search_file_in_pdm(self.vault_conn, comp_code)
-                                    if file_path:
-                                        if self.ensure_local_file(self.vault_conn, file_path, display_name=comp_code):
-                                            # Bileşeni Ekle (count kadar)
-                                            added_components = []
-                                            
-                                            # İlk bileşeni eklemeden önce varsa seçimi temizle
-                                            assembly_doc.ClearSelection2(True)
-                                            
-                                            if count > 4:
-                                                # Pattern Denemesi (> 4 adet)
-                                                res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=0)
-                                                first_comp = res[3] if len(res) > 3 else None
-                                                
-                                                pattern_success = False
-                                                if first_comp:
-                                                    added_components.append(first_comp)
-                                                    
-                                                    feat = self.create_linear_pattern(sw_app, assembly_doc, first_comp, count)
-                                                    if feat:
-                                                        pattern_success = True
-                                                        added_components.append(feat) 
-                                                        self.log(f"  ✔ {comp_code} ({count} adet) - Doğrusal Çoğaltma ({count}x)", "#10b981")
-                                                
-                                                if not pattern_success:
-                                                    # Fallback: Manuel (X Ekseni)
-                                                    start_k = 1 if first_comp else 0
-                                                    for k in range(start_k, count):
-                                                        x_pos = k * 0.3
-                                                        res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=x_pos)
-                                                        nc = res[3] if len(res) > 3 else None
-                                                        if nc: added_components.append(nc)
-                                            else:
-                                                # Az sayıda (<=4), Manuel ekle (X Ekseni)
-                                                for k in range(count):
-                                                    x_pos = k * 0.3
-                                                    res = self.add_component_to_assembly(sw_app, assembly_doc, file_path, 0, "", [], x_offset=x_pos)
-                                                    nc = res[3] if len(res) > 3 else None
-                                                    if nc: added_components.append(nc)
-
-
-                                            # Gizleme İşlemi (- miktar varsa)
-                                            if should_hide and added_components:
-                                                try:
-                                                    assembly_doc.ClearSelection2(True)
-                                                    for c in added_components:
-                                                        c.Select(True) # True = Append
-                                                    
-                                                    for c in added_components:
-                                                        c.SetSuppression2(2) 
-                                                        
-                                                    self.log(f"{comp_code} ({count} adet) eklendi ve GİZLENDİ.", "#6b7280")
-                                                except Exception as err:
-                                                    self.log(f"Gizleme hatası: {str(err)}", "#f59e0b")
-                                            else:
-                                                 if added_components:
-                                                     self.log(f"{comp_code} ({count} adet) eklendi.", "#10b981")
-                                        else:
-                                            self.log(f"Dosya yerel diske alınamadı: {comp_code}", "#ef4444")
-                                    else:
-                                        self.log(f"PDM'de bulunamadı: {comp_code}", "#ef4444")
-                                        
-                                # Tüm parçalar eklendikten sonra Standart Temizlik ve Ayarlar
-                                # (Unfix, Flexible, Zoom Fit, Mass Properties hepsi burada)
-                                self.apply_cleanup_logic(sw_app, assembly_doc)
-
-                except Exception as ex_sw:
-                    self.log(f"SolidWorks/PDM Hatası: {str(ex_sw)}", "#ef4444")
-
-                # Başarılı sayısını artır
-                stats = self.state['stats']
-                self.update_stats(success=stats['success'] + 1)
             else:
                 self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
-                stats = self.state['stats']
-                self.update_stats(error=stats['error'] + 1)
             
             self.set_progress((i + 1) / total)
-            time.sleep(0.5) # SAP'yi boğmamak için kısa bekleme
+            time.sleep(1) 
             
         self.set_status("Tamamlandı")
         self.is_running = False
-        self.log("SAP İşlemleri tamamlandı.", "#10b981")
+        self.log("Tüm Kit İşlemleri Tamamlandı.", "#10b981")
 
-    def run_process_batch_mode(self, codes, vault):
+    def run_process_batch_mode(self, codes, vault, is_subprocess=False):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
         found_files = []
         not_found_codes = []
@@ -1650,12 +1374,13 @@ class LogicHandler:
         self.set_status("Parçalar aranıyor...")
         total_codes = len(codes)
         
-        # Initialize stats
-        self.update_stats(total=total_codes, success=0, error=0)
+        # Initialize stats if not subprocess (or reset for new sub-batch)
+        if not is_subprocess:
+             self.update_stats(total=total_codes, success=0, error=0)
         
         for i, code in enumerate(codes):
             if not self.is_running:
-                self.log("İşlem durduruldu.", "#f97316")
+                if not is_subprocess: self.log("İşlem durduruldu.", "#f97316")
                 return
             
             if self.is_paused and self.is_running:
@@ -1664,21 +1389,21 @@ class LogicHandler:
                 time.sleep(0.5)
             path = self.search_file_in_pdm(vault, code)
             if not self.is_running:
-                self.log("İşlem durduruldu.", "#f97316")
+                if not is_subprocess: self.log("İşlem durduruldu.", "#f97316")
                 return
             if path:
                 if self.ensure_local_file(vault, path):
                     found_files.append(path)
                     self.log(f"Bulundu: {code}", "#10b981")
-                    self.update_stats(success=len(found_files))
+                    # self.update_stats(success=len(found_files)) # Stats karmaşası olmasın
                 else:
                     not_found_codes.append(code)
                     self.log(f"Bulunamadı: {code}", "#ef4444")
-                    self.update_stats(error=len(not_found_codes))
+                    # self.update_stats(error=len(not_found_codes))
             else:
                 not_found_codes.append(code)
                 self.log(f"Bulunamadı: {code}", "#ef4444")
-                self.update_stats(error=len(not_found_codes))
+                # self.update_stats(error=len(not_found_codes))
             self.set_progress(0.1 + (0.4 * (i + 1) / total_codes))
 
         if not_found_codes:
@@ -1690,17 +1415,102 @@ class LogicHandler:
             return
 
         if not found_files:
-            self.log("Eklenecek parça bulunamadı.", "#f59e0b")
-            self.set_progress(0)
-            self.set_status("İptal")
+            self.log("Eklenecek parça bulunamadı (PDM'de hiçbiri yok).", "#f59e0b")
             return
 
         if not self.is_running:
-            self.log("İşlem durduruldu.", "#f97316")
             return
 
         # SolidWorks'ü başlat ve montajı hazırla
         self.set_status("SolidWorks başlatılıyor...")
+        sw_app = self.get_sw_app()
+        if not sw_app:
+            self.set_status("Hata")
+            self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
+            return
+
+        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+        if not assembly_doc:
+            return
+
+        self.set_status("Parçalar ekleniyor...")
+
+        total_files = len(found_files)
+        i = 0
+        while i < total_files:
+            file_path = found_files[i]
+            
+            if not self.is_running:
+                return
+
+            if self.is_paused and self.is_running:
+                self.log("İşlem duraklatıldı.", "#0ea5e9")
+            while self.is_paused and self.is_running:
+                time.sleep(0.5)
+
+            # Check if SolidWorks is still running
+            sw_alive = True
+            try:
+                _ = sw_app.Visible
+            except Exception:
+                sw_alive = False
+            
+            if not sw_alive:
+                self.log("SolidWorks kapandı! Yeniden başlatılıyor...", "#f59e0b")
+                sw_app = self.get_sw_app()
+                if not sw_app:
+                    self.log("SolidWorks başlatılamadı.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                if not assembly_doc:
+                    return
+                i = 0 # Restart adding
+                continue
+
+            if locked_title:
+                try:
+                    sw_app.ActivateDoc3(locked_title, False, 0, None)
+                except Exception:
+                    pass
+
+            assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
+            if not assembly_doc:
+                # Re-init logic similar to above
+                 self.log("Montaj bağlantısı koptu.", "#ef4444")
+                 return
+
+            result = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
+            success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
+            
+            if needs_restart:
+                # Restart logic
+                sw_app = self.get_sw_app()
+                if sw_app:
+                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                    if assembly_doc:
+                        i = 0
+                        continue
+            
+            if not success and not needs_restart:
+                 # Check alive logic
+                 pass
+            
+            self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
+            i += 1
+
+        self.apply_cleanup_logic(sw_app, assembly_doc)
+        
+        if not is_subprocess:
+            self.set_status("Tamamlandı")
+            self.set_progress(1.0)
+            self.log("İşlem başarıyla tamamlandı.", "#10b981")
+            
+    def run_process_immediate_mode(self, codes, vault, is_subprocess=False):
+        """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
+        # SolidWorks'ü başlat ve montajı hazırla
+        self.set_status("SolidWorks başlatılıyor...")
+
         sw_app = self.get_sw_app()
         if not sw_app:
             self.set_status("Hata")
@@ -1993,119 +1803,20 @@ class LogicHandler:
             i += 1
 
         # Özet bilgi
+        # Özet bilgi
         if not_found_codes:
             not_found_str = ",".join(not_found_codes)
             self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str} PDM'de yok.", "#f59e0b")
         
-        if added_count > 0:
-            self.log(f"Toplam {added_count} parça montaja eklendi.", "#10b981")
-            self.set_status("Tamamlandı")
-            self.apply_cleanup_logic(sw_app, assembly_doc)
-            self.set_progress(1.0)
-            self.log("İşlem başarıyla tamamlandı.", "#10b981")
+        self.apply_cleanup_logic(sw_app, assembly_doc)
 
-        else:
-            self.log("Hiçbir parça eklenemedi.", "#f59e0b")
-            self.set_status("Tamamlandı")
-            self.set_progress(1.0)
-
-    def run_process_sap_multikit_v2(self, codes, config):
-        """SAP üzerinden Çoklu Kit Montajı akışını yönetir (Refactored)."""
-        self.set_status("SAP Başlatılıyor...")
-        sap = SapGui()
-        
-        if not sap.connect_to_sap():
-            self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
-            self.set_status("Hata")
-            self.is_running = False
-            return
-
-        self.set_status("SAP Girişi Yapılıyor...")
-        username = config.get('sapUsername', '')
-        password = config.get('sapPassword', '')
-        
-        if username and password:
-            self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
-            sap.sapLogin(username, password)
-        else:
-            self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
-
-        self.set_status("BOM Listeleri Çekiliyor...")
-        total = len(codes)
-        self.update_stats(total=total, success=0, error=0)
-        
-        try:
-             self.vault_conn = self.get_pdm_vault() if not hasattr(self, 'vault_conn') or not self.vault_conn else self.vault_conn
-             self.sw_app_conn = self.get_sw_app() if not hasattr(self, 'sw_app_conn') or not self.sw_app_conn else self.sw_app_conn
-        except Exception:
-             pass
-
-        if not self.vault_conn:
-            self.log("PDM Vault bağlantısı kurulamadı!", "#ef4444")
-            return
-            
-        if not self.sw_app_conn:
-            self.log("SolidWorks bağlantısı kurulamadı!", "#ef4444")
-            return
-
-        sw_app = self.sw_app_conn
-
-        for i, code in enumerate(codes):
-            if not self.is_running:
-                self.log("İşlem kullanıcı tarafından durduruldu.", "#ef4444")
-                break
-            
-            code = code.strip()
-            if not code: continue
-            
-            self.log(f"[{i+1}/{total}] BOM Okunuyor: {code}", "#3b82f6")
-            
-            result = sap.get_bom_components(code)
-            
-            header_info = None
-            components = []
-
-            if isinstance(result, dict):
-                components = result.get('components', [])
-                header_info = result.get('header')
+        if not is_subprocess:
+            if added_count > 0:
+                self.log(f"Toplam {added_count} parça montaja eklendi.", "#10b981")
+                self.set_status("Tamamlandı")
+                self.set_progress(1.0)
+                self.log("İşlem başarıyla tamamlandı.", "#10b981")
             else:
-                components = result
-
-            if components:
-                self.log(f"{len(components)} bileşen bulundu.", "#10b981")
-                
-                log_buffer = []
-                if header_info and header_info.get('material'):
-                    log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
-                    log_buffer.append("=" * 68)
-
-                log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
-                log_buffer.append("-" * 68)
-                
-                for idx, comp in enumerate(components):
-                    desc = comp['description']
-                    if len(desc) > 40: desc = desc[:40] + "..."
-                    line = f"{idx+1:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
-                    log_buffer.append(line)
-                
-                self.log("\n".join(log_buffer), "#3b82f6")
-                
-                try:
-                    self.process_sap_kit_assembly(sw_app, code, components)
-                    stats = self.state['stats']
-                    self.update_stats(success=stats['success'] + 1)
-                except Exception as ex_sw:
-                    self.log(f"İşlem Hatası: {str(ex_sw)}", "#ef4444")
-                    stats = self.state['stats']
-                    self.update_stats(error=stats['error'] + 1)
-            else:
-                self.log(f"BOM listesi boş veya alınamadı: {code}", "#ef4444")
-                stats = self.state['stats']
-                self.update_stats(error=stats['error'] + 1)
-            
-            self.set_progress((i + 1) / total)
-            time.sleep(0.5)
-
-        self.set_status("Tamamlandı")
-        self.is_running = False
-        self.log("SAP İşlemleri tamamlandı.", "#10b981")
+                self.log("Hiçbir parça eklenemedi.", "#f59e0b")
+                self.set_status("Tamamlandı")
+                self.set_progress(1.0)
