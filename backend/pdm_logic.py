@@ -321,6 +321,11 @@ class LogicHandler:
         else:
             # self.log("Stats Queue connected.", "#2cc985")
             pass
+            
+        # Çoklu Kit Modu değişkenleri
+        self.multi_kit_mode = False
+        self.assembly_save_path = ""
+        self.current_kit_code = ""
         self.current_status = "Hazır"
         self.stats = {"total": 0, "success": 0, "error": 0, "processed_kits": []}
 
@@ -964,9 +969,6 @@ class LogicHandler:
             # Wait for component to be fully added
             time.sleep(0.3)
             
-            # --- Rotate Component logic moved to cleanup ---
-            # -----------------------------------------------------
-
             # Float logic removed as per request
 
             
@@ -1091,18 +1093,6 @@ class LogicHandler:
                                     
                                 assembly_doc.ClearSelection2(True)
 
-                            # --- ADIM 3: DÖNDÜRME (-90 Derece Y-Ekseni) ---
-                            # Kullanıcı isteği: Float ve Flexible'dan sonra
-                            boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
-                            if boolstatus:
-                                try:
-                                    macro_path = os.path.join(os.getcwd(), "backend", "macros", "RotatePart.swb")
-                                    if os.path.exists(macro_path):
-                                        sw_app.RunMacro(macro_path, "main", "main")
-                                except:
-                                    pass
-                                assembly_doc.ClearSelection2(True)
-
                         except:
                             pass
 
@@ -1120,14 +1110,47 @@ class LogicHandler:
                         
                         assembly_doc.ViewZoomtofit2()
                         
-                        # --- Run Mass Property Update Macro ---
+                        # --- Sahne (Beyaz Arka Plan) - (Her Modda) ---
+                        try:
+                            assembly_doc.Extension.InsertScene(r"\scenes\01 basic scenes\11 white kitchen.p2s")
+                        except:
+                            pass
+                        
+                        # --- Kütle Güncelleme Makrosu - (Her Modda) ---
                         try:
                             macro_path = os.path.join(os.getcwd(), "backend", "macros", "UpdateMass.swb")
                             if os.path.exists(macro_path):
-                                # RunMacro arguments: FileName, ModuleName, ProcedureName
                                 sw_app.RunMacro(macro_path, "main", "main")
                         except Exception:
                             pass
+
+                        # --- Çoklu Kit Modu Özel İşlemleri (Kaydet ve Kapat) ---
+                        if self.multi_kit_mode:
+                            # 3. Farklı Kaydet ve Kapat
+                            if self.assembly_save_path and self.current_kit_code:
+                                try:
+                                    save_dir = self.assembly_save_path
+                                    if not os.path.exists(save_dir):
+                                        os.makedirs(save_dir)
+                                    
+                                    # Dosya adı temizle
+                                    safe_code = "".join([c for c in self.current_kit_code if c.isalnum() or c in (' ', '-', '_')]).strip()
+                                    if not safe_code: safe_code = "Assembly"
+                                    
+                                    full_path = os.path.join(save_dir, f"{safe_code}.SLDASM")
+                                    
+                                    # Kaydetme Denemesi (SaveAsSilent = 1)
+                                    try:
+                                        assembly_doc.SaveAs3(full_path, 0, 1)
+                                    except:
+                                        assembly_doc.SaveAs(full_path)
+                                        
+                                    self.log(f"Montaj kaydedildi: {safe_code}.SLDASM", "#10b981")
+                                    
+                                    # Kapat
+                                    sw_app.CloseDoc(full_path)
+                                except Exception as e:
+                                    self.log(f"Kaydetme hatası: {e}", "#ef4444")
 
                     except:
                         pass
@@ -1232,8 +1255,11 @@ class LogicHandler:
                 self.get_stop_on_not_found = lambda: config.get('stopOnNotFound', False)
             if 'addToExisting' in config:
                 self.get_add_to_existing = lambda: config.get('addToExisting', False)
+        
+        self.multi_kit_mode = config and config.get('multiKitMode', False)
+        self.assembly_save_path = config and config.get('assemblySavePath', '')
 
-        sap_mode = config and config.get('multiKitMode')
+        sap_mode = self.multi_kit_mode
         sap_instance = None
 
         # 1. SAP Başlatma ve Login (Eğer SAP moduysa)
@@ -1290,6 +1316,8 @@ class LogicHandler:
                     
                     code = code.strip()
                     if not code: continue
+                    
+                    self.current_kit_code = code
 
                     self.log(f"--- Kit İşleniyor ({i+1}/{total}): {code} ---", "#8b5cf6")
                     self.set_progress((i) / total)
