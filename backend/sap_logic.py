@@ -68,7 +68,7 @@ def auto_close_popups_thread():
     """Arka planda sürekli çalışan popup kapatıcı thread"""
     while True:
         close_sap_popups()
-        time.sleep(0.5)
+        time.sleep(0.1)
 
 # ==============================================================================
 # SAP BAĞLANTI SINIFI
@@ -128,7 +128,7 @@ class SapGui():
                             break
                     except:
                         pass
-                    time.sleep(0.5)
+                    time.sleep(0.1)
 
                 if not self.sap_gui_auto:
                     raise Exception("SAPGUI nesnesi gelmedi")
@@ -151,7 +151,7 @@ class SapGui():
                     # Yoksa yeni bağlantı aç
                     try:
                         self.connection = self.application.OpenConnection("1 - POLAT S/4 HANA CANLI (PMP)", True)
-                        time.sleep(0.5)
+                        time.sleep(0.1)
                         self.session = self.connection.Children(0)
                     except Exception as e:
                         print(f"Bağlantı açma hatası: {e}")
@@ -251,7 +251,7 @@ class SapGui():
             # CS03'e git (/nCS03 yeni işlem başlatır)
             self.session.findById("wnd[0]/tbar[0]/okcd").text = "/nCS03"
             self.session.findById("wnd[0]").sendVKey(0)
-            time.sleep(0.5)
+            time.sleep(0.1)
 
             # Malzeme parametrelerini gir
             try:
@@ -263,7 +263,7 @@ class SapGui():
                 print(f"CS03 parametre girme hatası: {e}")
                 return {'header': None, 'components': []}
             
-            time.sleep(0.5)
+            time.sleep(0.1)
             
             # Hata kontrolü (sol alt köşe)
             try:

@@ -1336,10 +1336,10 @@ class LogicHandler:
                     
                     if header_info and header_info.get('material'):
                         log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
-                        log_buffer.append("=" * 75)
+                        log_buffer.append("=" * 68)
 
                     log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
-                    log_buffer.append("-" * 75)
+                    log_buffer.append("-" * 68)
                     
                     for idx, comp in enumerate(components):
                         row_num = idx + 1
@@ -1353,12 +1353,21 @@ class LogicHandler:
                     self.log(full_log, "#3b82f6")
                     
                     # MONTAJ İŞLEMİNİ BAŞLAT
-                    self.log(f"Montaj başlatılıyor: {code}", "#6366f1")
+                    self.log(f"Montaj başlatılıyor: {code} (Parça Sayısı: {len(components)})", "#6366f1")
                     child_codes = [c['code'] for c in components]
                     
+                    # Vault Health Check
+                    try:
+                        _ = vault.Name
+                    except:
+                        self.log("PDM Vault bağlantısı koptu, yeniden bağlanılıyor...", "#f59e0b")
+                        vault = self.get_pdm_vault()
+                    
                     if stop_on_not_found:
+                        self.log("Batch modu başlatılıyor...", "#6366f1")
                         self.run_process_batch_mode(child_codes, vault, is_subprocess=True)
                     else:
+                        self.log("Immediate modu başlatılıyor...", "#6366f1")
                         self.run_process_immediate_mode(child_codes, vault, is_subprocess=True)
 
                 else:
@@ -1376,6 +1385,8 @@ class LogicHandler:
 
     def run_process_batch_mode(self, codes, vault, is_subprocess=False):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
+        if is_subprocess: self.log(f"Alt Süreç Başladı: Batch Mode ({len(codes)} parça)", "#6366f1")
+
         found_files = []
         not_found_codes = []
 
