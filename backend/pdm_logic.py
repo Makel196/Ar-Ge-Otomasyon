@@ -1258,113 +1258,121 @@ class LogicHandler:
     def run_process_sap_multikit(self, codes, config):
         """SAP üzerinden Çoklu Kit Montajı akışını yönetir."""
         self.set_status("SAP Başlatılıyor...")
-        sap = SapGui()
         
-        # PDM Bağlantısı Kur (Ön Hazırlık)
-        self.set_status("PDM'e bağlanılıyor...")
-        vault = None
-        retry_count = 0
+        # PDM dialog izleyicisini başlat
+        start_pdm_dialog_watcher()
         
-        while self.is_running:
-            vault = self.get_pdm_vault()
-            if vault: break
-            retry_count += 1
-            if retry_count > 3: # SAP modunda çok beklemeyelim, 3 deneme yeterli
-                self.log("PDM bağlantısı sağlanamadı. SAP işlemi iptal edildi.", "#ef4444")
+        try:
+            sap = SapGui()
+            
+            # PDM Bağlantısı Kur (Ön Hazırlık)
+            self.set_status("PDM'e bağlanılıyor...")
+            vault = None
+            retry_count = 0
+            
+            while self.is_running:
+                vault = self.get_pdm_vault()
+                if vault: break
+                retry_count += 1
+                if retry_count > 3: # SAP modunda çok beklemeyelim, 3 deneme yeterli
+                    self.log("PDM bağlantısı sağlanamadı. SAP işlemi iptal edildi.", "#ef4444")
+                    self.set_status("Hata")
+                    return
+                time.sleep(1)
+                
+            if not vault:
                 self.set_status("Hata")
                 return
-            time.sleep(1)
-            
-        if not vault:
-            self.set_status("Hata")
-            return
 
-        # SAP Bağlantısı
-        if not sap.connect_to_sap():
-            self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
-            self.set_status("Hata")
-            self.is_running = False
-            return
+            # SAP Bağlantısı
+            if not sap.connect_to_sap():
+                self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
+                self.set_status("Hata")
+                self.is_running = False
+                return
 
-        self.set_status("SAP Girişi Yapılıyor...")
-        username = config.get('sapUsername', '')
-        password = config.get('sapPassword', '')
-        
-        if username and password:
-            self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
-            sap.sapLogin(username, password)
-        else:
-            self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
-
-        self.set_status("Kitler İşleniyor...")
-        total = len(codes)
-        stop_on_not_found = self.get_stop_on_not_found()
-        
-        for i, code in enumerate(codes):
-            if not self.is_running:
-                self.log("İşlem kullanıcı tarafından durduruldu.", "#ef4444")
-                break
+            self.set_status("SAP Girişi Yapılıyor...")
+            username = config.get('sapUsername', '')
+            password = config.get('sapPassword', '')
             
-            code = code.strip()
-            if not code: continue
-            
-            self.log(f"[{i+1}/{total}] Kit İşleniyor: {code}", "#3b82f6")
-            self.set_status(f"SAP Okunuyor: {code}")
-            
-            # CS03'ten verileri çek
-            result = sap.get_bom_components(code)
-            
-            header_info = None
-            components = []
-
-            if isinstance(result, dict):
-                components = result.get('components', [])
-                header_info = result.get('header')
+            if username and password:
+                self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
+                sap.sapLogin(username, password)
             else:
-                components = result
+                self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
 
-            if components:
-                self.log(f"{len(components)} bileşen bulundu.", "#10b981")
+            self.set_status("Kitler İşleniyor...")
+            total = len(codes)
+            stop_on_not_found = self.get_stop_on_not_found()
+            
+            for i, code in enumerate(codes):
+                if not self.is_running:
+                    self.log("İşlem kullanıcı tarafından durduruldu.", "#ef4444")
+                    break
                 
-                 # Tablo Logu (Mavi) - Başlıklı Format
-                log_buffer = []
+                code = code.strip()
+                if not code: continue
                 
-                if header_info and header_info.get('material'):
-                    log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
-                    log_buffer.append("=" * 75)
+                self.log(f"[{i+1}/{total}] Kit İşleniyor: {code}", "#3b82f6")
+                self.set_status(f"SAP Okunuyor: {code}")
+                
+                # CS03'ten verileri çek
+                result = sap.get_bom_components(code)
+                
+                header_info = None
+                components = []
 
-                log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
-                log_buffer.append("-" * 75)
-                
-                for idx, comp in enumerate(components):
-                    row_num = idx + 1
-                    desc = comp['description']
-                    if len(desc) > 40:
-                        desc = desc[:40] + "..."
-                    line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
-                    log_buffer.append(line)
-                
-                full_log = "\n".join(log_buffer)
-                self.log(full_log, "#3b82f6")
-                
-                # MONTAJ İŞLEMİNİ BAŞLAT
-                self.log(f"Montaj başlatılıyor: {code}", "#6366f1")
-                child_codes = [c['code'] for c in components]
-                
-                if stop_on_not_found:
-                    self.run_process_batch_mode(child_codes, vault, is_subprocess=True)
+                if isinstance(result, dict):
+                    components = result.get('components', [])
+                    header_info = result.get('header')
                 else:
-                    self.run_process_immediate_mode(child_codes, vault, is_subprocess=True)
+                    components = result
 
-            else:
-                self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
+                if components:
+                    self.log(f"{len(components)} bileşen bulundu.", "#10b981")
+                    
+                    # Tablo Logu (Mavi) - Başlıklı Format
+                    log_buffer = []
+                    
+                    if header_info and header_info.get('material'):
+                        log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
+                        log_buffer.append("=" * 75)
+
+                    log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
+                    log_buffer.append("-" * 75)
+                    
+                    for idx, comp in enumerate(components):
+                        row_num = idx + 1
+                        desc = comp['description']
+                        if len(desc) > 40:
+                            desc = desc[:40] + "..."
+                        line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
+                        log_buffer.append(line)
+                    
+                    full_log = "\n".join(log_buffer)
+                    self.log(full_log, "#3b82f6")
+                    
+                    # MONTAJ İŞLEMİNİ BAŞLAT
+                    self.log(f"Montaj başlatılıyor: {code}", "#6366f1")
+                    child_codes = [c['code'] for c in components]
+                    
+                    if stop_on_not_found:
+                        self.run_process_batch_mode(child_codes, vault, is_subprocess=True)
+                    else:
+                        self.run_process_immediate_mode(child_codes, vault, is_subprocess=True)
+
+                else:
+                    self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
+                
+                self.set_progress((i + 1) / total)
+                time.sleep(1) 
+                
+            self.set_status("Tamamlandı")
+            self.is_running = False
+            self.log("Tüm Kit İşlemleri Tamamlandı.", "#10b981")
             
-            self.set_progress((i + 1) / total)
-            time.sleep(1) 
-            
-        self.set_status("Tamamlandı")
-        self.is_running = False
-        self.log("Tüm Kit İşlemleri Tamamlandı.", "#10b981")
+        finally:
+            stop_pdm_dialog_watcher()
 
     def run_process_batch_mode(self, codes, vault, is_subprocess=False):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
