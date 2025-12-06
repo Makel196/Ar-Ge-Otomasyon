@@ -137,11 +137,12 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
             processedKits.forEach(kit => {
                 let aciklama = "";
-                if (kit.result !== 'YAPILDI' && Array.isArray(kit.notes)) {
-                    const missingLines = kit.notes.map(code => `${code}`).join('\n');
-                    if (missingLines) {
-                        aciklama = missingLines + "\nPDM'de yok.";
-                    }
+                if (kit.result !== 'YAPILDI' && Array.isArray(kit.notes) && kit.notes.length > 0) {
+                    const items = kit.notes.map(item => {
+                        if (typeof item === 'string') return item;
+                        return `${item.code}(${item.desc || ''})`;
+                    });
+                    aciklama = items.join(', ') + " PDM'de yok.";
                 }
 
                 rows.push([
@@ -163,11 +164,38 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 { wch: 60 }, // D: AÇIKLAMA
             ];
 
+            // Stil Uygulama (Best Effort)
+            if (ws['!ref']) {
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+                        if (!ws[addr]) continue;
+                        if (!ws[addr].s) ws[addr].s = {};
+
+                        // Header Row
+                        if (R === 0) {
+                            ws[addr].s.font = { bold: true, sz: 12 };
+                            ws[addr].s.alignment = { horizontal: "center", vertical: "center" };
+                        } else {
+                            // Data Rows
+                            if (C === 1 || C === 2) { // B and C
+                                ws[addr].s.alignment = { horizontal: "center", vertical: "center" };
+                            } else if (C === 3) { // D
+                                ws[addr].s.alignment = { horizontal: "left", vertical: "center", wrapText: true };
+                            } else {
+                                ws[addr].s.alignment = { horizontal: "left", vertical: "center" };
+                            }
+                        }
+                    }
+                }
+            }
+
             XLSX.utils.book_append_sheet(wb, ws, "Montaj Raporu");
 
             const today = new Date();
             const timestamp = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
-            XLSX.writeFile(wb, `Montaj_Raporu_${timestamp}.xlsx`);
+            XLSX.writeFile(wb, `Montaj Sihirbazı Raporu - ${timestamp}.xlsx`);
             return;
         }
 

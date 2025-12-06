@@ -1291,16 +1291,24 @@ class LogicHandler:
                     if isinstance(result, tuple) and len(result) == 2:
                         success, missing = result
                     else:
-                        # Fallback for void return (assuming success if no exception, but missing info is lost)
+                        # Fallback for void return
                         success = True 
                         missing = []
+
+                    # Missing parça tanımlarını eşleştir
+                    detailed_notes = []
+                    if missing:
+                        comp_map = {c['code']: c['description'] for c in kit_data_sap.get('components', [])}
+                        for m_code in missing:
+                            desc = comp_map.get(m_code, '')
+                            detailed_notes.append({'code': m_code, 'desc': desc})
 
                     # C. Kayıt Oluştur
                     record = {
                         'kit_name': kit_desc,
                         'kit_code': kit_code,
                         'result': 'YAPILDI' if success else 'YAPILAMADI',
-                        'notes': missing
+                        'notes': detailed_notes if detailed_notes else missing # Geriye dönük uyumluluk veya boş
                     }
                     self.stats['processed_kits'].append(record)
                     self.update_stats()
@@ -1380,6 +1388,7 @@ class LogicHandler:
             
         return {
             'codes': kit_codes,
+            'components': components_list,
             'kit_code': header_info['material'] if header_info else code,
             'kit_desc': header_info['description'] if header_info else '',
             'missing_in_sap': False
