@@ -999,6 +999,7 @@ class LogicHandler:
                     self.log(f"Gizleniyor: {sap_code}", "#a855f7")
                     
                     self.run_hide_macro(sw_app, full_id)
+                    time.sleep(0.1)
             except Exception as hide_err:
                 self.log(f"Gizleme Bloğu Hatası: {hide_err}", "#ef4444")
                 
@@ -1148,7 +1149,7 @@ End Sub
                             except Exception as unlock_err:
                                 if attempt < 9:
                                     self.log(f"Check-in deneniyor ({attempt+1}/10)... Bekleniyor...", "#f59e0b")
-                                    time.sleep(2)
+                                    time.sleep(0.1)
                                 else:
                                     self.log(f"Check-in başarısız: {unlock_err}", "#ef4444")
                     else:
@@ -1322,7 +1323,7 @@ End Sub
                                             sw_app.CloseDoc(final_title)
                                         
                                         # PDM gecikmesi için bekle
-                                        time.sleep(5)
+                                        time.sleep(0.1)
                                         
                                         # Dosya kapandıktan sonra Check-in
                                         self.log(f"Dosya isimlendirildi: {safe_code}", "#3b82f6")
