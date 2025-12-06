@@ -326,6 +326,10 @@ class LogicHandler:
         self.multi_kit_mode = False
         self.assembly_save_path = ""
         self.current_kit_code = ""
+
+        # Tracking for Hidden/Logged items
+        self.current_kit_hidden_items = set()
+        self.current_kit_added_logs = set()
         self.current_status = "Hazır"
         self.stats = {"total": 0, "success": 0, "error": 0, "processed_kits": []}
 
@@ -975,7 +979,22 @@ class LogicHandler:
             # Float logic removed as per request
 
 
-            self.log(f"Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#10b981")
+            filename = os.path.basename(file_path)
+            
+            # Tekrar loglamayı engelle
+            if filename not in self.current_kit_added_logs:
+                self.log(f"Eklendi: {filename} (Z={z_offset:.3f}m)", "#10b981")
+                self.current_kit_added_logs.add(filename)
+            
+            # Gizleme Kontrolü (Negatif Miktar)
+            try:
+                base_code, _ = os.path.splitext(filename)
+                if base_code in self.current_kit_hidden_items:
+                    comp.Select4(False, None, False)
+                    assembly_doc.HideComponent2()
+            except:
+                pass
+                
             new_z_offset = z_offset - 0.3  # offset_step
             success = True
         else:
@@ -1326,6 +1345,9 @@ class LogicHandler:
                     if not code: continue
                     
                     self.current_kit_code = code
+                    # Reset kit-specific tracking
+                    self.current_kit_hidden_items.clear()
+                    self.current_kit_added_logs.clear()
 
                     self.log(f"--- Kit İşleniyor ({i+1}/{total}): {code} ---", "#8b5cf6")
                     self.set_progress((i) / total)
@@ -1432,24 +1454,36 @@ class LogicHandler:
             log_buffer.append("-" * 68)
             
             for idx, comp in enumerate(components):
+                # 1. Miktar Parse Et
+                qty = 1
+                try:
+                    raw_qty = str(comp.get('quantity', '1')).replace(',', '.')
+                    if raw_qty.endswith('-'):
+                        qty = int(float(raw_qty[:-1])) * -1
+                    else:
+                        qty = int(float(raw_qty))
+                except:
+                    qty = 1
+
+                # 2. Log Formatı
                 row_num = idx + 1
-                desc = comp['description']
+                desc = comp.get('description', '')
                 if len(desc) > 40: desc = desc[:37] + "..."
-                line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
+                line = f"{row_num:<2} | {comp.get('code', ''):<9} | {desc:<40} | {qty}"
                 log_buffer.append(line)
                 
                 if comp.get('code'):
-                    # Miktar kadar ekle
-                    try:
-                        raw_qty = str(comp.get('quantity', '1')).replace(',', '.')
-                        qty = int(float(raw_qty))
-                    except:
-                        qty = 1
+                    code = comp['code']
+                    # Negatif ise gizlenecekler listesine ekle
+                    if qty < 0:
+                        self.current_kit_hidden_items.add(code)
                     
-                    if qty < 1: qty = 1
+                    # Mutlak değer kadar listeye ekle
+                    abs_qty = abs(qty)
+                    if abs_qty == 0: abs_qty = 1
                     
-                    for _ in range(qty):
-                        kit_codes.append(comp['code'])
+                    for _ in range(abs_qty):
+                        kit_codes.append(code)
             
             full_log = "\n".join(log_buffer)
             self.log(full_log, "#3b82f6")
