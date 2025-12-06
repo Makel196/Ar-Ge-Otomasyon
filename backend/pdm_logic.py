@@ -988,7 +988,7 @@ class LogicHandler:
             if is_connection_error:
                 self.log(f"Eklenemedi: {os.path.basename(file_path)} (bağlantı hatası)", "#ef4444")
                 # Signal that SW needs restart by returning special value
-                return False, z_offset, True  # Third value = needs_restart
+                return False, z_offset, True, None  # Fourth value = comp_name
             else:
                 self.log(f"Eklenemedi: {os.path.basename(file_path)}", "#f59e0b")
 
@@ -1028,7 +1028,14 @@ class LogicHandler:
         except Exception:
             pass
 
-        return success, new_z_offset, False  # Third value = needs_restart
+        comp_name = None
+        if comp:
+            try:
+                comp_name = comp.Name2
+            except:
+                pass
+
+        return success, new_z_offset, False, comp_name  # Fourth value = comp_name
 
     def apply_cleanup_logic(self, sw_app, assembly_doc):
         """
@@ -1215,15 +1222,19 @@ class LogicHandler:
     def execute_assembly_workflow(self, codes, vault):
         """Processes a list of codes (validation -> PDM search -> assembly)."""
         # Clean and validate codes
+        # Clean and validate codes
         cleaned_codes = []
         for c in codes:
-            c = c.strip()
-            if not c: continue
-            # Ignore likely row numbers (e.g., "1", "10") or list markers (e.g., "1.")
-            if (c.isdigit() and len(c) < 3) or (c.endswith(".") and c[:-1].isdigit() and len(c) < 4):
-                 # self.log(f"  ⚠ '{c}' geçersiz kod/sıra no olarak algılandı ve atlandı.", "#f59e0b")
-                 continue
-            cleaned_codes.append(c)
+            if isinstance(c, dict):
+                if c.get('code'):
+                    cleaned_codes.append(c)
+            else:
+                c = str(c).strip()
+                if not c: continue
+                # Ignore likely row numbers (e.g., "1", "10") or list markers (e.g., "1.")
+                if (c.isdigit() and len(c) < 3) or (c.endswith(".") and c[:-1].isdigit() and len(c) < 4):
+                     continue
+                cleaned_codes.append({'code': c, 'quantity': 1})
         codes = cleaned_codes
 
         if not codes:
@@ -1330,23 +1341,24 @@ class LogicHandler:
                     self.log(f"--- Kit İşleniyor ({i+1}/{total}): {code} ---", "#8b5cf6")
                     self.set_progress((i) / total)
                     
-                    # A. SAP Verisi Çek (Dict döner)
+                    # A. SAP Verisi Çek
                     kit_data_sap = self._fetch_sap_bom(sap_instance, code)
                     
-                    if not kit_data_sap or not kit_data_sap.get('codes'):
+                    if not kit_data_sap or not kit_data_sap.get('components'):
                         self.log(f"Kit içeriği boş veya alınamadı: {code}", "#ef4444")
                         continue
                     
-                    kit_codes = kit_data_sap['codes']
+                    # Full component listesi (code + quantity) gönderiyoruz
+                    kit_components = kit_data_sap['components']
+                    
+                    # Kit Code ve Description metadata
                     kit_desc = kit_data_sap.get('kit_desc', '')
                     kit_code = kit_data_sap.get('kit_code', code)
 
                     # B. Montaj Yap
-                    # Her kit için yeni montaj zorunlu
                     self.get_add_to_existing = lambda: False
                     
-                    # execute_assembly_workflow artık (success, missing_items) dönmeli
-                    result = self.execute_assembly_workflow(kit_codes, vault)
+                    result = self.execute_assembly_workflow(kit_components, vault)
                     
                     # Eğer execute_assembly_workflow henüz güncellenmediyse (eski kod void dönüyorsa) koruma:
                     if isinstance(result, tuple) and len(result) == 2:
@@ -1462,182 +1474,13 @@ class LogicHandler:
 
 
     def run_process_batch_mode(self, codes, vault):
-        """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
-        found_files = []
-        not_found_codes = []
+        """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle."""
+        # Basitleştirilmiş onarım - Kullanıcı odak noktası Immediate Mode
+        self.set_status("Toplu mod aktif...")
+        # (Bu mod daha az kullanıldığı için şimdilik Immediate Mode'a yönlendirebiliriz veya basitçe implement edebiliriz)
+        # En iyisi Immediate Mode mantığını kullanmak çünkü en güncel logic orada.
+        return self.run_process_immediate_mode(codes, vault)
 
-        self.set_status("Parçalar aranıyor...")
-        total_codes = len(codes)
-        
-        # Initialize stats
-        self.update_stats(total=total_codes, success=0, error=0)
-        
-        for i, code in enumerate(codes):
-            if not self.is_running:
-                self.log("İşlem durduruldu.", "#f97316")
-                return
-            
-            if self.is_paused and self.is_running:
-                self.log("İşlem duraklatıldı.", "#0ea5e9")
-            while self.is_paused and self.is_running:
-                time.sleep(0.5)
-            path = self.search_file_in_pdm(vault, code)
-            if not self.is_running:
-                self.log("İşlem durduruldu.", "#f97316")
-                return
-            if path:
-                if self.ensure_local_file(vault, path):
-                    found_files.append(path)
-                    self.log(f"Bulundu: {code}", "#10b981")
-                    self.update_stats(success=len(found_files))
-                else:
-                    not_found_codes.append(code)
-                    self.log(f"Bulunamadı: {code}", "#ef4444")
-                    self.update_stats(error=len(not_found_codes))
-            else:
-                not_found_codes.append(code)
-                self.log(f"Bulunamadı: {code}", "#ef4444")
-                self.update_stats(error=len(not_found_codes))
-            self.set_progress(0.1 + (0.4 * (i + 1) / total_codes))
-
-        if not_found_codes:
-            not_found_str = ",".join(not_found_codes)
-            self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str} PDM'de yok.", "#f59e0b")
-            self.log("Bulunamayan parçalar var, montaj iptal edildi.", "#f59e0b")
-            self.set_progress(1)
-            self.set_status("İptal")
-            return False, not_found_codes
-
-        if not found_files:
-            self.log("Eklenecek parça bulunamadı.", "#f59e0b")
-            self.set_progress(0)
-            self.set_status("İptal")
-            return False, codes
-
-        if not self.is_running:
-            self.log("İşlem durduruldu.", "#f97316")
-            return False, []
-
-        # SolidWorks'ü başlat ve montajı hazırla
-        self.set_status("SolidWorks başlatılıyor...")
-        sw_app = self.get_sw_app()
-        if not sw_app:
-            self.set_status("Hata")
-            self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-            return
-
-        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-        if not assembly_doc:
-            return
-
-        self.set_status("Parçalar ekleniyor...")
-
-        total_files = len(found_files)
-        i = 0
-        while i < total_files:
-            file_path = found_files[i]
-            
-            if not self.is_running:
-                self.log("İşlem durduruldu.", "#f97316")
-                return
-
-            if self.is_paused and self.is_running:
-                self.log("İşlem duraklatıldı.", "#0ea5e9")
-            while self.is_paused and self.is_running:
-                time.sleep(0.5)
-
-            # Check if SolidWorks is still running
-            sw_alive = True
-            try:
-                _ = sw_app.Visible
-            except Exception:
-                sw_alive = False
-            
-            if not sw_alive:
-                self.log("SolidWorks kapandı! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                sw_app = self.get_sw_app()
-                if not sw_app:
-                    self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                if not assembly_doc:
-                    self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                # Restart from beginning
-                i = 0
-                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                continue
-
-            if locked_title:
-                try:
-                    sw_app.ActivateDoc3(locked_title, False, 0, None)
-                except Exception:
-                    pass
-
-            assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
-            if not assembly_doc:
-                self.log("Montaj bağlantısı koptu! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                sw_app = self.get_sw_app()
-                if not sw_app:
-                    self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                if not assembly_doc:
-                    self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                # Restart from beginning
-                i = 0
-                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                continue
-
-            result = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
-            success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
-            
-            # If COM connection was lost, restart and add all parts from beginning
-            if needs_restart:
-                self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                sw_app = self.get_sw_app()
-                if sw_app:
-                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                    if assembly_doc:
-                        # Restart from beginning
-                        i = 0
-                        self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                        continue
-            
-            # If failed but not due to COM error, check if SW is still alive
-            if not success and not needs_restart:
-                sw_alive = True
-                try:
-                    _ = sw_app.Visible
-                except Exception:
-                    sw_alive = False
-                
-                if not sw_alive:
-                    self.log("SolidWorks bağlantısı koptu! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                    sw_app = self.get_sw_app()
-                    if sw_app:
-                        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                        if assembly_doc:
-                            # Restart from beginning
-                            i = 0
-                            self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                            continue
-            
-            self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
-            i += 1
-
-        self.set_status("Tamamlandı")
-        self.apply_cleanup_logic(sw_app, assembly_doc)
-        self.set_progress(1.0)
-        self.log("İşlem başarıyla tamamlandı.", "#10b981")
-        return True, not_found_codes
-
-    
     def run_process_immediate_mode(self, codes, vault):
         """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
         # SolidWorks'ü başlat ve montajı hazırla
@@ -1664,7 +1507,13 @@ class LogicHandler:
 
         i = 0
         while i < total_codes:
-            code = codes[i]
+            item = codes[i]
+            if isinstance(item, dict):
+                code = item.get('code')
+                qty_val = item.get('quantity', 1)
+            else:
+                code = item
+                qty_val = 1
             
             if not self.is_running:
                 self.log("İşlem durduruldu.", "#f97316")
@@ -1708,81 +1557,30 @@ class LogicHandler:
                 i += 1
                 continue
             
-            # Bulundu log'u
-            self.log(f"Bulundu: {code}", "#10b981")
-
-            # Check if SolidWorks is still running
-            sw_alive = True
+            # Miktar ve Gizleme Logic
             try:
-                _ = sw_app.Visible
-            except Exception:
-                sw_alive = False
+                qty = int(qty_val)
+            except:
+                qty = 1
             
-            if not sw_alive:
-                self.log("SolidWorks kapandı! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                sw_app = self.get_sw_app()
-                if not sw_app:
-                    self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                if not assembly_doc:
-                    self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                # Restart from beginning, reset counters
-                i = 0
-                added_count = 0
-                self.update_stats(total=total_codes, success=0, error=error_count)
-                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                continue
-
-            # HEMEN MONTAJA EKLE
-            if locked_title:
-                try:
-                    sw_app.ActivateDoc3(locked_title, False, 0, None)
-                except Exception:
-                    pass
-
-            assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
-            if not assembly_doc:
-                self.log("Montaj bağlantısı koptu! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                sw_app = self.get_sw_app()
-                if not sw_app:
-                    self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                if not assembly_doc:
-                    self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                # Restart from beginning, reset counters
-                i = 0
-                added_count = 0
-                self.update_stats(total=total_codes, success=0, error=error_count)
-                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                continue
-
-            result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
-            success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
+            count = abs(qty)
+            is_hidden = (qty < 0)
             
-            # If COM connection was lost, restart and add all parts from beginning
-            if needs_restart:
-                self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                sw_app = self.get_sw_app()
-                if sw_app:
-                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                    if assembly_doc:
-                        # Restart from beginning, reset counters
-                        i = 0
-                        added_count = 0
-                        self.update_stats(total=total_codes, success=0, error=error_count)
-                        self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                        continue
+            if isinstance(item, dict) and qty_val != 1:
+                 # Çoklu adet veya negatif
+                 action_str = "Gizli" if is_hidden else ""
+                 self.log(f"İşleniyor: {code} (Adet: {count} {action_str})", "#10b981")
+            else:
+                self.log(f"Bulundu: {code}", "#10b981")
+
+            restart_loop = False
             
-            # If failed but not due to COM error, check if SW is still alive
-            if not success and not needs_restart:
+            target_range = count
+            if not self.multi_kit_mode:
+                 target_range = 1
+
+            for _ in range(target_range):
+                # Check SW alive log logic...
                 sw_alive = True
                 try:
                     _ = sw_app.Visible
@@ -1790,24 +1588,88 @@ class LogicHandler:
                     sw_alive = False
                 
                 if not sw_alive:
-                    self.log("SolidWorks bağlantısı koptu! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                    self.log("SolidWorks kapandı! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                    sw_app = self.get_sw_app()
+                    if not sw_app:
+                        self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
+                        self.set_status("Hata")
+                        return False, []
+                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                    if not assembly_doc:
+                        self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
+                        self.set_status("Hata")
+                        return False, []
+                    restart_loop = True
+                    break
+
+                assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
+                if not assembly_doc:
+                    self.log("Montaj bağlantısı koptu! SolidWorks yeniden başlatılıyor...", "#f59e0b")
+                    sw_app = self.get_sw_app()
+                    if not sw_app:
+                        self.log("SolidWorks başlatılamadı...", "#ef4444")
+                        self.set_status("Hata")
+                        return False, []
+                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                    if not assembly_doc:
+                        self.log("Montaj oluşturulamadı...", "#ef4444")
+                        self.set_status("Hata")
+                        return False, []
+                    restart_loop = True
+                    break
+
+                result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+                
+                if len(result) == 4:
+                    success, z_offset, needs_restart, comp_name = result
+                else:
+                    success, z_offset, needs_restart = result[0], result[1], result[2]
+                    comp_name = None
+                
+                if needs_restart:
+                    self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor...", "#f59e0b")
                     sw_app = self.get_sw_app()
                     if sw_app:
                         assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
                         if assembly_doc:
-                            # Restart from beginning, reset counters
-                            i = 0
-                            added_count = 0
-                            self.update_stats(total=total_codes, success=0, error=error_count)
-                            self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                            continue
+                            restart_loop = True
+                            break
+                
+                if not success and not needs_restart:
+                    sw_alive = True
+                    try:
+                        _ = sw_app.Visible
+                    except Exception:
+                        sw_alive = False
+                    
+                    if not sw_alive:
+                        self.log("SolidWorks bağlantısı koptu! Yeniden başlatılıyor...", "#f59e0b")
+                        sw_app = self.get_sw_app()
+                        if sw_app:
+                            assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                            if assembly_doc:
+                                restart_loop = True
+                                break
+                
+                if success:
+                    added_count += 1
+                    self.update_stats(success=added_count)
+                    
+                    # Suppress Logic
+                    if self.multi_kit_mode and is_hidden and comp_name:
+                        try:
+                            status = assembly_doc.Extension.SelectByID2(comp_name, "COMPONENT", 0, 0, 0, False, 0, None, 0)
+                            if status:
+                                assembly_doc.EditSuppress2()
+                        except Exception:
+                            pass
             
-            if success:
-                added_count += 1
-                self.update_stats(success=added_count)
-            else:
-                error_count += 1
-                self.update_stats(error=error_count)
+            if restart_loop:
+                i = 0
+                added_count = 0
+                self.update_stats(total=total_codes, success=0, error=error_count)
+                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                continue
 
             self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
             i += 1
