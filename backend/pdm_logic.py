@@ -1354,7 +1354,7 @@ class LogicHandler:
                     
                     # MONTAJ İŞLEMİNİ BAŞLAT
                     self.log(f"Montaj başlatılıyor: {code} (Parça Sayısı: {len(components)})", "#6366f1")
-                    child_codes = [c['code'] for c in components]
+                    child_codes = [c['code'].strip() for c in components if c.get('code') and c['code'].strip()]
                     
                     # Vault Health Check
                     try:
@@ -1527,6 +1527,8 @@ class LogicHandler:
             
     def run_process_immediate_mode(self, codes, vault, is_subprocess=False):
         """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
+        if is_subprocess: self.log(f"Alt Süreç Başladı: Immediate Mode ({len(codes)} parça)", "#6366f1")
+
         # SolidWorks'ü başlat ve montajı hazırla
         self.set_status("SolidWorks başlatılıyor...")
 
