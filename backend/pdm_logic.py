@@ -1139,8 +1139,18 @@ End Sub
                 # Şimdi Check-In (Unlock)
                 if file_pdm:
                     if file_pdm.IsLocked:
-                        file_pdm.UnlockFile(0, comment)
-                        self.log(f"Dosya kasaya gönderildi (Check-in): {os.path.basename(file_path)}", "#10b981")
+                        # Retry mekanizması (Zamansal problemler için)
+                        for attempt in range(3):
+                            try:
+                                file_pdm.UnlockFile(0, comment)
+                                self.log(f"Dosya kasaya gönderildi (Check-in): {os.path.basename(file_path)}", "#10b981")
+                                break
+                            except Exception as unlock_err:
+                                if attempt < 2:
+                                    self.log(f"Check-in deneniyor ({attempt+1}/3)... Bekleniyor...", "#f59e0b")
+                                    time.sleep(2)
+                                else:
+                                    self.log(f"Check-in başarısız: {unlock_err}", "#ef4444")
                     else:
                         self.log(f"Dosya zaten check-in yapılmış: {os.path.basename(file_path)}", "#3b82f6")
                     
@@ -1260,16 +1270,24 @@ End Sub
                                     
                                     # PDM Veri Kartı Değişkenlerini Doldur (Custom Properties)
                                     try:
-                                        # Konfigürasyon: Aktif konfigürasyona yaz (Genelde "Default" veya "Varsayılan")
-                                        config_name = "Default"
+                                        # Konfigürasyon Seçimi: Varsayılan > Default > Aktif
+                                        target_conf = "Default"
                                         try:
-                                            active_conf = assembly_doc.ConfigurationManager.ActiveConfiguration
-                                            if active_conf:
-                                                config_name = active_conf.Name
+                                            confs = assembly_doc.GetConfigurationNames()
+                                            if confs:
+                                                # Tuple veya list olabilir
+                                                confs_list = list(confs)
+                                                if "Varsayılan" in confs_list:
+                                                    target_conf = "Varsayılan"
+                                                elif "Default" in confs_list:
+                                                    target_conf = "Default"
+                                                else:
+                                                    active = assembly_doc.ConfigurationManager.ActiveConfiguration
+                                                    if active: target_conf = active.Name
                                         except:
                                             pass
                                             
-                                        cpm = assembly_doc.Extension.CustomPropertyManager(config_name)
+                                        cpm = assembly_doc.Extension.CustomPropertyManager(target_conf)
                                         
                                         def safe_add_prop(name, val):
                                             try:
@@ -1302,6 +1320,9 @@ End Sub
                                         if assembly_doc:
                                             final_title = assembly_doc.GetTitle()
                                             sw_app.CloseDoc(final_title)
+                                        
+                                        # PDM gecikmesi için bekle
+                                        time.sleep(3)
                                         
                                         # Dosya kapandıktan sonra Check-in
                                         self.log(f"Dosya isimlendirildi: {safe_code}", "#3b82f6")
