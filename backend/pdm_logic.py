@@ -1156,33 +1156,8 @@ class LogicHandler:
             return None, False
 
 
-    def run_process(self, codes, config=None):
-        pythoncom.CoInitialize()
-        self.is_running = True
-        
-        # Check for Multi-Kit SAP Mode
-        # Config üzerinden gelen ayarları öncelikli kıl
-        if config:
-            if 'stopOnNotFound' in config:
-                self.get_stop_on_not_found = lambda: config.get('stopOnNotFound', False)
-            if 'addToExisting' in config:
-                self.get_add_to_existing = lambda: config.get('addToExisting', False)
-
-        if config and config.get('multiKitMode'):
-             sap_codes = self.run_process_sap_multikit(codes, config)
-             if not sap_codes or not self.is_running:
-                 self.is_running = False
-                 pythoncom.CoUninitialize()
-                 return
-             # SAP'den gelen kodlarla devam et
-             codes = sap_codes
-             self.set_status("PDM'e Geçiliyor...")
-             self.log(f"SAP'den {len(codes)} adet kod alındı. PDM süreci başlatılıyor...", "#3b82f6")
-             time.sleep(1.0)
-        
-        # PDM dialog izleyicisini başlat (Kasadan Al dialoglarını otomatik iptal eder)
-        start_pdm_dialog_watcher()
-
+    def execute_assembly_workflow(self, codes, vault):
+        """Processes a list of codes (validation -> PDM search -> assembly)."""
         # Clean and validate codes
         cleaned_codes = []
         for c in codes:
@@ -1190,70 +1165,21 @@ class LogicHandler:
             if not c: continue
             # Ignore likely row numbers (e.g., "1", "10") or list markers (e.g., "1.")
             if (c.isdigit() and len(c) < 3) or (c.endswith(".") and c[:-1].isdigit() and len(c) < 4):
-                self.log(f"'{c}' geçersiz kod/sıra no olarak algılandı ve atlandı.", "#f59e0b")
-                continue
+                 # self.log(f"  ⚠ '{c}' geçersiz kod/sıra no olarak algılandı ve atlandı.", "#f59e0b")
+                 continue
             cleaned_codes.append(c)
-        
         codes = cleaned_codes
 
         if not codes:
             self.log("İşlenecek geçerli kod bulunamadı.", "#ef4444")
-            self.set_status("Durduruldu")
-            self.is_running = False
-            stop_pdm_dialog_watcher()
-            pythoncom.CoUninitialize()
             return
 
-        try:
-            self.set_progress(0.1)
-            self.set_status("PDM'e bağlanılıyor...")
-            
-            # Retry PDM connection every 1 minute until successful
-            retry_count = 0
-            vault = None
-            while self.is_running:
-                vault = self.get_pdm_vault()
-                if vault:
-                    break
-                
-                retry_count += 1
-                self.log(f"PDM bağlantısı sağlanamadı. 1 dakika bekleniyor... (deneme #{retry_count})", "#f59e0b")
-                
-                # Wait 60 seconds, but check is_running every second
-                for _ in range(60):
-                    if not self.is_running:
-                        return
-                    time.sleep(1)
-            
-            if not vault:
-                self.set_status("Hata")
-                self.log("PDM bağlantısı sağlanamadı. İşlem durduruldu.", "#ef4444")
-                return
-            
-            if retry_count > 0:
-                self.log("PDM bağlantısı sağlandı! Devam ediliyor...", "#10b981")
-
-            # Checkbox durumuna göre farklı iş akışları
-            stop_on_not_found = self.get_stop_on_not_found()
-            
-            if stop_on_not_found:
-                # ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle
-                self.run_process_batch_mode(codes, vault)
-            else:
-                # YENİ AKIŞ: Bulundu -> Hemen ekle
-                self.run_process_immediate_mode(codes, vault)
-
-        except Exception as e:
-            self.log(f"Beklenmedik Hata: {e}", "#ef4444")
-            self.set_status("Hata")
-        finally:
-            if self.is_running:
-                 self.log("İşlem sonlandırılıyor...", "#64748b")
-            
-            self.is_running = False
-            
-            # Son bir temizlik ve olası hata pencerelerini yakalamak için kısa bir bekleme
-            time.sleep(3)
+        # Check user mode
+        stop_on_not_found = self.get_stop_on_not_found()
+        if stop_on_not_found:
+            self.run_process_batch_mode(codes, vault)
+        else:
+            self.run_process_immediate_mode(codes, vault)
             
             # PDM dialog izleyicisini durdur
             stop_pdm_dialog_watcher()
@@ -1274,7 +1200,7 @@ class LogicHandler:
         self.set_status("SAP Başlatılıyor...")
         sap = SapGui()
         
-        all_collected_codes = []
+        kits_data = []
         
         # SAP Bağlantısı
         if not sap.connect_to_sap():
@@ -1352,15 +1278,22 @@ class LogicHandler:
                 # Eğer self.stats yoksa ve state içindeyse, kullanıcı muhtemelen self.stats diye bir değişken atadığımı sanıyor veya kodun başka yerinde öyle yapılmış.
                 # Ancak güvenli olması için self.state['stats'] yerine doğrudan update_stats çağırıp incrementing'i içeride yapmam lazım ama update_stats absolute değer alıyor olabilir.
                 
+                # Başarılı sayısını artır
                 # Kullanıcının bildirimine göre düzeltme:
                 # Muhtemelen self.stats obje olarak tutuluyor.
                 stats = self.stats
                 self.update_stats(success=stats['success'] + 1)
                 
                 # Kodları topla
+                current_kit_codes = []
                 for comp in components:
                     if comp.get('code'):
-                        all_collected_codes.append(comp['code'])
+                        current_kit_codes.append(comp['code'])
+                
+                kits_data.append({
+                    'kit': header_info['material'] if header_info else code,
+                    'codes': current_kit_codes
+                })
                         
             else:
                 self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
@@ -1370,8 +1303,8 @@ class LogicHandler:
             self.set_progress((i + 1) / total)
             time.sleep(0.5) # SAP'yi boğmamak için kısa bekleme
             
-        self.log(f"SAP tamamlandı. {len(all_collected_codes)} bileşen aktarılıyor...", "#10b981")
-        return all_collected_codes
+        self.log(f"SAP tamamlandı. {len(kits_data)} kit aktarılıyor...", "#10b981")
+        return kits_data
 
     def run_process_batch_mode(self, codes, vault):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""

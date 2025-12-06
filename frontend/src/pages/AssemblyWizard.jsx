@@ -105,60 +105,122 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     };
 
     const handleExportExcel = () => {
-        // Filter only for bulk "Bulunamayan SAP kodları" logs
-        const notFoundLogs = logs.filter(log =>
-            log.message && log.message.includes('Bulunamayan SAP kodları')
-        );
+        // Parse logs to extract structured data (Kit Info and Component Descriptions)
+        let currentKitInfo = { code: 'Genel', desc: '' };
+        let componentMap = {}; // Code -> Desc
+        const exportRows = [];
 
-        if (notFoundLogs.length === 0) {
-            setAlertState({ isOpen: true, message: "Dışa aktarılacak veri yok.", type: 'info' });
-            return;
-        }
+        logs.forEach(log => {
+            const msg = log.message || '';
 
-        // Extract SAP codes from messages
-        const extractedData = [];
-        notFoundLogs.forEach(log => {
-            const time = new Date(log.timestamp * 1000).toLocaleTimeString();
-            const message = log.message;
+            // 1. Kit Bilgisi Yakala (SAP Modundan gelen loglar)
+            if (msg.includes('KİT KODU:')) {
+                try {
+                    // Format: "KİT KODU: 50.xx... | KİT TANIMI: ..."
+                    const parts = msg.split('|');
+                    const codePart = parts[0].split(':')[1]?.trim() || '';
+                    const descPart = parts[1]?.split(':')[1]?.trim() || '';
+                    currentKitInfo = { code: codePart, desc: descPart };
+                    componentMap = {}; // Yeni kit gelince önceki bileşen map'ini temizle (opsiyonel)
+                } catch (e) {
+                    console.error("Kit info parse error", e);
+                }
+            }
 
-            // Extract everything after ": " (removes "Bulunamayan SAP kodları (x adet): ")
-            const colonIndex = message.indexOf(':');
-            if (colonIndex !== -1) {
-                const codesText = message.substring(colonIndex + 1).trim();
-                extractedData.push([time, codesText]);
+            // 2. Tablo Satırı Yakala (Bileşen Tanımlarını öğrenmek için)
+            // Format: "1  | 12345     | Vida...   | 2"
+            // Çizgi veya başlık olmayan, pipe içeren satırlar
+            if (msg.includes('|') && !msg.includes('KİT KODU') && !msg.includes('NO | BİLEŞEN') && !msg.includes('=')) {
+                const parts = msg.split('|');
+                if (parts.length >= 3) {
+                    const code = parts[1].trim();
+                    const desc = parts[2].trim();
+                    // Kod numeric veya alfanümerik olabilir ama "NO" sütunu ile karışmaması lazım
+                    // Header kontrolü zaten yukarıda yapıldı (!NO | BİLEŞEN)
+                    if (code && desc) {
+                        componentMap[code] = desc;
+                    }
+                }
+            }
+
+            // 3. Bulunamayan Kodları Yakala
+            if (msg.includes('Bulunamayan SAP kodları')) {
+                // Msg: "Bulunamayan SAP kodları (2 adet): 10001, 10002 PDM'de yok."
+                try {
+                    const colonIndex = msg.indexOf(':');
+                    const pIndex = msg.lastIndexOf('PDM');
+                    // PDM kelimesi yoksa sonuna kadar al
+                    const endIndex = pIndex !== -1 ? pIndex : msg.length;
+
+                    if (colonIndex !== -1) {
+                        const content = msg.substring(colonIndex + 1, endIndex).trim();
+                        // content: "10001, 10002"
+                        // Eğer boşsa veya sadece nokta varsa geç
+                        if (content && content !== '.') {
+                            const codesArr = content.split(',').map(c => c.trim().replace('.', '')); // Sondaki noktaları temizle
+
+                            const time = new Date(log.timestamp * 1000).toLocaleTimeString();
+
+                            codesArr.forEach(code => {
+                                if (!code) return;
+                                const desc = componentMap[code] || 'Tanım Bulunamadı'; // Map'te varsa al
+
+                                exportRows.push({
+                                    time,
+                                    kitCode: currentKitInfo.code,
+                                    kitDesc: currentKitInfo.desc,
+                                    code,
+                                    desc
+                                });
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error("Missing codes parse error", e);
+                }
             }
         });
 
-        if (extractedData.length === 0) {
-            setAlertState({ isOpen: true, message: "SAP kodu çıkarılamadı.", type: 'info' });
+        if (exportRows.length === 0) {
+            setAlertState({ isOpen: true, message: "Dışa aktarılacak eksik parça verisi bulunamadı.", type: 'info' });
             return;
         }
 
-        // Create worksheet data
-        const worksheetData = [
-            ["Zaman", "Bulunamayan SAP Kodları"],
-            ...extractedData
+        // Create Excel Data
+        const ws_data = [
+            ["Zaman", "Kit Kodu", "Kit Tanımı", "Bulunamayan Bileşen Kodu", "Bileşen Tanımı"]
         ];
+
+        exportRows.forEach(row => {
+            ws_data.push([
+                row.time,
+                row.kitCode,
+                row.kitDesc,
+                row.code,
+                row.desc
+            ]);
+        });
 
         // Create workbook and worksheet
         const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
         // Set column widths
         ws['!cols'] = [
-            { wch: 12 },  // Zaman column
-            { wch: 50 }   // SAP Kodları column
+            { wch: 10 }, // Zaman
+            { wch: 15 }, // Kit Kodu
+            { wch: 30 }, // Kit Tanımı
+            { wch: 25 }, // Bulunamayan Kod
+            { wch: 40 }  // Bileşen Tanımı
         ];
 
-        // Add worksheet to workbook
-        XLSX.utils.book_append_sheet(wb, ws, "Bulunamayanlar");
-
-        // Generate XLSX file and download
+        // Generate filename with date
         const today = new Date();
         const day = String(today.getDate()).padStart(2, '0');
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const year = today.getFullYear();
-        const filename = `Montaj Sihirbazı - ${day}.${month}.${year}.xlsx`;
+        const filename = `Montaj_Eksikleri_${day}.${month}.${year}.xlsx`;
+
         XLSX.writeFile(wb, filename);
     };
 
