@@ -1,0 +1,57 @@
+Dim swApp As Object
+Dim Part As Object
+Dim swMathUtil As Object
+Dim swComp As Object
+Dim swTransform As Object
+Dim swCurrentTransform As Object
+Dim TransformData(15) As Double
+Dim TransformDataVariant As Variant
+Dim boolstatus As Boolean
+
+Sub main()
+Set swApp = Application.SldWorks
+Set Part = swApp.ActiveDoc
+Set swMathUtil = swApp.GetMathUtility()
+
+Dim selMgr As Object
+Set selMgr = Part.SelectionManager
+Set swComp = selMgr.GetSelectedObjectsComponent4(1, -1)
+
+If swComp Is Nothing Then Exit Sub
+
+' [ 0  0  1 ] X -> Z
+' [ 0  1  0 ] Y -> Y
+' [-1  0  0 ] Z -> -X
+
+TransformData(0) = 0
+TransformData(1) = 0
+TransformData(2) = 1
+
+TransformData(3) = 0
+TransformData(4) = 1
+TransformData(5) = 0
+
+TransformData(6) = -1
+TransformData(7) = 0
+TransformData(8) = 0
+
+' Mevcut Konumu Al ve Koru
+Set swCurrentTransform = swComp.Transform2
+Dim vXform As Variant
+vXform = swCurrentTransform.ArrayData
+
+TransformData(9) = vXform(9)
+TransformData(10) = vXform(10)
+TransformData(11) = vXform(11)
+
+TransformData(12) = 1
+TransformData(13) = 0
+TransformData(14) = 0
+TransformData(15) = 0
+
+TransformDataVariant = TransformData
+Set swTransform = swMathUtil.CreateTransform((TransformDataVariant))
+
+boolstatus = swComp.SetTransformAndSolve2(swTransform)
+
+End Sub

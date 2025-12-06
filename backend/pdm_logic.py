@@ -964,6 +964,20 @@ class LogicHandler:
             # Wait for component to be fully added
             time.sleep(0.3)
             
+            # --- Rotate Component (-90 deg Y-axis) as requested ---
+            try:
+                # Select the component
+                comp.Select4(False, None, False) 
+                
+                macro_path = os.path.join(os.getcwd(), "backend", "macros", "RotatePart.swb")
+                if os.path.exists(macro_path):
+                    sw_app.RunMacro(macro_path, "main", "main")
+                
+                assembly_doc.ClearSelection2(True)
+            except:
+                pass
+            # -----------------------------------------------------
+
             # Float logic removed as per request
 
             

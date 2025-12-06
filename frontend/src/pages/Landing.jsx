@@ -81,6 +81,16 @@ const Landing = ({ theme, toggleTheme }) => {
         }
     };
 
+    const arrowShakeVariants = {
+        hover: {
+            x: [0, -5, 5, -5, 5, 0],
+            transition: {
+                duration: 0.5,
+                ease: "easeInOut"
+            }
+        }
+    };
+
     const Stars = ({ theme }) => {
         const starColor = theme === 'dark' ? '#ffffff' : '#fbbf24';
         const stars = [
@@ -252,7 +262,10 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6366f1', fontWeight: '700', fontSize: '18px', position: 'relative', zIndex: 1 }}>
-                        Keşfet <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
+                        Keşfet
+                        <motion.div variants={arrowShakeVariants}>
+                            <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
+                        </motion.div>
                     </div>
                 </motion.div>
 
@@ -331,7 +344,10 @@ const Landing = ({ theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: '700', fontSize: '18px', position: 'relative', zIndex: 1 }}>
-                        Başlat <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
+                        Başlat
+                        <motion.div variants={arrowShakeVariants}>
+                            <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: '20px' }} />
+                        </motion.div>
                     </div>
                 </motion.div>
 
