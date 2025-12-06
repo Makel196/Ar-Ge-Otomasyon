@@ -1199,7 +1199,7 @@ class LogicHandler:
         pythoncom.CoInitialize()
         self.is_running = True
         
-        # Config üzerinden gelen ayarları öncelikli kıl
+        # Config Override
         if config:
             if 'stopOnNotFound' in config:
                 self.get_stop_on_not_found = lambda: config.get('stopOnNotFound', False)
@@ -1207,72 +1207,88 @@ class LogicHandler:
                 self.get_add_to_existing = lambda: config.get('addToExisting', False)
 
         sap_mode = config and config.get('multiKitMode')
-        kits_to_process = []
+        sap_instance = None
 
+        # 1. SAP Başlatma ve Login (Eğer SAP moduysa)
         if sap_mode:
-             sap_results = self.run_process_sap_multikit(codes, config)
-             if not sap_results or not self.is_running:
-                 self.is_running = False
-                 pythoncom.CoUninitialize()
-                 return
-             
-             kits_to_process = sap_results # List of dicts
-             self.set_status("PDM'e Geçiliyor...")
-             self.log(f"SAP'den {len(kits_to_process)} adet kit alındı. PDM süreci başlatılıyor...", "#3b82f6")
-             time.sleep(1.0)
-        else:
-             # Normal input is treated as one "default" kit
-             kits_to_process = [{'kit': 'Manuel Giriş', 'codes': codes}]
-        
-        # PDM dialog izleyicisini başlat (Kasadan Al dialoglarını otomatik iptal eder)
-        start_pdm_dialog_watcher()
+            self.set_status("SAP Başlatılıyor...")
+            sap_instance = SapGui()
+            if not sap_instance.connect_to_sap():
+                self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
+                self.set_status("Hata")
+                pythoncom.CoUninitialize()
+                return
 
+            self.set_status("SAP Girişi Yapılıyor...")
+            username = config.get('sapUsername', '')
+            password = config.get('sapPassword', '')
+            
+            if username and password:
+                self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
+                sap_instance.sapLogin(username, password)
+            else:
+                self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
+
+        # 2. PDM Bağlantısı
+        start_pdm_dialog_watcher()
+        vault = None
         try:
             self.set_progress(0.1)
             self.set_status("PDM'e bağlanılıyor...")
             
-            # Retry PDM connection every 1 minute until successful
             retry_count = 0
-            vault = None
             while self.is_running:
                 vault = self.get_pdm_vault()
                 if vault:
                     break
-                
                 retry_count += 1
                 self.log(f"PDM bağlantısı sağlanamadı. 10 saniye sonra tekrar denenecek... (deneme #{retry_count})", "#f59e0b")
-                
-                # Wait 10 seconds, but check is_running every second
                 for _ in range(10):
-                    if not self.is_running:
-                        return
+                    if not self.is_running: return
                     time.sleep(1)
             
             if not vault:
                 self.set_status("Hata")
                 self.log("PDM bağlantısı sağlanamadı. İşlem durduruldu.", "#ef4444")
                 return
-            
-            # Process each kit
-            for kit_idx, kit_data in enumerate(kits_to_process):
-                if not self.is_running: break
+
+            # 3. İŞLEM DÖNGÜSÜ
+            if sap_mode:
+                # Interleaved: SAP -> Montaj -> SAP -> Montaj
+                total = len(codes)
+                self.update_stats(total=total, success=0, error=0) # Reset stats
                 
-                kit_name = kit_data.get('kit', f'Kit-{kit_idx+1}')
-                kit_codes = kit_data.get('codes', [])
-                
-                if sap_mode:
-                    self.log(f"--- Kit İşleniyor: {kit_name} ---", "#8b5cf6")
-                    # Her kit için yeni montaj zorunlu (Kullanıcı İsteği)
+                for i, code in enumerate(codes):
+                    if not self.is_running: break
+                    
+                    code = code.strip()
+                    if not code: continue
+
+                    self.log(f"--- Kit İşleniyor ({i+1}/{total}): {code} ---", "#8b5cf6")
+                    self.set_progress((i) / total)
+                    
+                    # A. SAP Verisi Çek
+                    kit_codes = self._fetch_sap_bom(sap_instance, code)
+                    
+                    if not kit_codes:
+                        self.log(f"Kit içeriği boş veya alınamadı: {code}", "#ef4444")
+                        continue
+
+                    # B. Montaj Yap
+                    # Her kit için yeni montaj zorunlu
                     self.get_add_to_existing = lambda: False
-                
-                self.execute_assembly_workflow(kit_codes, vault)
-                
-                if sap_mode and kit_idx < len(kits_to_process) - 1:
-                    self.log("Sonraki kite geçiliyor...", "#6b7280")
-                    time.sleep(1.5)
+                    
+                    self.execute_assembly_workflow(kit_codes, vault)
+                    
+                    if i < total - 1:
+                        self.log("Sonraki kite geçiliyor...", "#6b7280")
+                        time.sleep(1.5)
+
+            else:
+                # Normal Mod: Tek Seferlik İşlem
+                self.execute_assembly_workflow(codes, vault)
 
             self.set_status("Tamamlandı")
-            self.is_running = False
             self.log("Tüm işlemler tamamlandı.", "#10b981")
 
         except Exception as e:
@@ -1286,116 +1302,59 @@ class LogicHandler:
             stop_pdm_dialog_watcher()
             pythoncom.CoUninitialize()
     
-    def run_process_sap_multikit(self, codes, config):
-        """SAP üzerinden Çoklu Kit Montajı akışını yönetir."""
-        self.set_status("SAP Başlatılıyor...")
-        sap = SapGui()
+    def _fetch_sap_bom(self, sap, code):
+        """Tek bir kit için SAP BOM verisini çeker ve loglar."""
+        self.set_status(f"SAP Okunuyor: {code}")
         
-        kits_data = []
+        # CS03'ten verileri çek
+        result = sap.get_bom_components(code)
         
-        # SAP Bağlantısı
-        if not sap.connect_to_sap():
-            self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
-            self.set_status("Hata")
-            self.is_running = False
-            return []
+        header_info = None
+        components = []
 
-        self.set_status("SAP Girişi Yapılıyor...")
-        username = config.get('sapUsername', '')
-        password = config.get('sapPassword', '')
-        
-        # Sadece kullanıcı adı ve şifre varsa giriş yapmayı dene
-        if username and password:
-            self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
-            # Login metodu session kontrolü de yapar
-            sap.sapLogin(username, password)
+        if isinstance(result, dict):
+            components = result.get('components', [])
+            header_info = result.get('header')
         else:
-            self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
-
-        self.set_status("BOM Listeleri Çekiliyor...")
-        total = len(codes)
-        self.update_stats(total=total, success=0, error=0)
+            components = result
         
-        for i, code in enumerate(codes):
-            if not self.is_running:
-                self.log("İşlem kullanıcı tarafından durduruldu.", "#ef4444")
-                break
-            
-            code = code.strip()
-            if not code: continue
-            
-            self.log(f"[{i+1}/{total}] BOM Okunuyor: {code}", "#3b82f6")
-            
-            # CS03'ten verileri çek
-            result = sap.get_bom_components(code)
-            
-            header_info = None
-            components = []
+        kit_codes = []
 
-            if isinstance(result, dict):
-                components = result.get('components', [])
-                header_info = result.get('header')
-            else:
-                components = result
-
-            if components:
-                self.log(f"{len(components)} bileşen bulundu.", "#10b981")
-                
-                # Tablo Logu (Mavi) - Başlıklı Format
-                log_buffer = []
-                
-                if header_info and header_info.get('material'):
-                    log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
-                    log_buffer.append("=" * 68)
-
-                log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
-                log_buffer.append("-" * 68)
-                
-                for idx, comp in enumerate(components):
-                    row_num = idx + 1
-                    desc = comp['description']
-                    if len(desc) > 40:
-                        desc = desc[:37] + "..."
-                    line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
-                    log_buffer.append(line)
-                
-                full_log = "\n".join(log_buffer)
-                self.log(full_log, "#3b82f6")
-                
-                # Başarılı sayısını artır
-                # Kullanıcı düzeltmesi: self.state['stats'] -> self.stats
-                # Fakat emin olmak için self.update_stats kullanırken mevcut değerleri state içinden okumak yerine
-                # self.stats attribute'u varsa onu kullanacağız.
-                # Eğer self.stats yoksa ve state içindeyse, kullanıcı muhtemelen self.stats diye bir değişken atadığımı sanıyor veya kodun başka yerinde öyle yapılmış.
-                # Ancak güvenli olması için self.state['stats'] yerine doğrudan update_stats çağırıp incrementing'i içeride yapmam lazım ama update_stats absolute değer alıyor olabilir.
-                
-                # Başarılı sayısını artır
-                # Kullanıcının bildirimine göre düzeltme:
-                # Muhtemelen self.stats obje olarak tutuluyor.
-                stats = self.stats
-                self.update_stats(success=stats['success'] + 1)
-                
-                # Kodları topla
-                current_kit_codes = []
-                for comp in components:
-                    if comp.get('code'):
-                        current_kit_codes.append(comp['code'])
-                
-                kits_data.append({
-                    'kit': header_info['material'] if header_info else code,
-                    'codes': current_kit_codes
-                })
-                        
-            else:
-                self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
-                stats = self.stats
-                self.update_stats(error=stats['error'] + 1)
+        if components:
+            self.log(f"{len(components)} bileşen bulundu.", "#10b981")
             
-            self.set_progress((i + 1) / total)
-            time.sleep(0.5) # SAP'yi boğmamak için kısa bekleme
+            # Tablo Logu
+            log_buffer = []
+            if header_info and header_info.get('material'):
+                log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
+                log_buffer.append("=" * 68)
+
+            log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
+            log_buffer.append("-" * 68)
             
-        self.log(f"SAP tamamlandı. {len(kits_data)} kit aktarılıyor...", "#10b981")
-        return kits_data
+            for idx, comp in enumerate(components):
+                row_num = idx + 1
+                desc = comp['description']
+                if len(desc) > 40: desc = desc[:37] + "..."
+                line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
+                log_buffer.append(line)
+                
+                if comp.get('code'):
+                    kit_codes.append(comp['code'])
+            
+            full_log = "\n".join(log_buffer)
+            self.log(full_log, "#3b82f6")
+            
+            # İstatistik güncelle
+            stats = self.stats
+            self.update_stats(success=stats['success'] + 1)
+        else:
+            self.log(f"Bileşen bulunamadı veya SAP hatası: {code}", "#ef4444")
+            stats = self.stats
+            self.update_stats(error=stats['error'] + 1)
+            
+        return kit_codes
+
 
     def run_process_batch_mode(self, codes, vault):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""

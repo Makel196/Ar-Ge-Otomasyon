@@ -161,7 +161,7 @@ class SapGui():
                     try: self.session.AllowSystemCalls = True
                     except: pass
                     # Pencereyi öne getir
-                    try: self.session.findById("wnd[0]").maximize()
+                    try: self.session.findById("wnd[0]").iconify()
                     except: pass
                     return True
                 
@@ -248,6 +248,9 @@ class SapGui():
             return {'header': None, 'components': []}
 
         try:
+            # Ensure minimized
+            try: self.session.findById("wnd[0]").iconify()
+            except: pass
             # CS03'e git (/nCS03 yeni işlem başlatır)
             self.session.findById("wnd[0]/tbar[0]/okcd").text = "/nCS03"
             self.session.findById("wnd[0]").sendVKey(0)
