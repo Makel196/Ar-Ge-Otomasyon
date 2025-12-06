@@ -861,7 +861,7 @@ class LogicHandler:
 
         return assembly_doc, locked_title, asm_title, pre_open_docs, z_offset
 
-    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, is_hidden=False):
+    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, is_hidden=False, log_success=True):
         """
         Adds a component to the assembly. Returns (success, new_z_offset).
         Extracted common code from batch and immediate modes to follow DRY principle.
@@ -975,14 +975,16 @@ class LogicHandler:
             # Float logic removed as per request
 
 
-            self.log(f"Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#10b981")
+            if log_success:
+                self.log(f"Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#10b981")
             
             # Gizleme Mantığı (Kullanıcı İsteği: -1 miktar gizli gelir)
             if is_hidden:
                 try:
                     comp.Select4(False, None, False)
                     assembly_doc.HideComponent2()
-                    self.log(f"  -> Gizlendi (Negatif miktar)", "#3b82f6")
+                    if log_success:
+                        self.log(f"  -> Gizlendi (Negatif miktar)", "#3b82f6")
                     assembly_doc.ClearSelection2(True)
                 except:
                     pass
@@ -1450,7 +1452,7 @@ class LogicHandler:
                 log_buffer.append(line)
                 
                 if comp.get('code'):
-                    # Miktar kadar ekle (Negatif = Gizli bileşen)
+                    # Miktar parse (Negatif = Gizli bileşen)
                     try:
                         raw_qty = str(comp.get('quantity', '1')).replace(',', '.')
                         qty = int(float(raw_qty))
@@ -1461,12 +1463,13 @@ class LogicHandler:
                     is_hidden = qty < 0
                     qty = abs(qty) if qty != 0 else 1
                     
-                    code_to_add = comp['code']
+                    # Format: "KOD|MİKTAR" veya "KOD|MİKTAR|HIDDEN"
                     if is_hidden:
-                        code_to_add = comp['code'] + "|HIDDEN"
+                        code_entry = f"{comp['code']}|{qty}|HIDDEN"
+                    else:
+                        code_entry = f"{comp['code']}|{qty}"
                     
-                    for _ in range(qty):
-                        kit_codes.append(code_to_add)
+                    kit_codes.append(code_entry)
             
             full_log = "\n".join(log_buffer)
             self.log(full_log, "#3b82f6")
@@ -1692,8 +1695,20 @@ class LogicHandler:
         i = 0
         while i < total_codes:
             code_raw = codes[i]
-            is_hidden = "|HIDDEN" in code_raw
-            code = code_raw.replace("|HIDDEN", "")
+            
+            # Parse format: "KOD|MİKTAR" veya "KOD|MİKTAR|HIDDEN"
+            parts = code_raw.split("|")
+            code = parts[0]
+            qty = 1
+            is_hidden = False
+            
+            if len(parts) >= 2:
+                try:
+                    qty = int(parts[1])
+                except:
+                    qty = 1
+            if len(parts) >= 3 and parts[2] == "HIDDEN":
+                is_hidden = True
             
             if not self.is_running:
                 self.log("İşlem durduruldu.", "#f97316")
@@ -1719,7 +1734,8 @@ class LogicHandler:
             if not path:
                 if code not in not_found_codes:
                     not_found_codes.append(code)
-                    self.log(f"Bulunamadı: {code}", "#ef4444")
+                    qty_text = f" ({qty} Adet)" if qty > 1 else ""
+                    self.log(f"Bulunamadı: {code}{qty_text}", "#ef4444")
                     error_count += 1
                     self.update_stats(error=error_count)
                 self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
@@ -1728,7 +1744,8 @@ class LogicHandler:
             
             # Dosya bulundu, yerelde olduğundan emin ol
             if not self.ensure_local_file(vault, path):
-                self.log(f"Bulunamadı: {code}", "#ef4444")
+                qty_text = f" ({qty} Adet)" if qty > 1 else ""
+                self.log(f"Bulunamadı: {code}{qty_text}", "#ef4444")
                 if code not in not_found_codes:
                     not_found_codes.append(code)
                     error_count += 1
@@ -1737,8 +1754,9 @@ class LogicHandler:
                 i += 1
                 continue
             
-            # Bulundu log'u
-            self.log(f"Bulundu: {code}", "#10b981")
+            # Bulundu log'u (tek seferlik, miktar ile)
+            qty_text = f" ({qty} Adet)" if qty > 1 else ""
+            self.log(f"Bulundu: {code}{qty_text}", "#10b981")
 
             # Check if SolidWorks is still running
             sw_alive = True
@@ -1793,8 +1811,19 @@ class LogicHandler:
                 self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
                 continue
 
-            result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs, is_hidden)
-            success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
+            # Qty kadar ekleme yap (tek log ile)
+            qty_success = 0
+            needs_restart = False
+            
+            for q in range(qty):
+                result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs, is_hidden, log_success=False)
+                success_single, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
+                
+                if needs_restart:
+                    break
+                    
+                if success_single:
+                    qty_success += 1
             
             # If COM connection was lost, restart and add all parts from beginning
             if needs_restart:
@@ -1811,7 +1840,7 @@ class LogicHandler:
                         continue
             
             # If failed but not due to COM error, check if SW is still alive
-            if not success and not needs_restart:
+            if qty_success == 0 and not needs_restart:
                 sw_alive = True
                 try:
                     _ = sw_app.Visible
@@ -1831,8 +1860,12 @@ class LogicHandler:
                             self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
                             continue
             
-            if success:
-                added_count += 1
+            # Tek log: "Eklendi: X (Y Adet)"
+            if qty_success > 0:
+                qty_text = f" ({qty_success} Adet)" if qty_success > 1 else ""
+                hidden_text = " [Gizli]" if is_hidden else ""
+                self.log(f"Eklendi: {os.path.basename(path)}{qty_text}{hidden_text}", "#10b981")
+                added_count += qty_success
                 self.update_stats(success=added_count)
             else:
                 error_count += 1
