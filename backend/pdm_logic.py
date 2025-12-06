@@ -1260,7 +1260,16 @@ End Sub
                                     
                                     # PDM Veri Kartı Değişkenlerini Doldur (Custom Properties)
                                     try:
-                                        cpm = assembly_doc.Extension.CustomPropertyManager("")
+                                        # Konfigürasyon: Aktif konfigürasyona yaz (Genelde "Default" veya "Varsayılan")
+                                        config_name = "Default"
+                                        try:
+                                            active_conf = assembly_doc.ConfigurationManager.ActiveConfiguration
+                                            if active_conf:
+                                                config_name = active_conf.Name
+                                        except:
+                                            pass
+                                            
+                                        cpm = assembly_doc.Extension.CustomPropertyManager(config_name)
                                         
                                         def safe_add_prop(name, val):
                                             try:
@@ -1295,7 +1304,8 @@ End Sub
                                             sw_app.CloseDoc(final_title)
                                         
                                         # Dosya kapandıktan sonra Check-in
-                                        self.check_in_file(full_path)
+                                        self.log(f"Dosya isimlendirildi: {safe_code}", "#3b82f6")
+                                        self.check_in_file(full_path, comment=f"Otomatik Kit: {self.current_kit_desc}")
                                     except:
                                         try:
                                             sw_app.CloseDoc(full_path)
@@ -1487,7 +1497,10 @@ End Sub
                     kit_codes = kit_data_sap['codes']
                     kit_desc = kit_data_sap.get('kit_desc', '')
                     self.current_kit_desc = kit_desc
-                    kit_code = kit_data_sap.get('kit_code', code)
+                    self.log(f"Kit Tanımı: {kit_desc}", "#6b7280")
+                    
+                    kit_code = kit_data_sap.get('kit_code', code) 
+
 
                     # B. Montaj Yap
                     # Her kit için yeni montaj zorunlu
