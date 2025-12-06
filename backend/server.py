@@ -27,7 +27,7 @@ class AutomationServer:
             "is_running": False,
             "is_paused": False,
             "vault_path": read_vault_path_registry(),
-            "stats": {"total": 0, "success": 0, "error": 0}
+            "stats": {"total": 0, "success": 0, "error": 0, "processed_kits": []}
         }
         
         # Queues
@@ -100,6 +100,7 @@ class AutomationServer:
                             current["total"] = new_stats.get("total", current["total"])
                             current["success"] = new_stats.get("success", current["success"])
                             current["error"] = new_stats.get("error", current["error"])
+                            current["processed_kits"] = new_stats.get("processed_kits", current.get("processed_kits", []))
                             print(f"Server stats updated: {self.state['stats']}", flush=True)
                         
                     time.sleep(0.1)

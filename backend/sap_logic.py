@@ -69,9 +69,10 @@ def minimize_sap_logon_window():
     def callback(hwnd, _):
         try:
             val = win32gui.GetWindowText(hwnd)
-            # Pencere başlığında SAP Logon geçiyorsa
-            if "SAP Logon" in val and win32gui.IsWindowVisible(hwnd):
-                 win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+            # Pencere başlığında SAP Logon geçiyorsa (case insensitive)
+            if "sap logon" in val.lower() and win32gui.IsWindowVisible(hwnd):
+                 # SW_SHOWMINNOACTIVE = 7 (Hem minimize eder hem de focus çalmaz)
+                 win32gui.ShowWindow(hwnd, 7)
         except:
             pass
     try:
@@ -176,8 +177,14 @@ class SapGui():
                     try: self.session.AllowSystemCalls = True
                     except: pass
                     
-                    # Logon penceresini minimize et
+                    # Logon penceresini minimize et (tekrarlı ve thread içinde)
                     minimize_sap_logon_window()
+                    def minimize_loop():
+                        import time
+                        for _ in range(10): # 10 saniye boyunca dene
+                            minimize_sap_logon_window()
+                            time.sleep(1)
+                    threading.Thread(target=minimize_loop, daemon=True).start()
                     
                     # Pencereyi minimize et
                     try: self.session.findById("wnd[0]").iconify()
