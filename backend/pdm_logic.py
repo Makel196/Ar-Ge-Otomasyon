@@ -857,7 +857,7 @@ class LogicHandler:
 
         return assembly_doc, locked_title, asm_title, pre_open_docs, z_offset
 
-    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs):
+    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, sap_code=None):
         """
         Adds a component to the assembly. Returns (success, new_z_offset).
         Extracted common code from batch and immediate modes to follow DRY principle.
@@ -962,28 +962,29 @@ class LogicHandler:
         success = False
         new_z_offset = z_offset
         if comp:
-            # Wait for component to be fully added
-            time.sleep(0.3)
+            # Wait for component to be fully added (reduced delay)
+            time.sleep(0.1)
             
             # Float logic removed as per request
 
-            
-            # Float logic removed as per request
-
-
-            # Loglama run_process_immediate_mode içinde yapılacak (Tekilleştirilmiş)
-            
-            # Gizleme Kontrolü (Negatif Miktar)
             # Gizleme Kontrolü (Negatif Miktar)
             try:
+                filename = os.path.basename(file_path)
                 base_code, _ = os.path.splitext(filename)
-                if base_code in self.current_kit_hidden_items:
+                
+                should_hide = False
+                # Öncelik sap_code'da (Eğer geldiyse)
+                if sap_code and sap_code in self.current_kit_hidden_items:
+                    should_hide = True
+                elif base_code in self.current_kit_hidden_items:
+                    should_hide = True
+                
+                if should_hide:
                     # Robust Hiding with SelectByID2
                     comp_name = comp.Name2
                     asm_title_clean = os.path.splitext(asm_title)[0]
                     full_id = f"{comp_name}@{asm_title_clean}"
                     
-                    # Kullanıcının belirttiği SelectByID2 parametreleri
                     status = assembly_doc.Extension.SelectByID2(
                         full_id,
                         "COMPONENT",
@@ -997,10 +998,8 @@ class LogicHandler:
                     if status:
                         assembly_doc.HideComponent2()
                         assembly_doc.ClearSelection2(True)
-                    # else:
-                        # self.log(f"Gizleme seçimi yapılamadı: {full_id}", "#f59e0b")
+                        assembly_doc.GraphicsRedraw2()
             except Exception as hide_err:
-                # self.log(f"Gizleme hatası: {str(hide_err)}", "#f59e0b")
                 pass
                 
             new_z_offset = z_offset - 0.3  # offset_step
@@ -1671,7 +1670,7 @@ class LogicHandler:
                 self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
                 continue
 
-            result = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
+            result = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, sap_code=code)
             success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
             
             # If COM connection was lost, restart and add all parts from beginning
@@ -1862,7 +1861,7 @@ class LogicHandler:
                 self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
                 continue
 
-            result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+            result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs, sap_code=code)
             success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
             
             # If COM connection was lost, restart and add all parts from beginning
