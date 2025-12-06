@@ -1360,7 +1360,22 @@ class LogicHandler:
                     
                     # MONTAJ İŞLEMİNİ BAŞLAT
                     self.log(f"Montaj başlatılıyor: {code} (Parça Sayısı: {len(components)})", "#6366f1")
-                    child_codes = [c['code'].strip() for c in components if c.get('code') and c['code'].strip()]
+                    raw_child_codes = [c['code'].strip() for c in components if c.get('code') and c['code'].strip()]
+                    
+                    # Clean and validate codes (Simulate manual input processing)
+                    child_codes = []
+                    for c in raw_child_codes:
+                        if not c: continue
+                        # Ignore likely row numbers (e.g., "1", "10") or list markers (e.g., "1.")
+                        if (c.isdigit() and len(c) < 3) or (c.endswith(".") and c[:-1].isdigit() and len(c) < 4):
+                            self.log(f"  Atlandı: '{c}' (Geçersiz format)", "#f59e0b")
+                            continue
+                        child_codes.append(c)
+                    
+                    if not child_codes:
+                         self.log("Eklenecek geçerli parça bulunamadı (Filtreleme sonrası).", "#f59e0b")
+                         # continue loop but we are inside if components
+
                     
                     # Vault Health Check
                     try:
