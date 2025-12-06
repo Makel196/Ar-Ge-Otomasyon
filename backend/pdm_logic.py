@@ -555,7 +555,7 @@ class LogicHandler:
                 while result:
                     if not self.is_running: return None
                     if self.check_file_match(vault, result.ID, sap_code):
-                        self.log(f"  PDM'de bulundu ({var_name}): {result.Name}", "#0ea5e9")
+                        self.log(f"PDM'de bulundu ({var_name}): {result.Name}", "#0ea5e9")
                         return self.map_vault_path(vault, result.Path)
                     result = search.GetNextResult()
             except Exception:
@@ -569,7 +569,7 @@ class LogicHandler:
             while result:
                 if not self.is_running: return None
                 if self.check_file_match(vault, result.ID, sap_code):
-                    self.log(f"  PDM'de bulundu (Dosya Adı): {result.Name}", "#0ea5e9")
+                    self.log(f"PDM'de bulundu (Dosya Adı): {result.Name}", "#0ea5e9")
                     return self.map_vault_path(vault, result.Path)
                 result = search.GetNextResult()
         except Exception:
@@ -664,16 +664,16 @@ class LogicHandler:
                 
                 # Montaj değilse ve sürüm güncelse atla
                 if not is_assembly and os.path.exists(file_path) and local_version >= latest_version:
-                    self.log(f"  Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
+                    self.log(f"Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
                     return True
                 
                 # Montaj ise her durumda kontrol et/güncelle (referanslar için)
                 if is_assembly:
-                     self.log(f"  Montaj referansları kontrol ediliyor...: {file_name}", "#3b82f6")
+                    self.log(f"Montaj referansları kontrol ediliyor...: {file_name}", "#3b82f6")
                 else:
-                    self.log(f"  Sürüm güncelleniyor (v{local_version} -> v{latest_version}): {file_name}", "#3b82f6")
+                    self.log(f"Sürüm güncelleniyor (v{local_version} -> v{latest_version}): {file_name}", "#3b82f6")
             except Exception as ver_err:
-                self.log(f"  Sürüm bilgisi alınamadı, son sürüm çekiliyor: {file_name}", "#f59e0b")
+                self.log(f"Sürüm bilgisi alınamadı, son sürüm çekiliyor: {file_name}", "#f59e0b")
             
             # GetFileCopy veya BatchGet (Montajlar için)
             try:
@@ -709,7 +709,7 @@ class LogicHandler:
                     try:
                         size = os.path.getsize(file_path)
                         if size > 0:
-                            self.log(f"  Son sürüm indirildi: {file_name}", "#10b981")
+                            self.log(f"Son sürüm indirildi: {file_name}", "#10b981")
                             return True
                     except Exception:
                         pass
@@ -717,14 +717,14 @@ class LogicHandler:
             
             # Son kontrol
             if os.path.exists(file_path):
-                self.log(f"  Dosya indirildi: {file_name}", "#10b981")
+                self.log(f"Dosya indirildi: {file_name}", "#10b981")
                 return True
             
-            self.log(f"  Dosya indirme zaman aşımına uğradı: {file_name}", "#ef4444")
+            self.log(f"Dosya indirme zaman aşımına uğradı: {file_name}", "#ef4444")
             return False
             
         except Exception as e:
-            self.log(f"  Son sürüm çekilirken hata oluştu: {e}", "#ef4444")
+            self.log(f"Son sürüm çekilirken hata oluştu: {e}", "#ef4444")
             return False
 
     def ensure_local_file(self, vault, file_path):
@@ -761,15 +761,15 @@ class LogicHandler:
                     latest_version = file_obj.CurrentVersion
                     
                     if local_version >= latest_version:
-                        self.log(f"  Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
+                        self.log(f"Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
                         return True
                     else:
-                        self.log(f"  Güncelleme gerekli (v{local_version} v{latest_version}): {file_name}", "#f59e0b")
+                        self.log(f"Güncelleme gerekli (v{local_version} v{latest_version}): {file_name}", "#f59e0b")
             except Exception as ver_check_err:
                 # Sürüm kontrolü başarısız, yine de güncellemeyi dene
-                self.log(f"  Sürüm kontrolü yapılamadı, güncelleniyor: {file_name}", "#f59e0b")
+                self.log(f"Sürüm kontrolü yapılamadı, güncelleniyor: {file_name}", "#f59e0b")
         else:
-            self.log(f"  Dosya yerelde yok, indiriliyor: {file_name}", "#f59e0b")
+            self.log(f"Dosya yerelde yok, indiriliyor: {file_name}", "#f59e0b")
         
         # fetch_pdm_latest.py mantığını kullanarak son sürümü çek
         return self.fetch_latest_revision(vault, file_path)
@@ -1137,9 +1137,9 @@ class LogicHandler:
                     
                     # Verify file is now local
                     if not os.path.exists(file_path):
-                        self.log(f"  ⚠ Dosya açıldı ancak yerel diskte bulunamadı: {os.path.basename(file_path)}", "#f59e0b")
+                        self.log(f"Dosya açıldı ancak yerel diskte bulunamadı: {os.path.basename(file_path)}", "#f59e0b")
                     else:
-                        self.log(f"  ✔ Dosya başarıyla yerel diske çekildi: {os.path.basename(file_path)}", "#6b7280")
+                        self.log(f"Dosya başarıyla yerel diske çekildi: {os.path.basename(file_path)}", "#6b7280")
             except Exception:
                 doc = sw_app.OpenDoc(file_path, doc_type)
                 time.sleep(1.5)
@@ -1152,7 +1152,7 @@ class LogicHandler:
                 opened_now = False
             return doc, opened_now
         except Exception as e:
-            self.log(f"  Bileşen açılırken hata oluştu: {str(e)}", "#6b7280")
+            self.log(f"Bileşen açılırken hata oluştu: {str(e)}", "#6b7280")
             return None, False
 
 
@@ -1161,6 +1161,13 @@ class LogicHandler:
         self.is_running = True
         
         # Check for Multi-Kit SAP Mode
+        # Config üzerinden gelen ayarları öncelikli kıl
+        if config:
+            if 'stopOnNotFound' in config:
+                self.get_stop_on_not_found = lambda: config.get('stopOnNotFound', False)
+            if 'addToExisting' in config:
+                self.get_add_to_existing = lambda: config.get('addToExisting', False)
+
         if config and config.get('multiKitMode'):
              sap_codes = self.run_process_sap_multikit(codes, config)
              if not sap_codes or not self.is_running:
@@ -1183,7 +1190,7 @@ class LogicHandler:
             if not c: continue
             # Ignore likely row numbers (e.g., "1", "10") or list markers (e.g., "1.")
             if (c.isdigit() and len(c) < 3) or (c.endswith(".") and c[:-1].isdigit() and len(c) < 4):
-                self.log(f"  ⚠ '{c}' geçersiz kod/sıra no olarak algılandı ve atlandı.", "#f59e0b")
+                self.log(f"'{c}' geçersiz kod/sıra no olarak algılandı ve atlandı.", "#f59e0b")
                 continue
             cleaned_codes.append(c)
         
