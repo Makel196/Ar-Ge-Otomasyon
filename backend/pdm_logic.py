@@ -861,7 +861,7 @@ class LogicHandler:
 
         return assembly_doc, locked_title, asm_title, pre_open_docs, z_offset
 
-    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs):
+    def add_component_to_assembly(self, sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, is_hidden=False):
         """
         Adds a component to the assembly. Returns (success, new_z_offset).
         Extracted common code from batch and immediate modes to follow DRY principle.
@@ -976,6 +976,17 @@ class LogicHandler:
 
 
             self.log(f"Eklendi: {os.path.basename(file_path)} (Z={z_offset:.3f}m)", "#10b981")
+            
+            # Gizleme Mantığı (Kullanıcı İsteği: -1 miktar gizli gelir)
+            if is_hidden:
+                try:
+                    comp.Select4(False, None, False)
+                    assembly_doc.HideComponent2()
+                    self.log(f"  -> Gizlendi (Negatif miktar)", "#3b82f6")
+                    assembly_doc.ClearSelection2(True)
+                except:
+                    pass
+
             new_z_offset = z_offset - 0.3  # offset_step
             success = True
         else:
@@ -1439,17 +1450,23 @@ class LogicHandler:
                 log_buffer.append(line)
                 
                 if comp.get('code'):
-                    # Miktar kadar ekle
+                    # Miktar kadar ekle (Negatif = Gizli bileşen)
                     try:
                         raw_qty = str(comp.get('quantity', '1')).replace(',', '.')
                         qty = int(float(raw_qty))
                     except:
                         qty = 1
                     
-                    if qty < 1: qty = 1
+                    # Negatif miktar = Gizli bileşen
+                    is_hidden = qty < 0
+                    qty = abs(qty) if qty != 0 else 1
+                    
+                    code_to_add = comp['code']
+                    if is_hidden:
+                        code_to_add = comp['code'] + "|HIDDEN"
                     
                     for _ in range(qty):
-                        kit_codes.append(comp['code'])
+                        kit_codes.append(code_to_add)
             
             full_log = "\n".join(log_buffer)
             self.log(full_log, "#3b82f6")
@@ -1674,7 +1691,9 @@ class LogicHandler:
 
         i = 0
         while i < total_codes:
-            code = codes[i]
+            code_raw = codes[i]
+            is_hidden = "|HIDDEN" in code_raw
+            code = code_raw.replace("|HIDDEN", "")
             
             if not self.is_running:
                 self.log("İşlem durduruldu.", "#f97316")
@@ -1774,7 +1793,7 @@ class LogicHandler:
                 self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
                 continue
 
-            result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+            result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs, is_hidden)
             success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
             
             # If COM connection was lost, restart and add all parts from beginning
