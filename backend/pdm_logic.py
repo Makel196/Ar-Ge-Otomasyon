@@ -1195,6 +1195,97 @@ class LogicHandler:
             except Exception:
                 pass
     
+    def run_process(self, codes, config=None):
+        pythoncom.CoInitialize()
+        self.is_running = True
+        
+        # Config üzerinden gelen ayarları öncelikli kıl
+        if config:
+            if 'stopOnNotFound' in config:
+                self.get_stop_on_not_found = lambda: config.get('stopOnNotFound', False)
+            if 'addToExisting' in config:
+                self.get_add_to_existing = lambda: config.get('addToExisting', False)
+
+        sap_mode = config and config.get('multiKitMode')
+        kits_to_process = []
+
+        if sap_mode:
+             sap_results = self.run_process_sap_multikit(codes, config)
+             if not sap_results or not self.is_running:
+                 self.is_running = False
+                 pythoncom.CoUninitialize()
+                 return
+             
+             kits_to_process = sap_results # List of dicts
+             self.set_status("PDM'e Geçiliyor...")
+             self.log(f"SAP'den {len(kits_to_process)} adet kit alındı. PDM süreci başlatılıyor...", "#3b82f6")
+             time.sleep(1.0)
+        else:
+             # Normal input is treated as one "default" kit
+             kits_to_process = [{'kit': 'Manuel Giriş', 'codes': codes}]
+        
+        # PDM dialog izleyicisini başlat (Kasadan Al dialoglarını otomatik iptal eder)
+        start_pdm_dialog_watcher()
+
+        try:
+            self.set_progress(0.1)
+            self.set_status("PDM'e bağlanılıyor...")
+            
+            # Retry PDM connection every 1 minute until successful
+            retry_count = 0
+            vault = None
+            while self.is_running:
+                vault = self.get_pdm_vault()
+                if vault:
+                    break
+                
+                retry_count += 1
+                self.log(f"PDM bağlantısı sağlanamadı. 10 saniye sonra tekrar denenecek... (deneme #{retry_count})", "#f59e0b")
+                
+                # Wait 10 seconds, but check is_running every second
+                for _ in range(10):
+                    if not self.is_running:
+                        return
+                    time.sleep(1)
+            
+            if not vault:
+                self.set_status("Hata")
+                self.log("PDM bağlantısı sağlanamadı. İşlem durduruldu.", "#ef4444")
+                return
+            
+            # Process each kit
+            for kit_idx, kit_data in enumerate(kits_to_process):
+                if not self.is_running: break
+                
+                kit_name = kit_data.get('kit', f'Kit-{kit_idx+1}')
+                kit_codes = kit_data.get('codes', [])
+                
+                if sap_mode:
+                    self.log(f"--- Kit İşleniyor: {kit_name} ---", "#8b5cf6")
+                    # Her kit için yeni montaj zorunlu (Kullanıcı İsteği)
+                    self.get_add_to_existing = lambda: False
+                
+                self.execute_assembly_workflow(kit_codes, vault)
+                
+                if sap_mode and kit_idx < len(kits_to_process) - 1:
+                    self.log("Sonraki kite geçiliyor...", "#6b7280")
+                    time.sleep(1.5)
+
+            self.set_status("Tamamlandı")
+            self.is_running = False
+            self.log("Tüm işlemler tamamlandı.", "#10b981")
+
+        except Exception as e:
+            self.log(f"Beklenmeyen hata: {str(e)}", "#ef4444")
+            import traceback
+            traceback.print_exc()
+            self.set_status("Hata")
+        
+        finally:
+            self.is_running = False
+            stop_pdm_dialog_watcher()
+            pythoncom.CoUninitialize()
+    
     def run_process_sap_multikit(self, codes, config):
         """SAP üzerinden Çoklu Kit Montajı akışını yönetir."""
         self.set_status("SAP Başlatılıyor...")
