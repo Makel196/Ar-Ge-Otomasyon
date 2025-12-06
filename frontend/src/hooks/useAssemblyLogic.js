@@ -342,7 +342,9 @@ export const useAssemblyLogic = () => {
         stopOnNotFound,
         multiKitMode,
         sapUsername,
-        sapPassword
+
+        sapPassword,
+        assemblySavePath
       });
     } catch (err) {
       setIsRunning(false);
@@ -367,7 +369,7 @@ export const useAssemblyLogic = () => {
     } finally {
       startInFlightRef.current = false;
     }
-  }, [isRunning, isPaused, vaultPath, codes, dedupe, addToExisting, stopOnNotFound, rememberSession, multiKitMode, sapUsername, sapPassword]);
+  }, [isRunning, isPaused, vaultPath, codes, dedupe, addToExisting, stopOnNotFound, rememberSession, multiKitMode, sapUsername, sapPassword, assemblySavePath]);
 
   const handleStop = useCallback(async () => {
     try {
