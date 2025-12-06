@@ -1162,9 +1162,14 @@ class LogicHandler:
         
         # Check for Multi-Kit SAP Mode
         if config and config.get('multiKitMode'):
-             self.run_process_sap_multikit(codes, config)
-             pythoncom.CoUninitialize()
-             return
+             sap_codes = self.run_process_sap_multikit(codes, config)
+             if not sap_codes or not self.is_running:
+                 self.is_running = False
+                 pythoncom.CoUninitialize()
+                 return
+             # SAP'den gelen kodlarla devam et
+             codes = sap_codes
+             self.log("SAP'den çekilen kodlarla PDM işlemi başlatılıyor...", "#3b82f6")
         
         # PDM dialog izleyicisini başlat (Kasadan Al dialoglarını otomatik iptal eder)
         start_pdm_dialog_watcher()
@@ -1258,177 +1263,113 @@ class LogicHandler:
     def run_process_sap_multikit(self, codes, config):
         """SAP üzerinden Çoklu Kit Montajı akışını yönetir."""
         self.set_status("SAP Başlatılıyor...")
+        sap = SapGui()
         
-        # PDM dialog izleyicisini başlat
-        start_pdm_dialog_watcher()
+        all_collected_codes = []
         
-        try:
-            # SapGui init moved to loop
-            
-            # PDM Bağlantısı Kur (Ön Hazırlık)
-            self.set_status("PDM'e bağlanılıyor...")
-            vault = None
-            retry_count = 0
-            
-            while self.is_running:
-                vault = self.get_pdm_vault()
-                if vault: break
-                retry_count += 1
-                if retry_count > 3: # SAP modunda çok beklemeyelim, 3 deneme yeterli
-                    self.log("PDM bağlantısı sağlanamadı. SAP işlemi iptal edildi.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                time.sleep(1)
-                
-            if not vault:
-                self.set_status("Hata")
-                return
-
-            self.set_status("Kitler İşleniyor...")
-            total = len(codes)
-            stop_on_not_found = self.get_stop_on_not_found()
-
-            self.set_status("Kitler İşleniyor...")
-            total = len(codes)
-            stop_on_not_found = self.get_stop_on_not_found()
-            
-            for i, code in enumerate(codes):
-                if not self.is_running:
-                    self.log("İşlem kullanıcı tarafından durduruldu.", "#ef4444")
-                    break
-                
-                code = code.strip()
-                if not code: continue
-                
-                self.log(f"[{i+1}/{total}] Kit İşleniyor: {code}", "#3b82f6")
-                self.set_status(f"SAP Okunuyor: {code}")
-                
-                # CS03'ten verileri çek (Isolated SAP Instance)
-                result = None
-                try:
-                    sap = SapGui()
-                    if sap.connect_to_sap():
-                        # Login is fast if session exists
-                        uname = config.get('sapUsername', '')
-                        pwd = config.get('sapPassword', '')
-                        if uname and pwd:
-                             sap.sapLogin(uname, pwd)
-                        
-                        result = sap.get_bom_components(code)
-                    else:
-                        self.log("SAP bağlantısı kurulamadı.", "#ef4444")
-                except Exception as e:
-                    self.log(f"SAP işlem hatası: {str(e)}", "#ef4444")
-                
-                # Release SAP COM object before PDM/SW operations
-                try:
-                    if 'sap' in locals(): del sap
-                except: pass
-                
-                header_info = None
-                components = []
-
-                if isinstance(result, dict):
-                    components = result.get('components', [])
-                    header_info = result.get('header')
-                else:
-                    components = result
-
-                if components:
-                    self.log(f"{len(components)} bileşen bulundu.", "#10b981")
-                    
-                    # Tablo Logu (Mavi) - Başlıklı Format
-                    log_buffer = []
-                    
-                    if header_info and header_info.get('material'):
-                        log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
-                        log_buffer.append("=" * 68)
-
-                    log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
-                    log_buffer.append("-" * 68)
-                    
-                    for idx, comp in enumerate(components):
-                        row_num = idx + 1
-                        desc = comp['description']
-                        if len(desc) > 40:
-                            desc = desc[:40] + "..."
-                        line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
-                        log_buffer.append(line)
-                    
-                    full_log = "\n".join(log_buffer)
-                    self.log(full_log, "#3b82f6")
-                    
-                    # MONTAJ İŞLEMİNİ BAŞLAT
-                    self.log(f"Montaj başlatılıyor: {code} (Parça Sayısı: {len(components)})", "#6366f1")
-                    raw_child_codes = [c['code'].strip() for c in components if c.get('code') and c['code'].strip()]
-                    
-                    # Clean and validate codes (Simulate manual input processing)
-                    child_codes = []
-                    for c in raw_child_codes:
-                        if not c: continue
-                        # Ignore likely row numbers (e.g., "1", "10") or list markers (e.g., "1.")
-                        if (c.isdigit() and len(c) < 3) or (c.endswith(".") and c[:-1].isdigit() and len(c) < 4):
-                            self.log(f"  Atlandı: '{c}' (Geçersiz format)", "#f59e0b")
-                            continue
-                        child_codes.append(c)
-                    
-                    if not child_codes:
-                         self.log("Eklenecek geçerli parça bulunamadı (Filtreleme sonrası).", "#f59e0b")
-                         # continue loop but we are inside if components
-
-                    
-                    # Vault Health Check
-                    try:
-                        _ = vault.Name
-                    except:
-                        self.log("PDM Vault bağlantısı koptu, yeniden bağlanılıyor...", "#f59e0b")
-                        vault = self.get_pdm_vault()
-                    
-                    if stop_on_not_found:
-                        self.log("Batch modu başlatılıyor...", "#6366f1")
-                        self.run_process_batch_mode(child_codes, vault, is_subprocess=True)
-                    else:
-                        self.log("Immediate modu başlatılıyor...", "#6366f1")
-                        self.run_process_immediate_mode(child_codes, vault, is_subprocess=True)
-
-                else:
-                    self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
-                
-                self.set_progress((i + 1) / total)
-                time.sleep(1) 
-                
-            self.set_status("Tamamlandı")
+        # SAP Bağlantısı
+        if not sap.connect_to_sap():
+            self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
+            self.set_status("Hata")
             self.is_running = False
-            self.log("Tüm Kit İşlemleri Tamamlandı.", "#10b981")
-            
-        finally:
-            stop_pdm_dialog_watcher()
+            return []
 
-    def run_process_batch_mode(self, codes, vault, is_subprocess=False):
-        """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
-        if is_subprocess: self.log(f"Alt Süreç Başladı: Batch Mode ({len(codes)} parça)", "#6366f1")
+        self.set_status("SAP Girişi Yapılıyor...")
+        username = config.get('sapUsername', '')
+        password = config.get('sapPassword', '')
         
-        # Ensure Vault is valid
-        try:
-            _ = vault.Name
-        except:
-            if is_subprocess: self.log("Alt süreç için PDM bağlantısı tazeleniyor...", "#3b82f6")
-            vault = self.get_pdm_vault()
+        # Sadece kullanıcı adı ve şifre varsa giriş yapmayı dene
+        if username and password:
+            self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
+            # Login metodu session kontrolü de yapar
+            sap.sapLogin(username, password)
+        else:
+            self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
 
+        self.set_status("BOM Listeleri Çekiliyor...")
+        total = len(codes)
+        self.update_stats(total=total, success=0, error=0)
+        
+        for i, code in enumerate(codes):
+            if not self.is_running:
+                self.log("İşlem kullanıcı tarafından durduruldu.", "#ef4444")
+                break
+            
+            code = code.strip()
+            if not code: continue
+            
+            self.log(f"[{i+1}/{total}] BOM Okunuyor: {code}", "#3b82f6")
+            
+            # CS03'ten verileri çek
+            result = sap.get_bom_components(code)
+            
+            header_info = None
+            components = []
 
+            if isinstance(result, dict):
+                components = result.get('components', [])
+                header_info = result.get('header')
+            else:
+                components = result
+
+            if components:
+                self.log(f"{len(components)} bileşen bulundu.", "#10b981")
+                
+                # Tablo Logu (Mavi) - Başlıklı Format
+                log_buffer = []
+                
+                if header_info and header_info.get('material'):
+                    log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
+                    log_buffer.append("=" * 68)
+
+                log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
+                log_buffer.append("-" * 68)
+                
+                for idx, comp in enumerate(components):
+                    row_num = idx + 1
+                    desc = comp['description']
+                    if len(desc) > 40:
+                        desc = desc[:37] + "..."
+                    line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
+                    log_buffer.append(line)
+                
+                full_log = "\n".join(log_buffer)
+                self.log(full_log, "#3b82f6")
+                
+                # Başarılı sayısını artır
+                stats = self.state['stats']
+                self.update_stats(success=stats['success'] + 1)
+                
+                # Kodları topla
+                for comp in components:
+                    if comp.get('code'):
+                        all_collected_codes.append(comp['code'])
+                        
+            else:
+                self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
+                stats = self.state['stats']
+                self.update_stats(error=stats['error'] + 1)
+            
+            self.set_progress((i + 1) / total)
+            time.sleep(0.5) # SAP'yi boğmamak için kısa bekleme
+            
+        self.log(f"SAP tamamlandı. {len(all_collected_codes)} bileşen aktarılıyor...", "#10b981")
+        return all_collected_codes
+
+    def run_process_batch_mode(self, codes, vault):
+        """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
         found_files = []
         not_found_codes = []
 
         self.set_status("Parçalar aranıyor...")
         total_codes = len(codes)
         
-        # Initialize stats if not subprocess (or reset for new sub-batch)
-        if not is_subprocess:
-             self.update_stats(total=total_codes, success=0, error=0)
+        # Initialize stats
+        self.update_stats(total=total_codes, success=0, error=0)
         
         for i, code in enumerate(codes):
             if not self.is_running:
-                if not is_subprocess: self.log("İşlem durduruldu.", "#f97316")
+                self.log("İşlem durduruldu.", "#f97316")
                 return
             
             if self.is_paused and self.is_running:
@@ -1437,21 +1378,21 @@ class LogicHandler:
                 time.sleep(0.5)
             path = self.search_file_in_pdm(vault, code)
             if not self.is_running:
-                if not is_subprocess: self.log("İşlem durduruldu.", "#f97316")
+                self.log("İşlem durduruldu.", "#f97316")
                 return
             if path:
                 if self.ensure_local_file(vault, path):
                     found_files.append(path)
                     self.log(f"Bulundu: {code}", "#10b981")
-                    # self.update_stats(success=len(found_files)) # Stats karmaşası olmasın
+                    self.update_stats(success=len(found_files))
                 else:
                     not_found_codes.append(code)
                     self.log(f"Bulunamadı: {code}", "#ef4444")
-                    # self.update_stats(error=len(not_found_codes))
+                    self.update_stats(error=len(not_found_codes))
             else:
                 not_found_codes.append(code)
                 self.log(f"Bulunamadı: {code}", "#ef4444")
-                # self.update_stats(error=len(not_found_codes))
+                self.update_stats(error=len(not_found_codes))
             self.set_progress(0.1 + (0.4 * (i + 1) / total_codes))
 
         if not_found_codes:
@@ -1463,112 +1404,17 @@ class LogicHandler:
             return
 
         if not found_files:
-            self.log("Eklenecek parça bulunamadı (PDM'de hiçbiri yok).", "#f59e0b")
+            self.log("Eklenecek parça bulunamadı.", "#f59e0b")
+            self.set_progress(0)
+            self.set_status("İptal")
             return
 
         if not self.is_running:
+            self.log("İşlem durduruldu.", "#f97316")
             return
 
         # SolidWorks'ü başlat ve montajı hazırla
         self.set_status("SolidWorks başlatılıyor...")
-        sw_app = self.get_sw_app()
-        if not sw_app:
-            self.set_status("Hata")
-            self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-            return
-
-        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-        if not assembly_doc:
-            return
-
-        self.set_status("Parçalar ekleniyor...")
-
-        total_files = len(found_files)
-        i = 0
-        while i < total_files:
-            file_path = found_files[i]
-            
-            if not self.is_running:
-                return
-
-            if self.is_paused and self.is_running:
-                self.log("İşlem duraklatıldı.", "#0ea5e9")
-            while self.is_paused and self.is_running:
-                time.sleep(0.5)
-
-            # Check if SolidWorks is still running
-            sw_alive = True
-            try:
-                _ = sw_app.Visible
-            except Exception:
-                sw_alive = False
-            
-            if not sw_alive:
-                self.log("SolidWorks kapandı! Yeniden başlatılıyor...", "#f59e0b")
-                sw_app = self.get_sw_app()
-                if not sw_app:
-                    self.log("SolidWorks başlatılamadı.", "#ef4444")
-                    self.set_status("Hata")
-                    return
-                assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                if not assembly_doc:
-                    return
-                i = 0 # Restart adding
-                continue
-
-            if locked_title:
-                try:
-                    sw_app.ActivateDoc3(locked_title, False, 0, None)
-                except Exception:
-                    pass
-
-            assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
-            if not assembly_doc:
-                # Re-init logic similar to above
-                 self.log("Montaj bağlantısı koptu.", "#ef4444")
-                 return
-
-            result = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs)
-            success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
-            
-            if needs_restart:
-                # Restart logic
-                sw_app = self.get_sw_app()
-                if sw_app:
-                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                    if assembly_doc:
-                        i = 0
-                        continue
-            
-            if not success and not needs_restart:
-                 # Check alive logic
-                 pass
-            
-            self.set_progress(0.5 + (0.5 * (i + 1) / total_files))
-            i += 1
-
-        self.apply_cleanup_logic(sw_app, assembly_doc)
-        
-        if not is_subprocess:
-            self.set_status("Tamamlandı")
-            self.set_progress(1.0)
-            self.log("İşlem başarıyla tamamlandı.", "#10b981")
-            
-    def run_process_immediate_mode(self, codes, vault, is_subprocess=False):
-        """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
-        if is_subprocess: self.log(f"Alt Süreç Başladı: Immediate Mode ({len(codes)} parça)", "#6366f1")
-
-        # Ensure Vault is valid
-        try:
-            _ = vault.Name
-        except:
-            if is_subprocess: self.log("Alt süreç için PDM bağlantısı tazecleniyor...", "#3b82f6")
-            vault = self.get_pdm_vault()
-
-
-        # SolidWorks'ü başlat ve montajı hazırla
-        self.set_status("SolidWorks başlatılıyor...")
-
         sw_app = self.get_sw_app()
         if not sw_app:
             self.set_status("Hata")
@@ -1861,20 +1707,18 @@ class LogicHandler:
             i += 1
 
         # Özet bilgi
-        # Özet bilgi
         if not_found_codes:
             not_found_str = ",".join(not_found_codes)
             self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str} PDM'de yok.", "#f59e0b")
         
-        self.apply_cleanup_logic(sw_app, assembly_doc)
+        if added_count > 0:
+            self.log(f"Toplam {added_count} parça montaja eklendi.", "#10b981")
+            self.set_status("Tamamlandı")
+            self.apply_cleanup_logic(sw_app, assembly_doc)
+            self.set_progress(1.0)
+            self.log("İşlem başarıyla tamamlandı.", "#10b981")
 
-        if not is_subprocess:
-            if added_count > 0:
-                self.log(f"Toplam {added_count} parça montaja eklendi.", "#10b981")
-                self.set_status("Tamamlandı")
-                self.set_progress(1.0)
-                self.log("İşlem başarıyla tamamlandı.", "#10b981")
-            else:
-                self.log("Hiçbir parça eklenemedi.", "#f59e0b")
-                self.set_status("Tamamlandı")
-                self.set_progress(1.0)
+        else:
+            self.log("Hiçbir parça eklenemedi.", "#f59e0b")
+            self.set_status("Tamamlandı")
+            self.set_progress(1.0)
