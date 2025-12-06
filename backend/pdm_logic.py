@@ -649,7 +649,7 @@ class LogicHandler:
                 folder_obj = None
             
             if not file_obj:
-                self.log(f"  PDM'de dosya bulunamadı: {file_name}", "#ef4444")
+                # self.log(f"  PDM'de dosya bulunamadı: {file_name}", "#ef4444")
                 return False
             
             # Folder object yoksa parent folder'ı al
@@ -660,37 +660,53 @@ class LogicHandler:
                     pass
             
             if not folder_obj:
-                self.log(f"Dosya klasör bilgisi alınamadı: {file_name}", "#ef4444")
+                # self.log(f"Dosya klasör bilgisi alınamadı: {file_name}", "#ef4444")
                 return False
             
             # Montaj dosyası ise referanslarıyla birlikte çek (BatchGet)
             is_assembly = file_path.lower().endswith(".sldasm")
             
-            # Sürüm kontrolü ve loglama
+            # Sürüm kontrolü
+            is_minus_one_quantity = False
             try:
                 local_version = file_obj.GetLocalVersionNo(folder_obj.ID)
                 latest_version = file_obj.CurrentVersion
                 
                 # Montaj değilse ve sürüm güncelse atla
                 if not is_assembly and os.path.exists(file_path) and local_version >= latest_version:
-                    self.log(f"Dosya güncel (v{local_version}): {file_name}", "#0ea5e9")
                     return True
                 
-                # Montaj ise her durumda kontrol et/güncelle (referanslar için)
-                if is_assembly:
-                    self.log(f"Montaj referansları kontrol ediliyor...: {file_name}", "#3b82f6")
-                else:
-                    self.log(f"Sürüm güncelleniyor (v{local_version} -> v{latest_version}): {file_name}", "#3b82f6")
+                # Loglar kaldırıldı (Sadeleştirme)
             except Exception as ver_err:
-                self.log(f"Sürüm bilgisi alınamadı, son sürüm çekiliyor: {file_name}", "#f59e0b")
+                pass
             
             # GetFileCopy ile en son sürümü çek
             try:
                 # 0 = Latest Version (param2), Flag = 0
                 file_obj.GetFileCopy(0, 0, folder_obj.ID, 0, "")
             except Exception as copy_err:
-                self.log(f"Dosya kopyalama hatası: {copy_err}", "#ef4444")
-                return False
+                error_msg = str(copy_err)
+                
+                # -1 quantity hatası mı kontrol et
+                if "quantity" in error_msg.lower() or "-1" in error_msg:
+                    is_minus_one_quantity = True
+                    # self.log(f"⚠ Quantity: -1 (Virtual/Reference) - İşleniyor: {file_name}", "#a855f7")
+                else:
+                    # Dosya zaten local'de mi?
+                    if os.path.exists(file_path):
+                        # Dosya var, hata olsa da devam et
+                        return True
+                    
+                    self.log(f"Dosya kopyalama hatası ({file_name}): {error_msg}", "#ef4444")
+                    return False
+            
+            # -1 quantity ise dosya zaten mevcut olmalı, kontrol et
+            if is_minus_one_quantity:
+                if os.path.exists(file_path):
+                    return True
+                else:
+                    self.log(f"✗ Quantity -1 dosyası bulunamadı: {file_name}", "#ef4444")
+                    return False
             
             # Dosyanın indirilmesini bekle
             for attempt in range(30):  # 7.5 saniye maksimum
@@ -699,22 +715,17 @@ class LogicHandler:
                     try:
                         size = os.path.getsize(file_path)
                         if size > 0:
-                            self.log(f"Son sürüm indirildi: {file_name}", "#10b981")
                             return True
                     except Exception:
                         pass
                 time.sleep(0.25)
             
-            # Son kontrol
-            if os.path.exists(file_path):
-                self.log(f"Dosya indirildi: {file_name}", "#10b981")
-                return True
-            
-            self.log(f"Dosya indirme zaman aşımına uğradı: {file_name}", "#ef4444")
+            # Timeout
+            self.log(f"Dosya indirme zaman aşımı: {file_name}", "#ef4444")
             return False
-            
+                
         except Exception as e:
-            self.log(f"Son sürüm çekilirken hata oluştu: {e}", "#ef4444")
+            self.log(f"Beklenmeyen hata ({file_name}): {str(e)}", "#ef4444")
             return False
 
     def ensure_local_file(self, vault, file_path):
