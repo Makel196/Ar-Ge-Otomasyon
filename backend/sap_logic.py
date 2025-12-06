@@ -105,17 +105,10 @@ def keep_sap_alive_thread():
                      # Session'a 'dokunarak' aktif tut (Enter tuşu - En güvenli ping)
                      try:
                         session.findById("wnd[0]").SendVKey(0)
-                        # Ping attıktan sonra popup çıkarsa hemen kapat
-                        time.sleep(0.5)
-                        close_sap_popups()
-                        # Tekrar kontrol (güvenlik için)
-                        time.sleep(0.5)
-                        close_sap_popups()
                      except:
                         pass
         except:
-             # Bağlantı hatası durumunda da popup varsa temizle
-             close_sap_popups()
+            pass
 
 def start_keep_alive_service():
     """SAP Keep-Alive servisini başlatır (Singleton)."""
