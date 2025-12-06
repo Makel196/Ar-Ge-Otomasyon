@@ -937,6 +937,11 @@ class LogicHandler:
         attempt("AddComponent4", lambda p: assembly_doc.AddComponent4(p, 0, 0, z_offset))
         attempt("AddComponent", lambda p: assembly_doc.AddComponent(p, 0, 0, z_offset))
 
+        # Eğer comp bool döndüyse (örn InsertExistingComponent2), obje değildir.
+        # Bu durumda None yapıp aşağıda Feature Tree'den bulmasını sağlayalım.
+        if isinstance(comp, bool):
+            comp = None
+
         if not comp:
             try:
                 comps_after = assembly_doc.GetComponents(True) or []
