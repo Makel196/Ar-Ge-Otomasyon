@@ -564,7 +564,7 @@ class LogicHandler:
                 while result:
                     if not self.is_running: return None
                     if self.check_file_match(vault, result.ID, sap_code):
-                        self.log(f"PDM'de bulundu ({var_name}): {result.Name}", "#0ea5e9")
+                        # Log kaldırıldı (üst fonksiyonda tekilleştirildi)
                         return self.map_vault_path(vault, result.Path)
                     result = search.GetNextResult()
             except Exception:
@@ -578,7 +578,7 @@ class LogicHandler:
             while result:
                 if not self.is_running: return None
                 if self.check_file_match(vault, result.ID, sap_code):
-                    self.log(f"PDM'de bulundu (Dosya Adı): {result.Name}", "#0ea5e9")
+                    # Log kaldırıldı
                     return self.map_vault_path(vault, result.Path)
                 result = search.GetNextResult()
         except Exception:
