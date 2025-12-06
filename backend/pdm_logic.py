@@ -980,25 +980,12 @@ class LogicHandler:
                     should_hide = True
                 
                 if should_hide:
-                    # Robust Hiding with SelectByID2
+                    # Robust Hiding with Dynamic Macro (VBA)
                     comp_name = comp.Name2
                     asm_title_clean = os.path.splitext(asm_title)[0]
                     full_id = f"{comp_name}@{asm_title_clean}"
                     
-                    status = assembly_doc.Extension.SelectByID2(
-                        full_id,
-                        "COMPONENT",
-                        0, 0, 0,
-                        False,
-                        0,
-                        pythoncom.Nothing,
-                        0
-                    )
-                    
-                    if status:
-                        assembly_doc.HideComponent2()
-                        assembly_doc.ClearSelection2(True)
-                        assembly_doc.GraphicsRedraw2()
+                    self.run_hide_macro(sw_app, full_id)
             except Exception as hide_err:
                 pass
                 
@@ -1055,6 +1042,45 @@ class LogicHandler:
             pass
 
         return success, new_z_offset, False  # Third value = needs_restart
+
+    def run_hide_macro(self, sw_app, component_id):
+        """
+        Dynamically creates and runs a VBA macro to hide a component.
+        This bypasses potential Python-COM interface issues with SelectByID2/Nothing.
+        """
+        try:
+            macro_dir = os.path.join(os.getcwd(), "backend", "macros")
+            if not os.path.exists(macro_dir):
+                os.makedirs(macro_dir)
+            
+            macro_path = os.path.join(macro_dir, "temp_hide.swb")
+            
+            macro_content = f"""
+Dim swApp As Object
+Dim Part As Object
+Dim boolstatus As Boolean
+
+Sub main()
+    Set swApp = Application.SldWorks
+    Set Part = swApp.ActiveDoc
+    boolstatus = Part.Extension.SelectByID2("{component_id}", "COMPONENT", 0, 0, 0, False, 0, Nothing, 0)
+    Part.HideComponent2
+    Part.ClearSelection2 True
+End Sub
+"""
+            with open(macro_path, "w") as f:
+                f.write(macro_content)
+            
+            sw_app.RunMacro(macro_path, "main", "main")
+            
+            # Ekranı tazele
+            try:
+                sw_app.ActiveDoc.GraphicsRedraw2()
+            except:
+                pass
+                
+        except Exception as e:
+            self.log(f"Makro çalıştırma hatası: {str(e)}", "#f59e0b")
 
     def apply_cleanup_logic(self, sw_app, assembly_doc):
         """
