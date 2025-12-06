@@ -1744,8 +1744,10 @@ class LogicHandler:
                 continue
             
             # Dosya bulundu, yerelde olduğundan emin ol
+            # Dosya bulundu, yerelde olduğundan emin ol
             # Cache kontrolü: Daha önce kontrol edildiyse tekrar etme (File Copy hatasını önler)
-            if path not in processed_files_cache:
+            norm_path = normalize_path_for_compare(path)
+            if norm_path not in processed_files_cache:
                 if not self.ensure_local_file(vault, path):
                     self.log(f"Bulunamadı: {code}", "#ef4444")
                     if code not in not_found_codes:
@@ -1755,7 +1757,7 @@ class LogicHandler:
                     self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
                     i += 1
                     continue
-                processed_files_cache.add(path)
+                processed_files_cache.add(norm_path)
 
             
             # Bulundu log'u
