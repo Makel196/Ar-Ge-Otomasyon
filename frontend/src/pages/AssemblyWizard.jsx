@@ -330,13 +330,14 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                    <button
+                    <motion.button
                         className="modern-btn"
                         onClick={() => navigate('/')}
+                        whileHover={{ x: [0, 5, -5, 0], transition: { duration: 0.4, ease: "easeInOut" } }}
                         style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}
                     >
                         <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '16px' }} />
-                    </button>
+                    </motion.button>
 
                     <div style={{ width: '1px', height: '30px', background: 'var(--border)' }}></div>
 
@@ -369,13 +370,16 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         <span style={{ fontWeight: '700', fontSize: '13px', color: statusTheme.color }}>{status}</span>
                     </div>
 
-                    <button
+                    <motion.button
                         className={`modern-btn ${showSettings ? 'primary' : ''}`}
                         onClick={openSettings}
+                        initial="rest" whileHover="hover" animate="rest"
                         style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                        <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
-                    </button>
+                        <motion.div variants={{ hover: { rotate: 90 }, rest: { rotate: 0 } }} transition={{ duration: 0.3 }}>
+                            <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
+                        </motion.div>
+                    </motion.button>
                 </div>
             </motion.div>
 

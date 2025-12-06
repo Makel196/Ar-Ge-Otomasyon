@@ -182,6 +182,23 @@ export const useAssemblyLogic = () => {
     return () => clearInterval(interval);
   }, [vaultPath]);
 
+  // Auto-clear logs older than 20 seconds
+  useEffect(() => {
+    const cleaner = setInterval(() => {
+      setLogs(prev => {
+        const now = Date.now() / 1000;
+        const filtered = prev.filter(log => (now - log.timestamp) <= 20);
+        if (filtered.length === prev.length) return prev;
+
+        if (rememberSession) {
+          localStorage.setItem('savedLogs', JSON.stringify(filtered));
+        }
+        return filtered;
+      });
+    }, 2000);
+    return () => clearInterval(cleaner);
+  }, [rememberSession]);
+
   // Auto-save codes if rememberSession is true
   useEffect(() => {
     if (rememberSession) {

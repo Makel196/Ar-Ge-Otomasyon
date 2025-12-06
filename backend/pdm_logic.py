@@ -1331,6 +1331,11 @@ class LogicHandler:
             self.set_status("Hata")
         
         finally:
+            if sap_instance:
+                try:
+                    sap_instance.stop_popup_blocker()
+                except:
+                    pass
             self.is_running = False
             stop_pdm_dialog_watcher()
             pythoncom.CoUninitialize()

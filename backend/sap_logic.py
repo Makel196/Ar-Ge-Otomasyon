@@ -80,11 +80,15 @@ def minimize_sap_logon_window():
     except:
         pass
 
+# Global flag to control popup thread
+POPUP_THREAD_RUNNING = True
+
 def auto_close_popups_thread():
     """Arka planda sürekli çalışan popup kapatıcı thread"""
-    while True:
+    global POPUP_THREAD_RUNNING
+    while POPUP_THREAD_RUNNING:
         close_sap_popups()
-        time.sleep(0.1)
+        time.sleep(0.5) # CPU kullanımını azaltmak için sleep artırıldı
 
 # ==============================================================================
 # SAP BAĞLANTI SINIFI
@@ -96,14 +100,22 @@ class SapGui():
         self.application = None
         self.connection = None
         self.session = None
-        self.retry_mode = True # Kullanıcı isteği: Kesinti olmamalı, internet yoksa sonsuza kadar denemeli
+        self.retry_mode = True 
         
-        # Popup kapatıcı thread'i başlat
-        if not any(t.name == "PopupCloser" for t in threading.enumerate()):
+        # Popup kapatıcı thread'i başlat (Global kontrol)
+        global POPUP_THREAD_RUNNING
+        POPUP_THREAD_RUNNING = True
+        
+        if not any(t.name == "PopupCloser" and t.is_alive() for t in threading.enumerate()):
             popup_thread = threading.Thread(target=auto_close_popups_thread, daemon=True, name="PopupCloser")
             popup_thread.start()
 
         self.connect_to_sap()
+    
+    def stop_popup_blocker(self):
+        """Popup engelleyiciyi durdurur."""
+        global POPUP_THREAD_RUNNING
+        POPUP_THREAD_RUNNING = False
 
     def find_sap_path(self):
         """SAP Logon yolunu bulur."""
