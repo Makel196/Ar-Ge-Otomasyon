@@ -1407,6 +1407,14 @@ class LogicHandler:
     def run_process_batch_mode(self, codes, vault, is_subprocess=False):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
         if is_subprocess: self.log(f"Alt Süreç Başladı: Batch Mode ({len(codes)} parça)", "#6366f1")
+        
+        # Ensure Vault is valid
+        try:
+            _ = vault.Name
+        except:
+            if is_subprocess: self.log("Alt süreç için PDM bağlantısı tazeleniyor...", "#3b82f6")
+            vault = self.get_pdm_vault()
+
 
         found_files = []
         not_found_codes = []
@@ -1549,6 +1557,14 @@ class LogicHandler:
     def run_process_immediate_mode(self, codes, vault, is_subprocess=False):
         """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
         if is_subprocess: self.log(f"Alt Süreç Başladı: Immediate Mode ({len(codes)} parça)", "#6366f1")
+
+        # Ensure Vault is valid
+        try:
+            _ = vault.Name
+        except:
+            if is_subprocess: self.log("Alt süreç için PDM bağlantısı tazecleniyor...", "#3b82f6")
+            vault = self.get_pdm_vault()
+
 
         # SolidWorks'ü başlat ve montajı hazırla
         self.set_status("SolidWorks başlatılıyor...")
