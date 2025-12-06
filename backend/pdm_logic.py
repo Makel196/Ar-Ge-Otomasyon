@@ -1388,7 +1388,7 @@ class LogicHandler:
             
         return {
             'codes': kit_codes,
-            'components': components_list,
+            'components': components,
             'kit_code': header_info['material'] if header_info else code,
             'kit_desc': header_info['description'] if header_info else '',
             'missing_in_sap': False
