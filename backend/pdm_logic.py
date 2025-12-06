@@ -1112,7 +1112,7 @@ End Sub
                 pass
                 
             if not folder:
-                self.log(f"PDM klasörü bulunamadı: {os.path.dirname(file_path)}", "#f59e0b")
+                # self.log(f"PDM klasörü bulunamadı: {os.path.dirname(file_path)}", "#f59e0b")
                 return
 
             try:
@@ -1262,22 +1262,22 @@ End Sub
                                     try:
                                         cpm = assembly_doc.Extension.CustomPropertyManager("")
                                         
-                                        # 1. SAP Numarasi
-                                        cpm.Add3("SAP Numarasi", 30, self.current_kit_code, 1) # 1 = Delete and Add
-                                        
-                                        # 2. Description (Kit Tanımı)
-                                        cpm.Add3("Description", 30, self.current_kit_desc, 1)
+                                        def safe_add_prop(name, val):
+                                            try:
+                                                cpm.Delete2(name)
+                                                cpm.Add2(name, 30, str(val))
+                                            except:
+                                                pass
 
-                                        # 3. Parca-Montaj Durumu = STANDART
-                                        cpm.Add3("Parca-Montaj Durumu", 30, "STANDART", 1)
-                                        
-                                        # 4. Musteri = PGR
-                                        cpm.Add3("Musteri", 30, "PGR", 1)
+                                        safe_add_prop("SAP Numarasi", self.current_kit_code)
+                                        safe_add_prop("Description", self.current_kit_desc)
+                                        safe_add_prop("Parca-Montaj Durumu", "STANDART")
+                                        safe_add_prop("Musteri", "PGR")
                                         
                                     except Exception as prop_err:
                                         self.log(f"Özellik yazma hatası: {prop_err}", "#f59e0b")
                                     
-                                    # Kaydetme (Kullanıcı Talebi: SaveAs3(path, 0, 0))
+                                    # Kaydetme
                                     try:
                                         assembly_doc.SaveAs3(full_path, 0, 0)
                                         self.log(f"Montaj kaydedildi: {safe_code}.SLDASM", "#10b981")
@@ -1288,21 +1288,24 @@ End Sub
                                         except Exception as e:
                                             self.log(f"Kaydetme hatası: {e}", "#ef4444")
                                     
-                                    # Kapat (Title ile - Kullanıcı Talebi)
+                                    # Kapat ve Check-in
                                     try:
-                                        assembly_doc = sw_app.ActiveDoc
-                                        final_title = assembly_doc.GetTitle()
-                                        sw_app.CloseDoc(final_title)
+                                        if assembly_doc:
+                                            final_title = assembly_doc.GetTitle()
+                                            sw_app.CloseDoc(final_title)
                                         
-                                        # Check-in
+                                        # Dosya kapandıktan sonra Check-in
                                         self.check_in_file(full_path)
                                     except:
                                         try:
                                             sw_app.CloseDoc(full_path)
                                         except:
                                             pass
+
                                 except Exception as e:
                                     self.log(f"İşlem hatası: {e}", "#ef4444")
+                    except:
+                        pass
             except:
                 pass
                 
