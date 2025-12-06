@@ -979,19 +979,14 @@ class LogicHandler:
             # Float logic removed as per request
 
 
-            filename = os.path.basename(file_path)
-            
-            # Tekrar loglamayı engelle
-            if filename not in self.current_kit_added_logs:
-                self.log(f"Eklendi: {filename} (Z={z_offset:.3f}m)", "#10b981")
-                self.current_kit_added_logs.add(filename)
+            # Loglama run_process_immediate_mode içinde yapılacak (Tekilleştirilmiş)
             
             # Gizleme Kontrolü (Negatif Miktar)
             try:
                 base_code, _ = os.path.splitext(filename)
                 if base_code in self.current_kit_hidden_items:
-                    comp.Select4(False, None, False)
-                    assembly_doc.HideComponent2()
+                     comp.Select4(False, None, False)
+                     assembly_doc.HideComponent2()
             except:
                 pass
                 
@@ -1469,11 +1464,15 @@ class LogicHandler:
                 row_num = idx + 1
                 desc = comp.get('description', '')
                 if len(desc) > 40: desc = desc[:37] + "..."
-                line = f"{row_num:<2} | {comp.get('code', ''):<9} | {desc:<40} | {qty}"
+                
+                # Miktar gösterimi (Pozitifse boşluklu)
+                qty_str = f" {qty}" if qty > 0 else f"{qty}"
+                
+                line = f"{row_num:<2} | {comp.get('code', ''):<9} | {desc:<40} | {qty_str}"
                 log_buffer.append(line)
                 
                 if comp.get('code'):
-                    code = comp['code']
+                    code = str(comp['code']).strip()
                     # Negatif ise gizlenecekler listesine ekle
                     if qty < 0:
                         self.current_kit_hidden_items.add(code)
@@ -1702,6 +1701,9 @@ class LogicHandler:
         error_count = 0
         not_found_codes = []
         found_paths = {}  # Cache found paths to avoid re-searching
+        processed_files_cache = set() # Cache files already checked/downloaded locally
+        logged_found_codes = set()
+        logged_added_codes = set()
         
         # Initial stats
         self.update_stats(total=total_codes, success=0, error=0)
@@ -1742,18 +1744,25 @@ class LogicHandler:
                 continue
             
             # Dosya bulundu, yerelde olduğundan emin ol
-            if not self.ensure_local_file(vault, path):
-                self.log(f"Bulunamadı: {code}", "#ef4444")
-                if code not in not_found_codes:
-                    not_found_codes.append(code)
-                    error_count += 1
-                    self.update_stats(error=error_count)
-                self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
-                i += 1
-                continue
+            # Cache kontrolü: Daha önce kontrol edildiyse tekrar etme (File Copy hatasını önler)
+            if path not in processed_files_cache:
+                if not self.ensure_local_file(vault, path):
+                    self.log(f"Bulunamadı: {code}", "#ef4444")
+                    if code not in not_found_codes:
+                        not_found_codes.append(code)
+                        error_count += 1
+                        self.update_stats(error=error_count)
+                    self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
+                    i += 1
+                    continue
+                processed_files_cache.add(path)
+
             
             # Bulundu log'u
-            self.log(f"Bulundu: {code}", "#10b981")
+            if code not in logged_found_codes:
+                qty = codes.count(code)
+                self.log(f"Bulundu: {code} | Adet: {qty}", "#10b981")
+                logged_found_codes.add(code)
 
             # Check if SolidWorks is still running
             sw_alive = True
@@ -1848,6 +1857,10 @@ class LogicHandler:
             
             if success:
                 added_count += 1
+                if code not in logged_added_codes:
+                    qty = codes.count(code)
+                    self.log(f"Eklendi: {code} | Adet: {qty}", "#10b981")
+                    logged_added_codes.add(code)
                 self.update_stats(success=added_count)
             else:
                 error_count += 1
