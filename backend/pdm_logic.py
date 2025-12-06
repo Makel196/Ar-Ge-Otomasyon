@@ -1541,6 +1541,7 @@ class LogicHandler:
                     
                     if code not in logged_found_codes:
                         qty = codes.count(code)
+                        if code in self.current_kit_hidden_items: qty *= -1
                         self.log(f"Bulundu: {code} | Adet: {qty}", "#10b981")
                         logged_found_codes.add(code)
                         
@@ -1668,6 +1669,7 @@ class LogicHandler:
             if success:
                 if code not in logged_added_codes:
                     qty = codes.count(code)
+                    if code in self.current_kit_hidden_items: qty *= -1
                     self.log(f"Eklendi: {code} | Adet: {qty}", "#10b981")
                     logged_added_codes.add(code)
             
@@ -1782,6 +1784,7 @@ class LogicHandler:
             # Bulundu log'u
             if code not in logged_found_codes:
                 qty = codes.count(code)
+                if code in self.current_kit_hidden_items: qty *= -1
                 self.log(f"Bulundu: {code} | Adet: {qty}", "#10b981")
                 logged_found_codes.add(code)
 
@@ -1880,6 +1883,7 @@ class LogicHandler:
                 added_count += 1
                 if code not in logged_added_codes:
                     qty = codes.count(code)
+                    if code in self.current_kit_hidden_items: qty *= -1
                     self.log(f"Eklendi: {code} | Adet: {qty}", "#10b981")
                     logged_added_codes.add(code)
                 self.update_stats(success=added_count)
