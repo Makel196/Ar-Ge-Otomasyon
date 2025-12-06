@@ -1105,24 +1105,13 @@ class LogicHandler:
                         
                         assembly_doc.ViewZoomtofit2()
                         
-                        # --- Mass Property Update (Gizli Bileşenler Hariç) ---
+                        # --- Run Mass Property Update Macro ---
                         try:
-                            ext = assembly_doc.Extension
-                            # CreateMassProperty2 or CreateMassProperty
-                            mass_prop = None
-                            try:
-                                mass_prop = ext.CreateMassProperty2()
-                            except:
-                                try:
-                                    mass_prop = ext.CreateMassProperty()
-                                except:
-                                    pass
-                            
-                            if mass_prop:
-                                mass_prop.IncludeHiddenBodiesOrComponents = False
-                                mass_prop.ShowWeldBeadMass = False
-                                mass_prop.Recalculate()
-                        except:
+                            macro_path = os.path.join(os.getcwd(), "backend", "macros", "UpdateMass.swb")
+                            if os.path.exists(macro_path):
+                                # RunMacro arguments: FileName, ModuleName, ProcedureName
+                                sw_app.RunMacro(macro_path, "main", "main")
+                        except Exception:
                             pass
 
                     except:

@@ -90,6 +90,32 @@ def auto_close_popups_thread():
         close_sap_popups()
         time.sleep(0.5) # CPU kullanımını azaltmak için sleep artırıldı
 
+def keep_sap_alive_thread():
+    """SAP Session'ı canlı tutmak için periyodik aktivite (10 dk)."""
+    while True:
+        time.sleep(600) # 10 dakika bekle
+        try:
+             # SAP GUI Bağlantısı
+             sap_gui = win32com.client.GetObject("SAPGUI")
+             application = sap_gui.GetScriptingEngine
+             if application.Connections.Count > 0:
+                 conn = application.Connections.Item(0)
+                 if conn.Sessions.Count > 0:
+                     session = conn.Sessions.Item(0)
+                     # Session'a 'dokunarak' aktif tut (Enter tuşu - En güvenli ping)
+                     try:
+                        session.findById("wnd[0]").SendVKey(0)
+                     except:
+                        pass
+        except:
+            pass
+
+def start_keep_alive_service():
+    """SAP Keep-Alive servisini başlatır (Singleton)."""
+    if not any(t.name == "SapKeepAlive" for t in threading.enumerate()):
+        t = threading.Thread(target=keep_sap_alive_thread, daemon=True, name="SapKeepAlive")
+        t.start()
+
 # ==============================================================================
 # SAP BAĞLANTI SINIFI
 # ==============================================================================

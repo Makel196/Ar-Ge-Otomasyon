@@ -1,0 +1,23 @@
+Dim swApp As Object
+Dim Part As Object
+Dim boolstatus As Boolean
+Dim longstatus As Long, longwarnings As Long
+
+Sub main()
+
+Set swApp = Application.SldWorks
+
+Set Part = swApp.ActiveDoc
+
+If Part Is Nothing Then Exit Sub
+
+' Redraw
+Part.GraphicsRedraw2
+Dim myMassProp As Object
+Set myMassProp = Part.Extension.CreateMassProperty2()
+If Not myMassProp Is Nothing Then
+    myMassProp.IncludeHiddenBodiesOrComponents = False
+    myMassProp.ShowWeldBeadMass = False
+    boolstatus = myMassProp.Recalculate()
+End If
+End Sub

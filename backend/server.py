@@ -8,6 +8,7 @@ import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pdm_logic import LogicHandler, read_vault_path_registry, write_vault_path_registry
+from sap_logic import start_keep_alive_service
 
 # Disable Flask default logging
 log = logging.getLogger('werkzeug')
@@ -263,5 +264,6 @@ if __name__ == '__main__':
     if sys.stdout.encoding != 'utf-8':
         sys.stdout.reconfigure(encoding='utf-8')
     
+    start_keep_alive_service()
     server = AutomationServer()
     server.run()
