@@ -64,6 +64,21 @@ def close_sap_popups():
     except:
         pass
 
+def minimize_sap_logon_window():
+    """SAP Logon penceresini minimize eder"""
+    def callback(hwnd, _):
+        try:
+            val = win32gui.GetWindowText(hwnd)
+            # Pencere başlığında SAP Logon geçiyorsa
+            if "SAP Logon" in val and win32gui.IsWindowVisible(hwnd):
+                 win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+        except:
+            pass
+    try:
+        win32gui.EnumWindows(callback, None)
+    except:
+        pass
+
 def auto_close_popups_thread():
     """Arka planda sürekli çalışan popup kapatıcı thread"""
     while True:
@@ -160,7 +175,11 @@ class SapGui():
                 if self.session:
                     try: self.session.AllowSystemCalls = True
                     except: pass
-                    # Pencereyi öne getir
+                    
+                    # Logon penceresini minimize et
+                    minimize_sap_logon_window()
+                    
+                    # Pencereyi minimize et
                     try: self.session.findById("wnd[0]").iconify()
                     except: pass
                     return True

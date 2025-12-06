@@ -92,6 +92,26 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
     const isAnyBatchModeActive = batchRenameMode || batchFixDataCardMode || batchFileLayoutMode || batchAssemblyWeightCorrectionMode || batchDuplicateCodeCheckMode;
 
+    // --- Auto Scroll Logic ---
+    const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+    const autoScrollTimeoutRef = React.useRef(null);
+
+    const handleUserInteraction = () => {
+        setIsAutoScrollPaused(true);
+        if (autoScrollTimeoutRef.current) clearTimeout(autoScrollTimeoutRef.current);
+
+        autoScrollTimeoutRef.current = setTimeout(() => {
+            setIsAutoScrollPaused(false);
+        }, 60000); // 60 saniye bekle
+    };
+
+    React.useEffect(() => {
+        if (!isAutoScrollPaused && logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [logs, isAutoScrollPaused, logsEndRef]);
+    // -------------------------
+
     const handleBatchToggle = (newValue, setter) => {
         if (newValue && isAnyBatchModeActive) {
             setAlertState({
@@ -105,6 +125,53 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
     };
 
     const handleExportExcel = () => {
+        const processedKits = stats.processed_kits;
+
+        // Çoklu Kit Raporu
+        if (processedKits && processedKits.length > 0) {
+            const wb = XLSX.utils.book_new();
+
+            // Header
+            const header = ["KİT ADI", "SAP NO", "MONTAJ HAZIRLIK", "AÇIKLAMA"];
+            const rows = [header];
+
+            processedKits.forEach(kit => {
+                let aciklama = "";
+                if (kit.result !== 'YAPILDI' && Array.isArray(kit.notes)) {
+                    const missingLines = kit.notes.map(code => `${code}`).join('\n');
+                    if (missingLines) {
+                        aciklama = missingLines + "\nPDM'de yok.";
+                    }
+                }
+
+                rows.push([
+                    kit.kit_name || "",
+                    kit.kit_code || "",
+                    kit.result || "",
+                    aciklama
+                ]);
+            });
+
+            // Create Sheet
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+
+            // Column Widths
+            ws['!cols'] = [
+                { wch: 44 }, // A: KİT ADI
+                { wch: 20 }, // B: SAP NO
+                { wch: 20 }, // C: MONTAJ HAZIRLIK
+                { wch: 60 }, // D: AÇIKLAMA
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, "Montaj Raporu");
+
+            const today = new Date();
+            const timestamp = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
+            XLSX.writeFile(wb, `Montaj_Raporu_${timestamp}.xlsx`);
+            return;
+        }
+
+        // --- Eski Logic (Fallback) ---
         // Filter only for bulk "Bulunamayan SAP kodları" logs
         const notFoundLogs = logs.filter(log =>
             log.message && log.message.includes('Bulunamayan SAP kodları')
@@ -503,17 +570,21 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         </motion.button>
                     </div>
 
-                    <div style={{
-                        flex: 1,
-                        padding: '15px',
-                        background: 'var(--bg)',
-                        borderRadius: '12px',
-                        overflowY: 'auto',
-                        fontFamily: "'JetBrains Mono', 'Consolas', monospace",
-                        fontSize: '12px',
-                        border: '1px solid var(--border)',
-                        minHeight: '0'
-                    }}>
+                    <div
+                        onWheel={handleUserInteraction}
+                        onTouchMove={handleUserInteraction}
+                        onMouseDown={handleUserInteraction}
+                        style={{
+                            flex: 1,
+                            padding: '15px',
+                            background: 'var(--bg)',
+                            borderRadius: '12px',
+                            overflowY: 'auto',
+                            fontFamily: "'JetBrains Mono', 'Consolas', monospace",
+                            fontSize: '12px',
+                            border: '1px solid var(--border)',
+                            minHeight: '0'
+                        }}>
                         <AnimatePresence>
                             {logs.length === 0 ? (
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', opacity: 0.6, flexDirection: 'column', gap: '10px' }}>

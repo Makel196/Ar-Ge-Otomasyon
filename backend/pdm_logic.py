@@ -322,7 +322,7 @@ class LogicHandler:
             # self.log("Stats Queue connected.", "#2cc985")
             pass
         self.current_status = "Hazır"
-        self.stats = {"total": 0, "success": 0, "error": 0}
+        self.stats = {"total": 0, "success": 0, "error": 0, "processed_kits": []}
 
     def update_stats(self, total=None, success=None, error=None):
         print(f"DEBUG: update_stats called with total={total}, success={success}, error={error}", flush=True)
@@ -1177,9 +1177,9 @@ class LogicHandler:
         # Check user mode
         stop_on_not_found = self.get_stop_on_not_found()
         if stop_on_not_found:
-            self.run_process_batch_mode(codes, vault)
+            return self.run_process_batch_mode(codes, vault)
         else:
-            self.run_process_immediate_mode(codes, vault)
+            return self.run_process_immediate_mode(codes, vault)
             
             # PDM dialog izleyicisini durdur
             stop_pdm_dialog_watcher()
@@ -1194,6 +1194,8 @@ class LogicHandler:
                 pythoncom.CoUninitialize()
             except Exception:
                 pass
+            
+            return True, [] # Fallback
     
     def run_process(self, codes, config=None):
         pythoncom.CoInitialize()
@@ -1267,19 +1269,42 @@ class LogicHandler:
                     self.log(f"--- Kit İşleniyor ({i+1}/{total}): {code} ---", "#8b5cf6")
                     self.set_progress((i) / total)
                     
-                    # A. SAP Verisi Çek
-                    kit_codes = self._fetch_sap_bom(sap_instance, code)
+                    # A. SAP Verisi Çek (Dict döner)
+                    kit_data_sap = self._fetch_sap_bom(sap_instance, code)
                     
-                    if not kit_codes:
+                    if not kit_data_sap or not kit_data_sap.get('codes'):
                         self.log(f"Kit içeriği boş veya alınamadı: {code}", "#ef4444")
                         continue
+                    
+                    kit_codes = kit_data_sap['codes']
+                    kit_desc = kit_data_sap.get('kit_desc', '')
+                    kit_code = kit_data_sap.get('kit_code', code)
 
                     # B. Montaj Yap
                     # Her kit için yeni montaj zorunlu
                     self.get_add_to_existing = lambda: False
                     
-                    self.execute_assembly_workflow(kit_codes, vault)
+                    # execute_assembly_workflow artık (success, missing_items) dönmeli
+                    result = self.execute_assembly_workflow(kit_codes, vault)
                     
+                    # Eğer execute_assembly_workflow henüz güncellenmediyse (eski kod void dönüyorsa) koruma:
+                    if isinstance(result, tuple) and len(result) == 2:
+                        success, missing = result
+                    else:
+                        # Fallback for void return (assuming success if no exception, but missing info is lost)
+                        success = True 
+                        missing = []
+
+                    # C. Kayıt Oluştur
+                    record = {
+                        'kit_name': kit_desc,
+                        'kit_code': kit_code,
+                        'result': 'YAPILDI' if success else 'YAPILAMADI',
+                        'notes': missing
+                    }
+                    self.stats['processed_kits'].append(record)
+                    self.update_stats()
+
                     if i < total - 1:
                         self.log("Sonraki kite geçiliyor...", "#6b7280")
                         time.sleep(1.5)
@@ -1353,7 +1378,12 @@ class LogicHandler:
             stats = self.stats
             self.update_stats(error=stats['error'] + 1)
             
-        return kit_codes
+        return {
+            'codes': kit_codes,
+            'kit_code': header_info['material'] if header_info else code,
+            'kit_desc': header_info['description'] if header_info else '',
+            'missing_in_sap': False
+        }
 
 
     def run_process_batch_mode(self, codes, vault):
@@ -1401,17 +1431,17 @@ class LogicHandler:
             self.log("Bulunamayan parçalar var, montaj iptal edildi.", "#f59e0b")
             self.set_progress(1)
             self.set_status("İptal")
-            return
+            return False, not_found_codes
 
         if not found_files:
             self.log("Eklenecek parça bulunamadı.", "#f59e0b")
             self.set_progress(0)
             self.set_status("İptal")
-            return
+            return False, codes
 
         if not self.is_running:
             self.log("İşlem durduruldu.", "#f97316")
-            return
+            return False, []
 
         # SolidWorks'ü başlat ve montajı hazırla
         self.set_status("SolidWorks başlatılıyor...")
@@ -1530,6 +1560,7 @@ class LogicHandler:
         self.apply_cleanup_logic(sw_app, assembly_doc)
         self.set_progress(1.0)
         self.log("İşlem başarıyla tamamlandı.", "#10b981")
+        return True, not_found_codes
 
     
     def run_process_immediate_mode(self, codes, vault):
@@ -1540,11 +1571,11 @@ class LogicHandler:
         if not sw_app:
             self.set_status("Hata")
             self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-            return
+            return False, []
 
         assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
         if not assembly_doc:
-            return
+            return False, []
 
         self.set_status("Parçalar aranıyor ve ekleniyor...")
         total_codes = len(codes)
@@ -1717,8 +1748,10 @@ class LogicHandler:
             self.apply_cleanup_logic(sw_app, assembly_doc)
             self.set_progress(1.0)
             self.log("İşlem başarıyla tamamlandı.", "#10b981")
+            return True, not_found_codes
 
         else:
             self.log("Hiçbir parça eklenemedi.", "#f59e0b")
             self.set_status("Tamamlandı")
             self.set_progress(1.0)
+            return True, not_found_codes

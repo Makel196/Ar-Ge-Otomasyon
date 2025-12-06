@@ -214,10 +214,7 @@ export const useAssemblyLogic = () => {
     }
   }, []);
 
-  // Auto scroll logs
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+
 
   const handleStart = useCallback(async () => {
     if (startInFlightRef.current) return;
