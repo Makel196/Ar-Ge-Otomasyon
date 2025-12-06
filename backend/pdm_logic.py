@@ -1342,12 +1342,85 @@ class LogicHandler:
                     kit_code = kit_data_sap.get('kit_code', code)
 
                     # B. Montaj Yap
-                    self.get_add_to_existing = lambda: False
-                    
                     result = self.execute_assembly_workflow(kit_components, vault)
                     
-                    # Eğer execute_assembly_workflow henüz güncellenmediyse (eski kod void dönüyorsa) koruma:
                     if isinstance(result, tuple) and len(result) == 2:
+                        success, missing = result
+                    else:
+                        success = True; missing = []
+
+                    # Missing parça tanımlarını eşleştir
+                    detailed_notes = []
+                    if missing:
+                        comp_map = {c['code']: c['description'] for c in kit_data_sap.get('components', [])}
+                        for m_code in missing:
+                             desc = comp_map.get(m_code, '')
+                             detailed_notes.append({'code': m_code, 'desc': desc})
+                    
+                    record = {
+                        'kit_name': kit_desc,
+                        'kit_code': kit_code,
+                        'result': 'YAPILDI' if success else 'YAPILAMADI',
+                        'notes': detailed_notes if detailed_notes else missing 
+                    }
+                    self.stats['processed_kits'].append(record)
+                    self.update_stats()
+                    
+                    if i < total - 1:
+                        self.log("Sonraki kite geçiliyor...", "#6b7280")
+                        time.sleep(1.5)
+            
+            else:
+                 self.execute_assembly_workflow(codes, vault)
+            
+            self.set_status("Tamamlandı")
+            self.log("Tüm işlemler tamamlandı.", "#10b981")
+            
+        except Exception as e:
+            self.log(f"Beklenmeyen hata: {str(e)}", "#ef4444")
+            import traceback; traceback.print_exc()
+            self.set_status("Hata")
+        
+        finally:
+            if sap_instance:
+                 try: sap_instance.stop_popup_blocker()
+                 except: pass
+            self.is_running = False
+            stop_pdm_dialog_watcher()
+            pythoncom.CoUninitialize()
+
+    def _fetch_sap_bom(self, sap, code):
+        self.set_status(f"SAP Okunuyor: {code}")
+        result = sap.get_bom_components(code)
+        
+        header_info = None; components = []
+        if isinstance(result, dict):
+            components = result.get('components', [])
+            header_info = result.get('header')
+        else: components = result
+        
+        kit_codes = []
+        if components:
+            self.log(f"{len(components)} bileşen bulundu.", "#10b981")
+            log_buffer = []
+            if header_info: log_buffer.append(f"KİT: {header_info.get('material', '')} - {header_info.get('description', '')}"); log_buffer.append("="*60)
+            log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
+            log_buffer.append("-" * 68)
+            for idx, comp in enumerate(components):
+                 line = f"{idx+1:<2} | {comp['code']:<9} | {comp['description'][:40]:<40} | {comp['quantity']}"
+                 log_buffer.append(line)
+                 if comp.get('code'): kit_codes.append(comp['code'])
+            self.log("\n".join(log_buffer), "#3b82f6")
+            self.update_stats(success=self.stats['success']+1)
+        else:
+            self.log(f"Bileşen bulunamadı: {code}", "#ef4444")
+            self.update_stats(error=self.stats['error']+1)
+            
+        return {'codes': kit_codes, 'components': components, 'kit_code': header_info['material'] if header_info else code, 'kit_desc': header_info['description'] if header_info else '', 'missing_in_sap': False}
+
+    def run_process_batch_mode(self, codes, vault):
+        self.set_status("Toplu mod aktif...")
+        return self.run_process_immediate_mode(codes, vault)
 
     def run_process_immediate_mode(self, codes, vault):
         """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
@@ -1425,14 +1498,9 @@ class LogicHandler:
             self.log(msg, "#10b981")
             
             # Determine loop count
-            # Normal Mode: 1
-            # MultiKit (Pattern): 1 (then pattern)
-            # MultiKit (No Pattern): count
             loop_iterations = count
-            if use_pattern:
-                loop_iterations = 1
-            if not self.multi_kit_mode:
-                loop_iterations = 1 
+            if use_pattern: loop_iterations = 1
+            if not self.multi_kit_mode: loop_iterations = 1 
             
             last_comp_name = None
             component_success = False
@@ -1451,7 +1519,6 @@ class LogicHandler:
 
                 assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
                 if not assembly_doc:
-                    # Restart logic (simplified)
                     restart_loop = True; break
                 
                 result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
@@ -1462,7 +1529,7 @@ class LogicHandler:
                      comp_name = None
                 
                 if needs_restart: restart_loop = True; break
-                if not success: pass # Already logged in add_component
+                if not success: pass 
                 else:
                     component_success = True
                     last_comp_name = comp_name
@@ -1479,18 +1546,17 @@ class LogicHandler:
                     feat = self.create_linear_pattern(sw_app, last_comp_name, count)
                     if not feat:
                         self.log("Pattern başarısız, kalan parçalar döngü ile ekleniyor...", "#f59e0b")
-                        # Fallback
                         for _ in range(count - 1):
                             self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
                 
-                # 2. Suppress (Hide)
+                # 2. Hide (Instead of Suppress)
                 if is_hidden and last_comp_name:
                     try:
                          # Select Seed
                          sw_app.ActiveDoc.ClearSelection2(True)
                          status = sw_app.ActiveDoc.Extension.SelectByID2(last_comp_name, "COMPONENT", 0, 0, 0, False, 0, None, 0)
                          if status:
-                             sw_app.ActiveDoc.EditSuppress2()
+                             sw_app.ActiveDoc.HideComponent2()
                     except Exception as e:
                         self.log(f"Gizleme hatası: {e}", "#f59e0b")
             
@@ -1498,8 +1564,6 @@ class LogicHandler:
                 added_count += 1
                 self.update_stats(success=added_count)
             else:
-                # Only count error if loop failed completely?
-                # logic is simplified
                 pass
             
             i += 1
@@ -1514,333 +1578,5 @@ class LogicHandler:
         else:
             self.set_status("Tamamlandı")
             return True, not_found_codes
-                        success, missing = result
-                    else:
-                        # Fallback for void return
-                        success = True 
-                        missing = []
-
-                    # Missing parça tanımlarını eşleştir
-                    detailed_notes = []
-                    if missing:
-                        comp_map = {c['code']: c['description'] for c in kit_data_sap.get('components', [])}
-                        for m_code in missing:
-                            desc = comp_map.get(m_code, '')
-                            detailed_notes.append({'code': m_code, 'desc': desc})
-
-                    # C. Kayıt Oluştur
-                    record = {
-                        'kit_name': kit_desc,
-                        'kit_code': kit_code,
-                        'result': 'YAPILDI' if success else 'YAPILAMADI',
-                        'notes': detailed_notes if detailed_notes else missing # Geriye dönük uyumluluk veya boş
-                    }
-                    self.stats['processed_kits'].append(record)
-                    self.update_stats()
-
-                    if i < total - 1:
-                        self.log("Sonraki kite geçiliyor...", "#6b7280")
-                        time.sleep(1.5)
-
-            else:
-                # Normal Mod: Tek Seferlik İşlem
-                self.execute_assembly_workflow(codes, vault)
-
-            self.set_status("Tamamlandı")
-            self.log("Tüm işlemler tamamlandı.", "#10b981")
-
-        except Exception as e:
-            self.log(f"Beklenmeyen hata: {str(e)}", "#ef4444")
-            import traceback
-            traceback.print_exc()
-            self.set_status("Hata")
-        
-        finally:
-            if sap_instance:
-                try:
-                    sap_instance.stop_popup_blocker()
-                except:
-                    pass
-            self.is_running = False
-            stop_pdm_dialog_watcher()
-            pythoncom.CoUninitialize()
-    
-    def _fetch_sap_bom(self, sap, code):
-        """Tek bir kit için SAP BOM verisini çeker ve loglar."""
-        self.set_status(f"SAP Okunuyor: {code}")
-        
-        # CS03'ten verileri çek
-        result = sap.get_bom_components(code)
-        
-        header_info = None
-        components = []
-
-        if isinstance(result, dict):
-            components = result.get('components', [])
-            header_info = result.get('header')
-        else:
-            components = result
-        
-        kit_codes = []
-
-        if components:
-            self.log(f"{len(components)} bileşen bulundu.", "#10b981")
-            
-            # Tablo Logu
-            log_buffer = []
-            if header_info and header_info.get('material'):
-                log_buffer.append(f"KİT KODU: {header_info['material']} | KİT TANIMI: {header_info['description']}")
-                log_buffer.append("=" * 68)
-
-            log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
-            log_buffer.append("-" * 68)
-            
-            for idx, comp in enumerate(components):
-                row_num = idx + 1
-                desc = comp['description']
-                if len(desc) > 40: desc = desc[:37] + "..."
-                line = f"{row_num:<2} | {comp['code']:<9} | {desc:<40} | {comp['quantity']}"
-                log_buffer.append(line)
-                
-                if comp.get('code'):
-                    kit_codes.append(comp['code'])
-            
-            full_log = "\n".join(log_buffer)
-            self.log(full_log, "#3b82f6")
-            
-            # İstatistik güncelle
-            stats = self.stats
-            self.update_stats(success=stats['success'] + 1)
-        else:
-            self.log(f"Bileşen bulunamadı veya SAP hatası: {code}", "#ef4444")
-            stats = self.stats
-            self.update_stats(error=stats['error'] + 1)
-            
-        return {
-            'codes': kit_codes,
-            'components': components,
-            'kit_code': header_info['material'] if header_info else code,
-            'kit_desc': header_info['description'] if header_info else '',
-            'missing_in_sap': False
-        }
 
 
-    def run_process_batch_mode(self, codes, vault):
-        """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle."""
-        # Basitleştirilmiş onarım - Kullanıcı odak noktası Immediate Mode
-        self.set_status("Toplu mod aktif...")
-        # (Bu mod daha az kullanıldığı için şimdilik Immediate Mode'a yönlendirebiliriz veya basitçe implement edebiliriz)
-        # En iyisi Immediate Mode mantığını kullanmak çünkü en güncel logic orada.
-        return self.run_process_immediate_mode(codes, vault)
-
-    def run_process_immediate_mode(self, codes, vault):
-        """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
-        # SolidWorks'ü başlat ve montajı hazırla
-        self.set_status("SolidWorks başlatılıyor...")
-        sw_app = self.get_sw_app()
-        if not sw_app:
-            self.set_status("Hata")
-            self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-            return False, []
-
-        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-        if not assembly_doc:
-            return False, []
-
-        self.set_status("Parçalar aranıyor ve ekleniyor...")
-        total_codes = len(codes)
-        added_count = 0
-        error_count = 0
-        not_found_codes = []
-        found_paths = {}  # Cache found paths to avoid re-searching
-        
-        # Initial stats
-        self.update_stats(total=total_codes, success=0, error=0)
-
-        i = 0
-        while i < total_codes:
-            item = codes[i]
-            if isinstance(item, dict):
-                code = item.get('code')
-                qty_val = item.get('quantity', 1)
-            else:
-                code = item
-                qty_val = 1
-            
-            if not self.is_running:
-                self.log("İşlem durduruldu.", "#f97316")
-                return
-
-            if self.is_paused and self.is_running:
-                self.log("İşlem duraklatıldı.", "#0ea5e9")
-            while self.is_paused and self.is_running:
-                time.sleep(0.5)
-            
-            # PDM'de ara (use cache if available)
-            if code in found_paths:
-                path = found_paths[code]
-            else:
-                path = self.search_file_in_pdm(vault, code)
-                if path:
-                    found_paths[code] = path
-            
-            if not self.is_running:
-                self.log("İşlem durduruldu.", "#f97316")
-                return
-            
-            if not path:
-                if code not in not_found_codes:
-                    not_found_codes.append(code)
-                    self.log(f"Bulunamadı: {code}", "#ef4444")
-                    error_count += 1
-                    self.update_stats(error=error_count)
-                self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
-                i += 1
-                continue
-            
-            # Dosya bulundu, yerelde olduğundan emin ol
-            if not self.ensure_local_file(vault, path):
-                self.log(f"Bulunamadı: {code}", "#ef4444")
-                if code not in not_found_codes:
-                    not_found_codes.append(code)
-                    error_count += 1
-                    self.update_stats(error=error_count)
-                self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
-                i += 1
-                continue
-            
-            # Miktar ve Gizleme Logic
-            try:
-                qty = int(qty_val)
-            except:
-                qty = 1
-            
-            count = abs(qty)
-            is_hidden = (qty < 0)
-            
-            if isinstance(item, dict) and qty_val != 1:
-                 # Çoklu adet veya negatif
-                 action_str = "Gizli" if is_hidden else ""
-                 self.log(f"İşleniyor: {code} (Adet: {count} {action_str})", "#10b981")
-            else:
-                self.log(f"Bulundu: {code}", "#10b981")
-
-            restart_loop = False
-            
-            target_range = count
-            if not self.multi_kit_mode:
-                 target_range = 1
-
-            for _ in range(target_range):
-                # Check SW alive log logic...
-                sw_alive = True
-                try:
-                    _ = sw_app.Visible
-                except Exception:
-                    sw_alive = False
-                
-                if not sw_alive:
-                    self.log("SolidWorks kapandı! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                    sw_app = self.get_sw_app()
-                    if not sw_app:
-                        self.log("SolidWorks başlatılamadı. İşlem durduruldu.", "#ef4444")
-                        self.set_status("Hata")
-                        return False, []
-                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                    if not assembly_doc:
-                        self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
-                        self.set_status("Hata")
-                        return False, []
-                    restart_loop = True
-                    break
-
-                assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
-                if not assembly_doc:
-                    self.log("Montaj bağlantısı koptu! SolidWorks yeniden başlatılıyor...", "#f59e0b")
-                    sw_app = self.get_sw_app()
-                    if not sw_app:
-                        self.log("SolidWorks başlatılamadı...", "#ef4444")
-                        self.set_status("Hata")
-                        return False, []
-                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                    if not assembly_doc:
-                        self.log("Montaj oluşturulamadı...", "#ef4444")
-                        self.set_status("Hata")
-                        return False, []
-                    restart_loop = True
-                    break
-
-                result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
-                
-                if len(result) == 4:
-                    success, z_offset, needs_restart, comp_name = result
-                else:
-                    success, z_offset, needs_restart = result[0], result[1], result[2]
-                    comp_name = None
-                
-                if needs_restart:
-                    self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor...", "#f59e0b")
-                    sw_app = self.get_sw_app()
-                    if sw_app:
-                        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                        if assembly_doc:
-                            restart_loop = True
-                            break
-                
-                if not success and not needs_restart:
-                    sw_alive = True
-                    try:
-                        _ = sw_app.Visible
-                    except Exception:
-                        sw_alive = False
-                    
-                    if not sw_alive:
-                        self.log("SolidWorks bağlantısı koptu! Yeniden başlatılıyor...", "#f59e0b")
-                        sw_app = self.get_sw_app()
-                        if sw_app:
-                            assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
-                            if assembly_doc:
-                                restart_loop = True
-                                break
-                
-                if success:
-                    added_count += 1
-                    self.update_stats(success=added_count)
-                    
-                    # Suppress Logic
-                    if self.multi_kit_mode and is_hidden and comp_name:
-                        try:
-                            status = assembly_doc.Extension.SelectByID2(comp_name, "COMPONENT", 0, 0, 0, False, 0, None, 0)
-                            if status:
-                                assembly_doc.EditSuppress2()
-                        except Exception:
-                            pass
-            
-            if restart_loop:
-                i = 0
-                added_count = 0
-                self.update_stats(total=total_codes, success=0, error=error_count)
-                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
-                continue
-
-            self.set_progress(0.1 + (0.9 * (i + 1) / total_codes))
-            i += 1
-
-        # Özet bilgi
-        if not_found_codes:
-            not_found_str = ",".join(not_found_codes)
-            self.log(f"Bulunamayan SAP kodları ({len(not_found_codes)} adet): {not_found_str} PDM'de yok.", "#f59e0b")
-        
-        if added_count > 0:
-            self.log(f"Toplam {added_count} parça montaja eklendi.", "#10b981")
-            self.set_status("Tamamlandı")
-            self.apply_cleanup_logic(sw_app, assembly_doc)
-            self.set_progress(1.0)
-            self.log("İşlem başarıyla tamamlandı.", "#10b981")
-            return True, not_found_codes
-
-        else:
-            self.log("Hiçbir parça eklenemedi.", "#f59e0b")
-            self.set_status("Tamamlandı")
-            self.set_progress(1.0)
-            return True, not_found_codes
