@@ -138,20 +138,6 @@ class PDMDialogWatcher:
         except Exception:
             pass
     
-    def _watch_loop(self):
-        """Ana izleme döngüsü"""
-        while self._running:
-            self._check_and_close_dialogs()
-            time.sleep(0.5)  # Her 500ms'de bir kontrol et
-    
-    def start(self):
-        """İzleyiciyi başlat"""
-        if self._running:
-            return
-        self._running = True
-        self._thread = threading.Thread(target=self._watch_loop, daemon=True)
-        self._thread.start()
-        print("PDM Dialog izleyici başlatıldı", flush=True)
     
     def stop(self):
         """İzleyiciyi durdur"""
@@ -1362,6 +1348,172 @@ class LogicHandler:
                     
                     # Eğer execute_assembly_workflow henüz güncellenmediyse (eski kod void dönüyorsa) koruma:
                     if isinstance(result, tuple) and len(result) == 2:
+
+    def run_process_immediate_mode(self, codes, vault):
+        """YENİ AKIŞ: Bulundu -> Hemen ekle (checkbox işaretli değil)"""
+        # SolidWorks'ü başlat ve montajı hazırla
+        self.set_status("SolidWorks başlatılıyor...")
+        sw_app = self.get_sw_app()
+        if not sw_app:
+            self.set_status("Hata")
+            self.log("SolidWorks başlatılamadı...", "#ef4444")
+            return False, []
+
+        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+        if not assembly_doc:
+            return False, []
+
+        self.set_status("Parçalar işleniyor...")
+        total_codes = len(codes)
+        added_count = 0
+        error_count = 0
+        not_found_codes = []
+        found_paths = {}  
+        
+        self.update_stats(total=total_codes, success=0, error=0)
+
+        i = 0
+        while i < total_codes:
+            item = codes[i]
+            if isinstance(item, dict):
+                code = item.get('code')
+                raw_qty = item.get('quantity', 1)
+                qty = self.parse_sap_quantity(raw_qty)
+            else:
+                code = item
+                qty = 1
+            
+            if not self.is_running: return
+            if self.is_paused:
+                while self.is_paused and self.is_running: time.sleep(0.5)
+
+            # PDM Search
+            if code in found_paths:
+                path = found_paths[code]
+            else:
+                path = self.search_file_in_pdm(vault, code)
+                if path: found_paths[code] = path
+            
+            if not path or not self.ensure_local_file(vault, path):
+                if code not in not_found_codes:
+                    not_found_codes.append(code)
+                    self.log(f"Bulunamadı: {code}", "#ef4444")
+                    error_count += 1
+                    self.update_stats(error=error_count)
+                
+                # "Bulunamayan varsa durdur" özelliği
+                if self.get_stop_on_not_found():
+                    self.log("Bulunamayan parça nedeniyle işlem durduruldu.", "#f97316")
+                    return False, not_found_codes
+                    
+                i += 1
+                self.set_progress((i) / total_codes)
+                continue
+            
+            # Logic Determination
+            count = abs(qty)
+            is_hidden = (qty < 0)
+            use_pattern = (self.multi_kit_mode and count > 4)
+            
+            # Log
+            action_tips = []
+            if count > 1: action_tips.append(f"{count} adet")
+            if is_hidden: action_tips.append("Gizli")
+            if use_pattern: action_tips.append("Pattern")
+            msg = f"İşleniyor: {code}"
+            if action_tips: msg += f" ({', '.join(action_tips)})"
+            self.log(msg, "#10b981")
+            
+            # Determine loop count
+            # Normal Mode: 1
+            # MultiKit (Pattern): 1 (then pattern)
+            # MultiKit (No Pattern): count
+            loop_iterations = count
+            if use_pattern:
+                loop_iterations = 1
+            if not self.multi_kit_mode:
+                loop_iterations = 1 
+            
+            last_comp_name = None
+            component_success = False
+            restart_loop = False
+
+            for _ in range(loop_iterations):
+                # Check SW Alive
+                try: _ = sw_app.Visible
+                except: 
+                    self.log("SolidWorks kapandı! Yeniden başlatılıyor...", "#f59e0b")
+                    sw_app = self.get_sw_app()
+                    if not sw_app: return False, []
+                    assembly_doc, _, _, _, z_offset = self.init_assembly_doc(sw_app)
+                    if not assembly_doc: return False, []
+                    restart_loop = True; break
+
+                assembly_doc = self.ensure_assembly_doc(sw_app, assembly_doc)
+                if not assembly_doc:
+                    # Restart logic (simplified)
+                    restart_loop = True; break
+                
+                result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+                if len(result) == 4:
+                    success, z_offset, needs_restart, comp_name = result
+                else: 
+                     success, z_offset, needs_restart = result[0], result[1], result[2]
+                     comp_name = None
+                
+                if needs_restart: restart_loop = True; break
+                if not success: pass # Already logged in add_component
+                else:
+                    component_success = True
+                    last_comp_name = comp_name
+            
+            if restart_loop:
+                self.log("Teknik aksaklık nedeniyle baştan başlanıyor...", "#3b82f6")
+                i = 0; added_count = 0; self.update_stats(success=0, error=0)
+                continue
+            
+            # Post-Add Logic (Multi Kit Only)
+            if component_success and self.multi_kit_mode:
+                # 1. Pattern
+                if use_pattern and last_comp_name:
+                    feat = self.create_linear_pattern(sw_app, last_comp_name, count)
+                    if not feat:
+                        self.log("Pattern başarısız, kalan parçalar döngü ile ekleniyor...", "#f59e0b")
+                        # Fallback
+                        for _ in range(count - 1):
+                            self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs)
+                
+                # 2. Suppress (Hide)
+                if is_hidden and last_comp_name:
+                    try:
+                         # Select Seed
+                         sw_app.ActiveDoc.ClearSelection2(True)
+                         status = sw_app.ActiveDoc.Extension.SelectByID2(last_comp_name, "COMPONENT", 0, 0, 0, False, 0, None, 0)
+                         if status:
+                             sw_app.ActiveDoc.EditSuppress2()
+                    except Exception as e:
+                        self.log(f"Gizleme hatası: {e}", "#f59e0b")
+            
+            if component_success:
+                added_count += 1
+                self.update_stats(success=added_count)
+            else:
+                # Only count error if loop failed completely?
+                # logic is simplified
+                pass
+            
+            i += 1
+            self.set_progress(i / total_codes)
+
+        # Finalize
+        if added_count > 0:
+            self.log(f"Toplam {added_count} kalem montaja eklendi.", "#10b981")
+            self.set_status("Tamamlandı")
+            self.apply_cleanup_logic(sw_app, assembly_doc)
+            return True, not_found_codes
+        else:
+            self.set_status("Tamamlandı")
+            return True, not_found_codes
                         success, missing = result
                     else:
                         # Fallback for void return
