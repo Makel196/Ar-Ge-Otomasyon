@@ -193,6 +193,47 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
 
             XLSX.utils.book_append_sheet(wb, ws, "Montaj Raporu");
 
+            // --- Sayfa 2: Bulunamayan SAP Kodları ---
+            let notFoundCodes = [];
+
+            // 1. Loglardan topla
+            logs.forEach(log => {
+                if (log.message && log.message.includes('Bulunamadı:')) {
+                    const match = log.message.match(/Bulunamadı:\s*(\S+)/);
+                    if (match) notFoundCodes.push(match[1]);
+                }
+            });
+
+            // 2. İşlenen kitlerden topla (processedKits)
+            processedKits.forEach(kit => {
+                if (Array.isArray(kit.notes)) {
+                    kit.notes.forEach(note => {
+                        const code = typeof note === 'string' ? note : note.code;
+                        if (code) notFoundCodes.push(code);
+                    });
+                }
+            });
+
+            // Tekrarları temizle
+            notFoundCodes = [...new Set(notFoundCodes)];
+
+            if (notFoundCodes.length > 0) {
+                const ws2_data = [["SAP KODLARI"]];
+                notFoundCodes.forEach(code => ws2_data.push([code]));
+
+                const ws2 = XLSX.utils.aoa_to_sheet(ws2_data);
+
+                // Stil (Bold Header) - Best Effort
+                const addr = XLSX.utils.encode_cell({ r: 0, c: 0 });
+                if (!ws2[addr]) ws2[addr] = { v: "SAP KODLARI", t: 's' };
+                if (!ws2[addr].s) ws2[addr].s = {};
+                ws2[addr].s.font = { bold: true };
+
+                ws2['!cols'] = [{ wch: 25 }];
+
+                XLSX.utils.book_append_sheet(wb, ws2, "Bulunamayan SAP Kodları");
+            }
+
             const today = new Date();
             const timestamp = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
             XLSX.writeFile(wb, `Montaj Sihirbazı Raporu - ${timestamp}.xlsx`);

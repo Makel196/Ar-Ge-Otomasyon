@@ -1359,7 +1359,7 @@ class LogicHandler:
             # Tablo Logu
             log_buffer = []
             if header_info and header_info.get('material'):
-                log_buffer.append(f"KİT KODU: {header_info['material']}  |  KİT TANIMI: {header_info['description']}")
+                log_buffer.append(f"KİT KODU: {header_info['material']} | KİT TANIMI: {header_info['description']}")
                 log_buffer.append("=" * 68)
 
             log_buffer.append(f"{'NO':<2} | {'BİLEŞEN':<9} | {'TANIM':<40} | {'MİKTAR'}")
