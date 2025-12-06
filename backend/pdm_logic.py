@@ -1169,7 +1169,9 @@ class LogicHandler:
                  return
              # SAP'den gelen kodlarla devam et
              codes = sap_codes
-             self.log("SAP'den çekilen kodlarla PDM işlemi başlatılıyor...", "#3b82f6")
+             self.set_status("PDM'e Geçiliyor...")
+             self.log(f"SAP'den {len(codes)} adet kod alındı. PDM süreci başlatılıyor...", "#3b82f6")
+             time.sleep(1.0)
         
         # PDM dialog izleyicisini başlat (Kasadan Al dialoglarını otomatik iptal eder)
         start_pdm_dialog_watcher()
