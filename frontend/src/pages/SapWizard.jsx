@@ -17,13 +17,16 @@ const SapWizard = ({ theme, toggleTheme }) => {
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                    <button
+                    <motion.button
                         className="modern-btn"
                         onClick={() => navigate('/')}
+                        whileHover="hover"
                         style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}
                     >
-                        <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '16px' }} />
-                    </button>
+                        <motion.div variants={{ hover: { x: [0, -5, 5, -5, 0], transition: { duration: 0.5, ease: "easeInOut" } } }}>
+                            <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '16px' }} />
+                        </motion.div>
+                    </motion.button>
 
                     <div style={{ width: '1px', height: '30px', background: 'var(--border)' }}></div>
 
@@ -53,12 +56,15 @@ const SapWizard = ({ theme, toggleTheme }) => {
                         <span style={{ fontWeight: '700', fontSize: '13px', color: '#3b82f6' }}>Geliştirme Aşamasında</span>
                     </div>
 
-                    <button
+                    <motion.button
                         className="modern-btn"
+                        whileHover="hover"
                         style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, cursor: 'not-allowed' }}
                     >
-                        <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
-                    </button>
+                        <motion.div variants={{ hover: { rotate: 360, transition: { repeat: Infinity, duration: 1, ease: "linear" } }, rest: { rotate: 0 } }}>
+                            <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
+                        </motion.div>
+                    </motion.button>
                 </div>
             </motion.div>
 

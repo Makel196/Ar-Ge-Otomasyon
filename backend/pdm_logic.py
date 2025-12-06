@@ -1104,6 +1104,27 @@ class LogicHandler:
                         assembly_doc.ShowNamedView2("*İzometrik", 7)
                         
                         assembly_doc.ViewZoomtofit2()
+                        
+                        # --- Mass Property Update (Gizli Bileşenler Hariç) ---
+                        try:
+                            ext = assembly_doc.Extension
+                            # CreateMassProperty2 or CreateMassProperty
+                            mass_prop = None
+                            try:
+                                mass_prop = ext.CreateMassProperty2()
+                            except:
+                                try:
+                                    mass_prop = ext.CreateMassProperty()
+                                except:
+                                    pass
+                            
+                            if mass_prop:
+                                mass_prop.IncludeHiddenBodiesOrComponents = False
+                                mass_prop.ShowWeldBeadMass = False
+                                mass_prop.Recalculate()
+                        except:
+                            pass
+
                     except:
                         pass
             except:

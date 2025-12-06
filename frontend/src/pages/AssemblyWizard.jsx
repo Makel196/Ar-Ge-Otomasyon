@@ -333,10 +333,12 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                     <motion.button
                         className="modern-btn"
                         onClick={() => navigate('/')}
-                        whileHover={{ x: [0, 5, -5, 0], transition: { duration: 0.4, ease: "easeInOut" } }}
+                        whileHover="hover"
                         style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}
                     >
-                        <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '16px' }} />
+                        <motion.div variants={{ hover: { x: [0, -5, 5, -5, 0], transition: { duration: 0.5, ease: "easeInOut" } } }}>
+                            <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: '16px' }} />
+                        </motion.div>
                     </motion.button>
 
                     <div style={{ width: '1px', height: '30px', background: 'var(--border)' }}></div>
@@ -376,7 +378,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                         initial="rest" whileHover="hover" animate="rest"
                         style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                        <motion.div variants={{ hover: { rotate: 90 }, rest: { rotate: 0 } }} transition={{ duration: 0.3 }}>
+                        <motion.div variants={{ hover: { rotate: 360, transition: { repeat: Infinity, duration: 1, ease: "linear" } }, rest: { rotate: 0 } }}>
                             <FontAwesomeIcon icon={faCog} style={{ fontSize: '18px' }} />
                         </motion.div>
                     </motion.button>
@@ -667,7 +669,7 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                             ) : (
                                 logs.map((log, index) => (
                                     <motion.div
-                                        key={index}
+                                        key={log.id || index}
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, height: 0 }}

@@ -95,7 +95,7 @@ export const useAssemblyLogic = () => {
     }
     message = message.replace('??lem', 'İşlem');
 
-    return { ...log, message, color };
+    return { ...log, message, color, id: log.id || (Date.now() + Math.random().toString(36).substr(2, 9)) };
   };
 
   const applyLogImpact = (msg) => {
@@ -182,12 +182,14 @@ export const useAssemblyLogic = () => {
     return () => clearInterval(interval);
   }, [vaultPath]);
 
-  // Auto-clear logs older than 20 seconds
+  // Auto-clear logs older than 120 seconds, only if running and not paused
   useEffect(() => {
     const cleaner = setInterval(() => {
+      if (!isRunning || isPaused) return;
+
       setLogs(prev => {
         const now = Date.now() / 1000;
-        const filtered = prev.filter(log => (now - log.timestamp) <= 20);
+        const filtered = prev.filter(log => (now - log.timestamp) <= 120);
         if (filtered.length === prev.length) return prev;
 
         if (rememberSession) {
@@ -197,7 +199,7 @@ export const useAssemblyLogic = () => {
       });
     }, 2000);
     return () => clearInterval(cleaner);
-  }, [rememberSession]);
+  }, [rememberSession, isRunning, isPaused]);
 
   // Auto-save codes if rememberSession is true
   useEffect(() => {
