@@ -1263,7 +1263,7 @@ class LogicHandler:
         start_pdm_dialog_watcher()
         
         try:
-            sap = SapGui()
+            # SapGui init moved to loop
             
             # PDM Bağlantısı Kur (Ön Hazırlık)
             self.set_status("PDM'e bağlanılıyor...")
@@ -1284,22 +1284,9 @@ class LogicHandler:
                 self.set_status("Hata")
                 return
 
-            # SAP Bağlantısı
-            if not sap.connect_to_sap():
-                self.log("SAP bağlantısı kurulamadı. SAP'nin kurulu olduğundan emin olun.", "#ef4444")
-                self.set_status("Hata")
-                self.is_running = False
-                return
-
-            self.set_status("SAP Girişi Yapılıyor...")
-            username = config.get('sapUsername', '')
-            password = config.get('sapPassword', '')
-            
-            if username and password:
-                self.log(f"Kullanıcı: {username} ile giriş deneniyor...", "#3b82f6")
-                sap.sapLogin(username, password)
-            else:
-                self.log("Kullanıcı bilgisi girilmedi, mevcut açık oturum kullanılacak.", "#f59e0b")
+            self.set_status("Kitler İşleniyor...")
+            total = len(codes)
+            stop_on_not_found = self.get_stop_on_not_found()
 
             self.set_status("Kitler İşleniyor...")
             total = len(codes)
@@ -1316,8 +1303,27 @@ class LogicHandler:
                 self.log(f"[{i+1}/{total}] Kit İşleniyor: {code}", "#3b82f6")
                 self.set_status(f"SAP Okunuyor: {code}")
                 
-                # CS03'ten verileri çek
-                result = sap.get_bom_components(code)
+                # CS03'ten verileri çek (Isolated SAP Instance)
+                result = None
+                try:
+                    sap = SapGui()
+                    if sap.connect_to_sap():
+                        # Login is fast if session exists
+                        uname = config.get('sapUsername', '')
+                        pwd = config.get('sapPassword', '')
+                        if uname and pwd:
+                             sap.sapLogin(uname, pwd)
+                        
+                        result = sap.get_bom_components(code)
+                    else:
+                        self.log("SAP bağlantısı kurulamadı.", "#ef4444")
+                except Exception as e:
+                    self.log(f"SAP işlem hatası: {str(e)}", "#ef4444")
+                
+                # Release SAP COM object before PDM/SW operations
+                try:
+                    if 'sap' in locals(): del sap
+                except: pass
                 
                 header_info = None
                 components = []
