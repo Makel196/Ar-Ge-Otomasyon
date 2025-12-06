@@ -1126,7 +1126,6 @@ class LogicHandler:
 
                         # --- Çoklu Kit Modu Özel İşlemleri (Kaydet ve Kapat) ---
                         if self.multi_kit_mode:
-                            # 3. Farklı Kaydet ve Kapat
                             if self.assembly_save_path and self.current_kit_code:
                                 try:
                                     save_dir = self.assembly_save_path
@@ -1141,8 +1140,6 @@ class LogicHandler:
                                     
                                     # Kaydetme (Kullanıcı Talebi: SaveAs3(path, 0, 0))
                                     try:
-                                        # Version 0 = swSaveAsCurrentVersion
-                                        # Options 0 = swSaveAsOptions_None
                                         assembly_doc.SaveAs3(full_path, 0, 0)
                                         self.log(f"Montaj kaydedildi: {safe_code}.SLDASM", "#10b981")
                                     except:
@@ -1154,11 +1151,14 @@ class LogicHandler:
                                     
                                     # Kapat (Title ile - Kullanıcı Talebi)
                                     try:
-                                        # Kaydettikten sonra başlık değişmiş olabilir
-                                        final_title = assembly_doc.GetTitle()
-                                        sw_app.CloseDoc(final_title)
+                                        assembly_doc = sw_app.ActiveDoc
+                                        if assembly_doc:
+                                            final_title = assembly_doc.GetTitle()
+                                            sw_app.CloseDoc(final_title)
                                     except:
                                         sw_app.CloseDoc(full_path)
+                                except Exception as e:
+                                    self.log(f"İşlem hatası: {e}", "#ef4444")
 
                     except:
                         pass
