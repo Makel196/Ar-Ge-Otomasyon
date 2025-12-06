@@ -105,7 +105,7 @@ def keep_sap_alive_thread():
                      # Session'a 'dokunarak' aktif tut (Enter tuşu - En güvenli ping)
                      try:
                         session.findById("wnd[0]").SendVKey(0)
-                        # Pop-up çıkarsa kapat
+                        # Pop-up gelirse kapat
                         time.sleep(0.5)
                         close_sap_popups()
                      except:
