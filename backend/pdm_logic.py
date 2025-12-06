@@ -977,7 +977,7 @@ class LogicHandler:
             try:
                 base_code, _ = os.path.splitext(filename)
                 if base_code in self.current_kit_hidden_items:
-                     comp.Select4(False, None, False)
+                     comp.Select4(False, pythoncom.Nothing, False)
                      assembly_doc.HideComponent2()
             except:
                 pass
