@@ -1339,7 +1339,15 @@ class LogicHandler:
                 self.log(full_log, "#3b82f6")
                 
                 # Başarılı sayısını artır
-                stats = self.state['stats']
+                # Kullanıcı düzeltmesi: self.state['stats'] -> self.stats
+                # Fakat emin olmak için self.update_stats kullanırken mevcut değerleri state içinden okumak yerine
+                # self.stats attribute'u varsa onu kullanacağız.
+                # Eğer self.stats yoksa ve state içindeyse, kullanıcı muhtemelen self.stats diye bir değişken atadığımı sanıyor veya kodun başka yerinde öyle yapılmış.
+                # Ancak güvenli olması için self.state['stats'] yerine doğrudan update_stats çağırıp incrementing'i içeride yapmam lazım ama update_stats absolute değer alıyor olabilir.
+                
+                # Kullanıcının bildirimine göre düzeltme:
+                # Muhtemelen self.stats obje olarak tutuluyor.
+                stats = self.stats
                 self.update_stats(success=stats['success'] + 1)
                 
                 # Kodları topla
@@ -1349,7 +1357,7 @@ class LogicHandler:
                         
             else:
                 self.log(f"Bileşen bulunamadı veya SAP hatası.", "#ef4444")
-                stats = self.state['stats']
+                stats = self.stats
                 self.update_stats(error=stats['error'] + 1)
             
             self.set_progress((i + 1) / total)

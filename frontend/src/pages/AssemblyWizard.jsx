@@ -521,11 +521,12 @@ const AssemblyWizard = ({ theme, toggleTheme }) => {
                                     <span>Henüz işlem kaydı bulunmuyor...</span>
                                 </div>
                             ) : (
-                                logs.map((log, i) => (
+                                logs.map((log, index) => (
                                     <motion.div
-                                        key={i}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
+                                        key={index}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, height: 0 }}
                                         style={{
                                             marginBottom: '8px',
                                             color: log.color || 'var(--text)',
