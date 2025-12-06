@@ -964,18 +964,7 @@ class LogicHandler:
             # Wait for component to be fully added
             time.sleep(0.3)
             
-            # --- Rotate Component (-90 deg Y-axis) as requested ---
-            try:
-                # Select the component
-                comp.Select4(False, None, False) 
-                
-                macro_path = os.path.join(os.getcwd(), "backend", "macros", "RotatePart.swb")
-                if os.path.exists(macro_path):
-                    sw_app.RunMacro(macro_path, "main", "main")
-                
-                assembly_doc.ClearSelection2(True)
-            except:
-                pass
+            # --- Rotate Component logic moved to cleanup ---
             # -----------------------------------------------------
 
             # Float logic removed as per request
@@ -1100,6 +1089,18 @@ class LogicHandler:
                                     except:
                                         pass
                                     
+                                assembly_doc.ClearSelection2(True)
+
+                            # --- ADIM 3: DÖNDÜRME (-90 Derece Y-Ekseni) ---
+                            # Kullanıcı isteği: Float ve Flexible'dan sonra
+                            boolstatus = assembly_doc.Extension.SelectByID2(tam_isim, "COMPONENT", 0, 0, 0, False, 0, pythoncom.Nothing, 0)
+                            if boolstatus:
+                                try:
+                                    macro_path = os.path.join(os.getcwd(), "backend", "macros", "RotatePart.swb")
+                                    if os.path.exists(macro_path):
+                                        sw_app.RunMacro(macro_path, "main", "main")
+                                except:
+                                    pass
                                 assembly_doc.ClearSelection2(True)
 
                         except:
