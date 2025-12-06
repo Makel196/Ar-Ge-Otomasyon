@@ -660,7 +660,7 @@ class LogicHandler:
                     pass
             
             if not folder_obj:
-                self.log(f"  Dosya klasör bilgisi alınamadı: {file_name}", "#ef4444")
+                self.log(f"Dosya klasör bilgisi alınamadı: {file_name}", "#ef4444")
                 return False
             
             # Montaj dosyası ise referanslarıyla birlikte çek (BatchGet)
@@ -684,32 +684,13 @@ class LogicHandler:
             except Exception as ver_err:
                 self.log(f"Sürüm bilgisi alınamadı, son sürüm çekiliyor: {file_name}", "#f59e0b")
             
-            # GetFileCopy veya BatchGet (Montajlar için)
+            # GetFileCopy ile en son sürümü çek
             try:
-                if is_assembly:
-                    # Montajlar için BatchGet kullan (Referansları da çeker)
-                    batch_getter = vault.CreateUtility(12) # EdmUtil_BatchGet
-                    batch_getter.AddSelection(file_obj, 0)
-                    # CreateTree flags: Egcf_GetLatestRevision | Egcf_GetReferences (Default implied usually but let's be sure)
-                    # 65536 = Egcf_GetLatestRevision
-                    batch_getter.CreateTree(0, 65536) 
-                    batch_getter.GetFiles(0, None)
-                else:
-                    # Parçalar için hızlı GetFileCopy
-                    file_obj.GetFileCopy(
-                        0,                          # parent window handle (none)
-                        0,                          # version number (0 = latest)
-                        folder_obj.ID,              # folder reference
-                        EGCF_GET_LATEST_REVISION,   # flag: en son revizyonu çek
-                        "",                         # destination path (boş = varsayılan)
-                    )
+                # 0 = Latest Version (param2), Flag = 0
+                file_obj.GetFileCopy(0, 0, folder_obj.ID, 0, "")
             except Exception as copy_err:
-                # Alternatif yöntem dene
-                try:
-                    file_obj.GetFileCopy(0, 0, folder_obj.ID, 0, "")
-                except Exception as alt_err:
-                    self.log(f"  Dosya kopyalama hatası: {alt_err}", "#ef4444")
-                    return False
+                self.log(f"Dosya kopyalama hatası: {copy_err}", "#ef4444")
+                return False
             
             # Dosyanın indirilmesini bekle
             for attempt in range(30):  # 7.5 saniye maksimum
@@ -1506,8 +1487,13 @@ class LogicHandler:
 
     def run_process_batch_mode(self, codes, vault):
         """ESKİ AKIŞ: Önce tüm parçaları ara, sonra montaja ekle (checkbox işaretli)"""
-        found_files = []
+        found_entries = [] # List of (path, code)
         not_found_codes = []
+
+        # Caches
+        processed_files_cache = set()
+        logged_found_codes = set()
+        logged_added_codes = set()
 
         self.set_status("Parçalar aranıyor...")
         total_codes = len(codes)
@@ -1529,10 +1515,25 @@ class LogicHandler:
                 self.log("İşlem durduruldu.", "#f97316")
                 return
             if path:
-                if self.ensure_local_file(vault, path):
-                    found_files.append(path)
-                    self.log(f"Bulundu: {code}", "#10b981")
-                    self.update_stats(success=len(found_files))
+                # Cache kontrolü (File Copy hatasını önler)
+                norm_path = normalize_path_for_compare(path)
+                check_success = True
+                
+                if norm_path not in processed_files_cache:
+                    if not self.ensure_local_file(vault, path):
+                        check_success = False
+                    else:
+                        processed_files_cache.add(norm_path)
+                
+                if check_success:
+                    found_entries.append((path, code))
+                    
+                    if code not in logged_found_codes:
+                        qty = codes.count(code)
+                        self.log(f"Bulundu: {code} | Adet: {qty}", "#10b981")
+                        logged_found_codes.add(code)
+                        
+                    self.update_stats(success=len(found_entries))
                 else:
                     not_found_codes.append(code)
                     self.log(f"Bulunamadı: {code}", "#ef4444")
@@ -1551,7 +1552,7 @@ class LogicHandler:
             self.set_status("İptal")
             return False, not_found_codes
 
-        if not found_files:
+        if not found_entries:
             self.log("Eklenecek parça bulunamadı.", "#f59e0b")
             self.set_progress(0)
             self.set_status("İptal")
@@ -1575,10 +1576,10 @@ class LogicHandler:
 
         self.set_status("Parçalar ekleniyor...")
 
-        total_files = len(found_files)
+        total_files = len(found_entries)
         i = 0
         while i < total_files:
-            file_path = found_files[i]
+            file_path, code = found_entries[i]
             
             if not self.is_running:
                 self.log("İşlem durduruldu.", "#f97316")
@@ -1641,6 +1642,7 @@ class LogicHandler:
             success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
             
             # If COM connection was lost, restart and add all parts from beginning
+            # If COM connection was lost, restart and add all parts from beginning
             if needs_restart:
                 self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
                 sw_app = self.get_sw_app()
@@ -1651,6 +1653,12 @@ class LogicHandler:
                         i = 0
                         self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
                         continue
+            
+            if success:
+                if code not in logged_added_codes:
+                    qty = codes.count(code)
+                    self.log(f"Eklendi: {code} | Adet: {qty}", "#10b981")
+                    logged_added_codes.add(code)
             
             # If failed but not due to COM error, check if SW is still alive
             if not success and not needs_restart:
