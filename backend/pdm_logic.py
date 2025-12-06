@@ -869,7 +869,7 @@ class LogicHandler:
         if not os.path.exists(file_path):
             if not self.ensure_local_file(self.get_pdm_vault(), file_path) or not os.path.exists(file_path):
                 self.log(f"Yerel kopya eksik: {file_path}", "#ef4444")
-                return False, z_offset, False, None
+                return False, z_offset
 
         path_candidates, target_paths = self.build_path_candidates(file_path)
 
@@ -995,7 +995,7 @@ class LogicHandler:
                     asm_title_clean = os.path.splitext(current_title)[0]
                     full_id = f"{comp_name}@{asm_title_clean}"
                     
-                    self.log(f"Gizleniyor: {code}", "#a855f7")
+                    self.log(f"Gizleniyor: {sap_code}", "#a855f7")
                     
                     self.run_hide_macro(sw_app, full_id)
             except Exception as hide_err:
@@ -1013,7 +1013,7 @@ class LogicHandler:
             if is_connection_error:
                 self.log(f"Eklenemedi: {os.path.basename(file_path)} (bağlantı hatası)", "#ef4444")
                 # Signal that SW needs restart by returning special value
-                return False, z_offset, True, None  # Third value = needs_restart
+                return False, z_offset, True  # Third value = needs_restart
             else:
                 self.log(f"Eklenemedi: {os.path.basename(file_path)}", "#f59e0b")
 
@@ -1053,11 +1053,7 @@ class LogicHandler:
         except Exception:
             pass
 
-        except Exception:
-            pass
-
-        comp_name_ret = comp.Name2 if comp else None
-        return success, new_z_offset, False, comp_name_ret
+        return success, new_z_offset, False  # Third value = needs_restart
 
     def run_hide_macro(self, sw_app, component_id):
         """
@@ -1098,72 +1094,6 @@ End Sub
         except Exception as e:
             self.log(f"Makro çalıştırma hatası: {str(e)}", "#f59e0b")
 
-    def run_pattern_macro(self, sw_app, component_id, total_instances, spacing=0.2):
-        """
-        Runs a VBA macro to create a Local Linear Pattern for the selected component.
-        """
-        try:
-            macro_dir = os.path.join(os.getcwd(), "backend", "macros")
-            if not os.path.exists(macro_dir):
-                os.makedirs(macro_dir)
-            macro_path = os.path.join(macro_dir, "temp_pattern.swb")
-            
-            # Formating spacing properly (replace dot with comma if needed? VBA uses dot usually in code, but doubles might be tricky with locale)
-            # Python f-string {spacing} uses dot. VBA code expects dot. Should be fine.
-            
-            macro_content = f"""
-Dim swApp As Object
-Dim Part As Object
-Dim boolstatus As Boolean
-Dim swFeat As Object
-Dim swFeatMgr As Object
-Dim swFeatData As Object
-
-Sub main()
-    Set swApp = Application.SldWorks
-    Set Part = swApp.ActiveDoc
-    
-    ' Select Component
-    boolstatus = Part.Extension.SelectByID2("{component_id}", "COMPONENT", 0, 0, 0, False, 0, Nothing, 0)
-    
-    If boolstatus Then
-        Set swFeatMgr = Part.FeatureManager
-        Set swFeatData = swFeatMgr.CreateDefinition(swFeatureNameID_e.swFmLocalLPattern)
-        swFeatData.D1ReverseDirection = False
-        swFeatData.D1Spacing = {spacing}
-        swFeatData.D1TotalInstances = {total_instances}
-        swFeatData.D2PatternSeedOnly = False
-        swFeatData.D2ReverseDirection = False
-        swFeatData.D2Spacing = 0.05
-        swFeatData.D2TotalInstances = 1
-        swFeatData.SynchronizeFlexibleComponents = False
-        
-        Set swFeat = swFeatMgr.CreateFeature(swFeatData)
-        
-        If Not swFeat Is Nothing Then
-            Dim swDefinition As Object
-            Set swDefinition = swFeat.GetDefinition()
-            If Not swDefinition Is Nothing Then
-                 boolstatus = swFeat.ModifyDefinition(swDefinition, Part, Nothing)
-            End If
-        End If
-    End If
-    
-    Part.ClearSelection2 True
-End Sub
-"""
-            with open(macro_path, "w") as f:
-                f.write(macro_content)
-            
-            sw_app.RunMacro(macro_path, "main", "main")
-            
-            try:
-                sw_app.ActiveDoc.GraphicsRedraw2()
-            except:
-                pass
-
-        except Exception as e:
-            self.log(f"Çoğaltma hatası: {e}", "#ef4444")
     def apply_cleanup_logic(self, sw_app, assembly_doc):
         """
         Applies UnFix and Solving=1 logic to all components.
@@ -1773,6 +1703,33 @@ End Sub
                     self.log("Montaj oluşturulamadı. İşlem durduruldu.", "#ef4444")
                     self.set_status("Hata")
                     return
+                # Restart from beginning
+                i = 0
+                self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                continue
+
+            result = self.add_component_to_assembly(sw_app, assembly_doc, file_path, z_offset, asm_title, pre_open_docs, sap_code=code)
+            success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
+            
+            # If COM connection was lost, restart and add all parts from beginning
+            # If COM connection was lost, restart and add all parts from beginning
+            if needs_restart:
+                self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                sw_app = self.get_sw_app()
+                if sw_app:
+                    assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                    if assembly_doc:
+                        # Restart from beginning
+                        i = 0
+                        self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                        continue
+            
+            if success:
+                if code not in logged_added_codes:
+                    qty = codes.count(code)
+                    if code in self.current_kit_hidden_items: qty *= -1
+                    self.log(f"Eklendi: {code} | Adet: {qty}", "#10b981")
+                    logged_added_codes.add(code)
             
             # If failed but not due to COM error, check if SW is still alive
             if not success and not needs_restart:
@@ -1942,27 +1899,12 @@ End Sub
                 self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
                 continue
 
-            # Grouping Logic
-            count = 1
-            for j in range(i + 1, total_codes):
-                # Immediate mode'da (path, code) yerine sadece code listesi var gibi, ama found_entries yok. 
-                # Immediate mode'da `codes` listesi üzerinde dönüyoruz ama her seferinde `ensure_local_file` yapıyoruz.
-                # Tekrar eden kodlar 'codes' listesinde sıralı mı? Evet, _fetch_sap_bom sıralı ekliyor.
-                if codes[j] == code:
-                    count += 1
-                else: break
-            
-            should_pattern = (count > 4)
-
             result = self.add_component_to_assembly(sw_app, assembly_doc, path, z_offset, asm_title, pre_open_docs, sap_code=code)
             success, z_offset, needs_restart = result[0], result[1], result[2] if len(result) > 2 else False
-            comp_name = result[3] if len(result) > 3 else None
             
             # If COM connection was lost, restart and add all parts from beginning
             if needs_restart:
-                # ... (Connection lost logic same as above) ...
                 self.log("Bağlantı hatası! SolidWorks yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
-                # ... 
                 sw_app = self.get_sw_app()
                 if sw_app:
                     assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
@@ -1976,35 +1918,27 @@ End Sub
             
             # If failed but not due to COM error, check if SW is still alive
             if not success and not needs_restart:
-                 # ... existing check logic ...
-                 sw_alive = True
-                 try: _ = sw_app.Visible
-                 except: sw_alive = False
-                 if not sw_alive:
-                     # ... restart logic
-                     # ... I will rely on existing logic below this block or just copy minimal restart logic here for safety or skip it because it's complex to replicate all
-                     pass 
-
+                sw_alive = True
+                try:
+                    _ = sw_app.Visible
+                except Exception:
+                    sw_alive = False
+                
+                if not sw_alive:
+                    self.log("SolidWorks bağlantısı koptu! Yeniden başlatılıyor ve tüm parçalar tekrar eklenecek...", "#f59e0b")
+                    sw_app = self.get_sw_app()
+                    if sw_app:
+                        assembly_doc, locked_title, asm_title, pre_open_docs, z_offset = self.init_assembly_doc(sw_app)
+                        if assembly_doc:
+                            # Restart from beginning, reset counters
+                            i = 0
+                            added_count = 0
+                            self.update_stats(total=total_codes, success=0, error=error_count)
+                            self.log("Tüm parçalar baştan ekleniyor...", "#3b82f6")
+                            continue
+            
             if success:
                 added_count += 1
-                
-                # Pattern Logic
-                if should_pattern and comp_name:
-                    try:
-                        current_title = ""
-                        try: current_title = assembly_doc.GetTitle()
-                        except: current_title = asm_title
-                        if '.' in current_title: current_title = current_title.rsplit('.', 1)[0]
-                        
-                        full_id = f"{comp_name}@{current_title}"
-                        self.log(f"Doğrusal Çoğaltma: {code} ({count} Adet)", "#a855f7")
-                        self.run_pattern_macro(sw_app, full_id, count, 0.2)
-                        
-                        i += count - 1 
-                        added_count += count - 1 # Update stats for patterned items
-                    except Exception as pat_err:
-                        self.log(f"Pattern Hatası: {pat_err}", "#f59e0b")
-
                 if code not in logged_added_codes:
                     qty = codes.count(code)
                     if code in self.current_kit_hidden_items: qty *= -1
