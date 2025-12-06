@@ -974,12 +974,33 @@ class LogicHandler:
             # Loglama run_process_immediate_mode içinde yapılacak (Tekilleştirilmiş)
             
             # Gizleme Kontrolü (Negatif Miktar)
+            # Gizleme Kontrolü (Negatif Miktar)
             try:
                 base_code, _ = os.path.splitext(filename)
                 if base_code in self.current_kit_hidden_items:
-                     comp.Select4(False, pythoncom.Nothing, False)
-                     assembly_doc.HideComponent2()
-            except:
+                    # Robust Hiding with SelectByID2
+                    comp_name = comp.Name2
+                    asm_title_clean = os.path.splitext(asm_title)[0]
+                    full_id = f"{comp_name}@{asm_title_clean}"
+                    
+                    # Kullanıcının belirttiği SelectByID2 parametreleri
+                    status = assembly_doc.Extension.SelectByID2(
+                        full_id,
+                        "COMPONENT",
+                        0, 0, 0,
+                        False,
+                        0,
+                        pythoncom.Nothing,
+                        0
+                    )
+                    
+                    if status:
+                        assembly_doc.HideComponent2()
+                        assembly_doc.ClearSelection2(True)
+                    # else:
+                        # self.log(f"Gizleme seçimi yapılamadı: {full_id}", "#f59e0b")
+            except Exception as hide_err:
+                # self.log(f"Gizleme hatası: {str(hide_err)}", "#f59e0b")
                 pass
                 
             new_z_offset = z_offset - 0.3  # offset_step
