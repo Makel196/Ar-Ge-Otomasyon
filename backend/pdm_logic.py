@@ -326,6 +326,7 @@ class LogicHandler:
         self.multi_kit_mode = False
         self.assembly_save_path = ""
         self.current_kit_code = ""
+        self.current_kit_desc = ""
 
         # Tracking for Hidden/Logged items
         self.current_kit_hidden_items = set()
@@ -1094,6 +1095,61 @@ End Sub
         except Exception as e:
             self.log(f"Makro çalıştırma hatası: {str(e)}", "#f59e0b")
 
+    def check_in_file(self, file_path, comment="Otomatik Kit Montajı"):
+        """
+        Adds file to PDM vault and checks it in.
+        """
+        try:
+            vault = self.get_pdm_vault()
+            if not vault: return
+            
+            # PDM dosya nesnesi al
+            folder = None
+            try:
+                folder_path = os.path.dirname(file_path)
+                folder = vault.GetFolderFromPath(folder_path)
+            except:
+                pass
+                
+            if not folder:
+                self.log(f"PDM klasörü bulunamadı: {os.path.dirname(file_path)}", "#f59e0b")
+                return
+
+            try:
+                # Önce dosya PDM'de var mı bak
+                file_pdm = None
+                try:
+                    result = vault.GetFileFromPath(file_path)
+                    if result: file_pdm = result # Result can be object or tuple? GetFileFromPath returns object in newer API or tuple in pywin32?
+                    # Python'da genellikle obje döner.
+                except:
+                    pass
+                
+                if not file_pdm:
+                    # Dosya PDM veritabanında yok, AddFile
+                    # 0 = Parent Window Handle
+                    folder.AddFile(0, file_path)
+                    self.log(f"Dosya kasaya eklendi: {os.path.basename(file_path)}", "#3b82f6")
+                    # Tekrar al
+                    try:
+                        file_pdm = vault.GetFileFromPath(file_path)
+                    except:
+                        pass
+                
+                # Şimdi Check-In (Unlock)
+                if file_pdm:
+                    if file_pdm.IsLocked:
+                        file_pdm.UnlockFile(0, comment)
+                        self.log(f"Dosya kasaya gönderildi (Check-in): {os.path.basename(file_path)}", "#10b981")
+                    else:
+                        self.log(f"Dosya zaten check-in yapılmış: {os.path.basename(file_path)}", "#3b82f6")
+                    
+            except Exception as pdm_op_err:
+                 self.log(f"PDM Check-in hatası: {pdm_op_err}", "#f59e0b")
+
+        except Exception as e:
+            self.log(f"Check-in genel hatası: {e}", "#ef4444")
+
     def apply_cleanup_logic(self, sw_app, assembly_doc):
         """
         Applies UnFix and Solving=1 logic to all components.
@@ -1202,6 +1258,25 @@ End Sub
                                     
                                     full_path = os.path.join(save_dir, f"{safe_code}.SLDASM")
                                     
+                                    # PDM Veri Kartı Değişkenlerini Doldur (Custom Properties)
+                                    try:
+                                        cpm = assembly_doc.Extension.CustomPropertyManager("")
+                                        
+                                        # 1. SAP Numarasi
+                                        cpm.Add3("SAP Numarasi", 30, self.current_kit_code, 1) # 1 = Delete and Add
+                                        
+                                        # 2. Description (Kit Tanımı)
+                                        cpm.Add3("Description", 30, self.current_kit_desc, 1)
+
+                                        # 3. Parca-Montaj Durumu = STANDART
+                                        cpm.Add3("Parca-Montaj Durumu", 30, "STANDART", 1)
+                                        
+                                        # 4. Musteri = PGR
+                                        cpm.Add3("Musteri", 30, "PGR", 1)
+                                        
+                                    except Exception as prop_err:
+                                        self.log(f"Özellik yazma hatası: {prop_err}", "#f59e0b")
+                                    
                                     # Kaydetme (Kullanıcı Talebi: SaveAs3(path, 0, 0))
                                     try:
                                         assembly_doc.SaveAs3(full_path, 0, 0)
@@ -1216,16 +1291,18 @@ End Sub
                                     # Kapat (Title ile - Kullanıcı Talebi)
                                     try:
                                         assembly_doc = sw_app.ActiveDoc
-                                        if assembly_doc:
-                                            final_title = assembly_doc.GetTitle()
-                                            sw_app.CloseDoc(final_title)
+                                        final_title = assembly_doc.GetTitle()
+                                        sw_app.CloseDoc(final_title)
+                                        
+                                        # Check-in
+                                        self.check_in_file(full_path)
                                     except:
-                                        sw_app.CloseDoc(full_path)
+                                        try:
+                                            sw_app.CloseDoc(full_path)
+                                        except:
+                                            pass
                                 except Exception as e:
                                     self.log(f"İşlem hatası: {e}", "#ef4444")
-
-                    except:
-                        pass
             except:
                 pass
                 
@@ -1406,6 +1483,7 @@ End Sub
                     
                     kit_codes = kit_data_sap['codes']
                     kit_desc = kit_data_sap.get('kit_desc', '')
+                    self.current_kit_desc = kit_desc
                     kit_code = kit_data_sap.get('kit_code', code)
 
                     # B. Montaj Yap
