@@ -1140,14 +1140,14 @@ End Sub
                 if file_pdm:
                     if file_pdm.IsLocked:
                         # Retry mekanizması (Zamansal problemler için)
-                        for attempt in range(3):
+                        for attempt in range(10):
                             try:
                                 file_pdm.UnlockFile(0, comment)
                                 self.log(f"Dosya kasaya gönderildi (Check-in): {os.path.basename(file_path)}", "#10b981")
                                 break
                             except Exception as unlock_err:
-                                if attempt < 2:
-                                    self.log(f"Check-in deneniyor ({attempt+1}/3)... Bekleniyor...", "#f59e0b")
+                                if attempt < 9:
+                                    self.log(f"Check-in deneniyor ({attempt+1}/10)... Bekleniyor...", "#f59e0b")
                                     time.sleep(2)
                                 else:
                                     self.log(f"Check-in başarısız: {unlock_err}", "#ef4444")
@@ -1322,7 +1322,7 @@ End Sub
                                             sw_app.CloseDoc(final_title)
                                         
                                         # PDM gecikmesi için bekle
-                                        time.sleep(3)
+                                        time.sleep(5)
                                         
                                         # Dosya kapandıktan sonra Check-in
                                         self.log(f"Dosya isimlendirildi: {safe_code}", "#3b82f6")
