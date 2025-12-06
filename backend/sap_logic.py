@@ -88,7 +88,7 @@ def auto_close_popups_thread():
     global POPUP_THREAD_RUNNING
     while POPUP_THREAD_RUNNING:
         close_sap_popups()
-        time.sleep(0.5) # CPU kullanımını azaltmak için sleep artırıldı
+        time.sleep(0.1) # CPU kullanımını azaltmak için sleep artırıldı
 
 def keep_sap_alive_thread():
     """SAP Session'ı canlı tutmak için periyodik aktivite (10 dk)."""

@@ -1139,18 +1139,26 @@ class LogicHandler:
                                     
                                     full_path = os.path.join(save_dir, f"{safe_code}.SLDASM")
                                     
-                                    # Kaydetme Denemesi (SaveAsSilent = 1)
+                                    # Kaydetme (Kullanıcı Talebi: SaveAs3(path, 0, 0))
                                     try:
-                                        assembly_doc.SaveAs3(full_path, 0, 1)
+                                        # Version 0 = swSaveAsCurrentVersion
+                                        # Options 0 = swSaveAsOptions_None
+                                        assembly_doc.SaveAs3(full_path, 0, 0)
+                                        self.log(f"Montaj kaydedildi: {safe_code}.SLDASM", "#10b981")
                                     except:
-                                        assembly_doc.SaveAs(full_path)
-                                        
-                                    self.log(f"Montaj kaydedildi: {safe_code}.SLDASM", "#10b981")
+                                        try:
+                                            assembly_doc.SaveAs(full_path)
+                                            self.log(f"Montaj kaydedildi (SaveAs): {safe_code}.SLDASM", "#10b981")
+                                        except Exception as e:
+                                            self.log(f"Kaydetme hatası: {e}", "#ef4444")
                                     
-                                    # Kapat
-                                    sw_app.CloseDoc(full_path)
-                                except Exception as e:
-                                    self.log(f"Kaydetme hatası: {e}", "#ef4444")
+                                    # Kapat (Title ile - Kullanıcı Talebi)
+                                    try:
+                                        # Kaydettikten sonra başlık değişmiş olabilir
+                                        final_title = assembly_doc.GetTitle()
+                                        sw_app.CloseDoc(final_title)
+                                    except:
+                                        sw_app.CloseDoc(full_path)
 
                     except:
                         pass
