@@ -980,14 +980,21 @@ class LogicHandler:
                     should_hide = True
                 
                 if should_hide:
-                    # Robust Hiding with Dynamic Macro (VBA)
+                    # Montaj adını taze çek (Garanti olsun)
+                    try:
+                        current_title = assembly_doc.GetTitle()
+                    except:
+                        current_title = asm_title
+                        
                     comp_name = comp.Name2
-                    asm_title_clean = os.path.splitext(asm_title)[0]
+                    asm_title_clean = os.path.splitext(current_title)[0]
                     full_id = f"{comp_name}@{asm_title_clean}"
+                    
+                    self.log(f"Gizleniyor: {full_id} (Ref/Virtual)", "#a855f7")
                     
                     self.run_hide_macro(sw_app, full_id)
             except Exception as hide_err:
-                pass
+                self.log(f"Gizleme Bloğu Hatası: {hide_err}", "#ef4444")
                 
             new_z_offset = z_offset - 0.3  # offset_step
             success = True
